@@ -4,6 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 
 import '../../../core/theme/theme_service.dart';
 import '../../../core/theme/theme_models.dart';
+import '../../../core/theme/theme_palette_defaults.dart';
 import '../../../core/auth/auth_service.dart';
 
 /// A fully functional Settings app with:

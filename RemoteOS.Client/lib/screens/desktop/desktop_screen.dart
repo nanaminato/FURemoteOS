@@ -85,7 +85,7 @@ class _DesktopScreenState extends ConsumerState<DesktopScreen> {
               child: Stack(
                 children: [
                   _buildDesktopBackground(palette, constraints),
-                  _buildDesktopIcons(workArea),
+                  _buildDesktopIcons(context, workArea),
                   _buildWindowLayer(workArea),
                   if (_startMenuOpen) _buildStartMenuScrim(),
                   if (_startMenuOpen)
@@ -147,8 +147,8 @@ class _DesktopScreenState extends ConsumerState<DesktopScreen> {
     );
   }
 
-  Widget _buildDesktopIcons(Rect workArea) {
-    final palette = ThemePaletteX(this).palette;
+  Widget _buildDesktopIcons(BuildContext context, Rect workArea) {
+    final palette = context.palette;
     final apps = [
       ('explorer', 'This PC'),
       ('browser', 'Browser'),
@@ -161,7 +161,7 @@ class _DesktopScreenState extends ConsumerState<DesktopScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: apps.map((pair) {
-          final registry = ProviderScope.containerOf(this, listen: false).read(appRegistryProvider);
+          final registry = ProviderScope.containerOf(context, listen: false).read(appRegistryProvider);
           final entry = registry.get(pair.$1);
           if (entry == null) return const SizedBox.shrink();
           return _DesktopIcon(

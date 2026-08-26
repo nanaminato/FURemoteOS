@@ -6,6 +6,7 @@ import '../../apps/settings/settings_app.dart';
 import '../../apps/welcome/welcome_app.dart';
 import '../../apps/terminal/terminal_app.dart';
 import '../../apps/notepad/notepad_app.dart';
+import '../theme/theme_service.dart';
 
 /// Registry of available RemoteOS applications.
 class AppRegistryEntry {
@@ -172,7 +173,7 @@ class BuiltinApps {
     AppRegistryEntry(
       id: 'tunnels',
       nameKey: key('tunnels'),
-      icon: Icons.tunnel_outlined,
+      icon: Icons.route_outlined,
       defaultSize: const Size(920, 620),
       minimumSize: const Size(560, 400),
       windowBuilder: (_) => const _PlaceholderApp(id: 'tunnels'),
@@ -219,8 +220,8 @@ class _PlaceholderApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = ThemePaletteX(this).palette;
-    final registry = ProviderScope.containerOf(this, listen: false).read(appRegistryProvider);
+    final palette = context.palette;
+    final registry = ProviderScope.containerOf(context, listen: false).read(appRegistryProvider);
     final entry = registry.get(id);
     return Container(
       color: palette.appBackground,

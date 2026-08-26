@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:easy_localization/easy_localization.dart';
 import '../../core/theme/theme_service.dart';
+import '../../core/theme/theme_models.dart';
 import '../../core/auth/auth_service.dart';
 
 /// A simple, aesthetic terminal emulator with:
@@ -146,9 +148,9 @@ class _TerminalAppState extends ConsumerState<TerminalApp> {
     }
   }
 
-  void _onKey(RawKeyEvent e) {
-    if (e is RawKeyDownEvent) {
-      if (e.logicalKey.keyLabel == 'Arrow Up') {
+  void _onKey(KeyEvent e) {
+    if (e is KeyDownEvent) {
+      if (e.logicalKey == LogicalKeyboardKey.arrowUp) {
         if (_history.isNotEmpty && _historyIndex > 0) {
           _historyIndex--;
           _inputController.text = _history[_historyIndex];
@@ -156,7 +158,7 @@ class _TerminalAppState extends ConsumerState<TerminalApp> {
             TextPosition(offset: _inputController.text.length),
           );
         }
-      } else if (e.logicalKey.keyLabel == 'Arrow Down') {
+      } else if (e.logicalKey == LogicalKeyboardKey.arrowDown) {
         if (_historyIndex < _history.length - 1) {
           _historyIndex++;
           _inputController.text = _history[_historyIndex];
@@ -177,9 +179,9 @@ class _TerminalAppState extends ConsumerState<TerminalApp> {
     return Container(
       color: bg,
       padding: const EdgeInsets.all(12),
-      child: RawKeyboardListener(
+      child: KeyboardListener(
         focusNode: FocusNode(),
-        onKey: _onKey,
+        onKeyEvent: _onKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

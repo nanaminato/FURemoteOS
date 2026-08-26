@@ -54,6 +54,12 @@ class ThemePalette {
   Color get windowTitleBarBackground => colors['WindowTitleBarBackground']!;
   Color get windowTitleForeground => colors['WindowTitleForeground']!;
   Color get windowInactiveTitleForeground => colors['WindowInactiveTitleForeground']!;
+  Color get shadow => colors['Shadow']!;
+  Color get desktopIconHover => colors['DesktopIconHover']!;
+  Color get desktopIconSelected => colors['DesktopIconSelected']!;
+  Color get cardShadow => colors['CardShadow']!;
+  Color get flyoutShadow => colors['FlyoutShadow']!;
+  Color get dangerMuted => colors['DangerMuted']!;
 
   static Color _parseHex(String hex) {
     final buffer = StringBuffer();
@@ -283,7 +289,7 @@ ThemeData buildThemeData(ThemePalette palette, Brightness brightness) {
       color: palette.accent,
       linearTrackColor: palette.surfaceSunken,
     ),
-    tabBarTheme: TabBarTheme(
+    tabBarTheme: TabBarThemeData(
       labelColor: palette.accent,
       unselectedLabelColor: palette.textSecondary,
       indicatorColor: palette.accent,

@@ -5,6 +5,7 @@ import 'package:window_manager/window_manager.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/theme/theme_service.dart';
+import 'core/theme/theme_models.dart';
 import 'core/auth/auth_service.dart';
 import 'screens/login/login_screen.dart';
 import 'screens/desktop/desktop_screen.dart';

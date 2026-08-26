@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
+import 'package:easy_localization/easy_localization.dart';
+import '../apps/app_registry.dart';
 import '../../core/theme/theme_service.dart';
 
 /// Window state constants.
@@ -125,12 +127,17 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
               ..bounds = _restoreBounds ?? w.bounds
               ..zOrder = _zCounter++
           else
-            _restoreBounds = w
-              ..state = RemoteWindowState.maximized
-              ..bounds = screenWorkArea ?? w.bounds
-              ..zOrder = _zCounter++
+            _maximize(w, screenWorkArea)
         else w,
     ];
+  }
+
+  RemoteWindow _maximize(RemoteWindow window, Rect? screenWorkArea) {
+    _restoreBounds = window.bounds;
+    return window
+      ..state = RemoteWindowState.maximized
+      ..bounds = screenWorkArea ?? window.bounds
+      ..zOrder = _zCounter++;
   }
 
   /// Move a window to a new position.
@@ -346,25 +353,27 @@ class _RemoteWindowChromeState extends ConsumerState<RemoteWindowChrome> {
     RemoteWindow win,
   ) {
     const size = 8.0;
-    Widget handle(String edge, Cursor cursor) => Positioned(
+    Widget handle(String edge, MouseCursor cursor) => Positioned(
           left: edge.contains('left') ? 0 : null,
           right: edge.contains('right') ? 0 : null,
           top: edge.contains('top') && edge != 'bottomRight' && edge != 'bottomLeft' ? 0 : null,
           bottom: edge.contains('bottom') ? 0 : null,
           width: edge == 'left' || edge == 'right' ? size : null,
           height: edge == 'top' || edge == 'bottom' ? size : null,
-          child: GestureDetector(
+          child: MouseRegion(
             cursor: cursor,
-            behavior: HitTestBehavior.translucent,
-            onPanStart: (details) {
-              _dragStart = details.globalPosition;
-              _startBounds = win.bounds;
-            },
-            onPanUpdate: (details) {
-              final delta = details.globalPosition - _dragStart;
-              wm.resize(win.id, edge, delta, widget.workArea);
-            },
-            child: const SizedBox.expand(),
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onPanStart: (details) {
+                _dragStart = details.globalPosition;
+                _startBounds = win.bounds;
+              },
+              onPanUpdate: (details) {
+                final delta = details.globalPosition - _dragStart;
+                wm.resize(win.id, edge, delta, widget.workArea);
+              },
+              child: const SizedBox.expand(),
+            ),
           ),
         );
     return Stack(
@@ -420,7 +429,6 @@ class _WindowButton extends StatelessWidget {
         ),
         hoverColor: hoverColor,
         splashFactory: NoSplash.splashFactory,
-        onHoverChanged: null,
       ),
     );
   }

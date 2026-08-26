@@ -45,6 +45,22 @@ class ThemePreferencesDto {
     this.customPalettes = const [],
   });
 
+  ThemePreferencesDto copyWith({
+    String? styleId,
+    String? paletteId,
+    String? accentOverride,
+    List<ThemePaletteDto>? customPalettes,
+    bool clearAccentOverride = false,
+  }) {
+    return ThemePreferencesDto(
+      styleId: styleId ?? this.styleId,
+      paletteId: paletteId ?? this.paletteId,
+      accentOverride:
+          clearAccentOverride ? null : (accentOverride ?? this.accentOverride),
+      customPalettes: customPalettes ?? this.customPalettes,
+    );
+  }
+
   static const ThemePreferencesDto defaults = ThemePreferencesDto();
 }
 
@@ -59,7 +75,7 @@ class ThemePaletteContract {
     'Accent', 'AccentHover', 'AccentPressed', 'AccentMuted',
     'SelectionBackground', 'SelectionForeground',
     'Success', 'SuccessMuted', 'Warning', 'WarningMuted',
-    'Danger', 'DangerHover', 'DangerPressed', 'Info',
+    'Danger', 'DangerHover', 'DangerPressed', 'DangerMuted', 'Info',
   };
 
   static const Set<String> colorTokens = {...requiredColorTokens, ...{
