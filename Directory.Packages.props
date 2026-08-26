@@ -1,0 +1,60 @@
+<Project>
+    <!-- https://learn.microsoft.com/en-us/nuget/consume-packages/central-package-management -->
+    <PropertyGroup>
+        <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    </PropertyGroup>
+    <ItemGroup>
+        <!-- Avalonia packages. Important: keep version in sync! -->
+        <!-- 12.1.0 → 12.1.1：RoyalTerminal 0.5.2 传递依赖要求 Avalonia >= 12.1.1 -->
+        <PackageVersion Include="Avalonia" Version="12.1.1" />
+        <PackageVersion Include="Avalonia.Themes.Fluent" Version="12.1.1" />
+        <PackageVersion Include="Avalonia.Fonts.Inter" Version="12.1.1" />
+        <PackageVersion Include="Avalonia.Desktop" Version="12.1.1" />
+        <PackageVersion Include="Avalonia.Controls.DataGrid" Version="12.1.1" />
+        <PackageVersion Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3" />
+        <PackageVersion Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
+
+        <!-- MVVM / DI -->
+        <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+        <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+        <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
+
+        <!-- Server -->
+        <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
+
+        <!-- Server Persistence: EF Core + SQLite（User/Workspace/Device 持久化，含 TerminalSettings） -->
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.10" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10" />
+
+        <!-- Protocol / SignalR / JWT（为后续实现阶段预备，本次仅定义版本，未在任何 csproj 引用） -->
+        <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.0" />
+        <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
+        <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.0" />
+        <PackageVersion Include="Microsoft.Extensions.Hosting.Systemd" Version="10.0.0" />
+        <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.0" />
+        <PackageVersion Include="System.ServiceProcess.ServiceController" Version="10.0.0" />
+        <!-- Certificate manager: ACME v2 client, isolated behind Server.Certificate. -->
+        <PackageVersion Include="Webprofusion.Certify.ACME.Anvil" Version="3.3.3" />
+        <!-- RoyalTerminal 0.5.2 传递依赖要求 >= 10.0.11。集中管理中必须只保留一个版本声明。 -->
+        <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="10.0.11" />
+
+        <PackageVersion Include="Xamarin.AndroidX.Core.SplashScreen" Version="1.0.1.15" />
+
+        <!-- Terminal: RoyalTerminal 终端栈（Managed Avalonia terminal，含 TerminalControl + 默认会话组合） -->
+        <!-- 0.4.0 → 0.5.2：修复 Tab/光标渲染缺陷（0.4.1 PR #106 "Clear terminal selection when typing"） -->
+        <PackageVersion Include="RoyalApps.RoyalTerminal.Avalonia" Version="0.5.2" />
+        <!-- Server 端 PTY 工厂（Windows ConPTY / Unix forkpty），Terminal Hub 哑中继用 -->
+        <PackageVersion Include="RoyalApps.RoyalTerminal.Terminal.Pty.Platform" Version="0.5.2" />
+
+        <!-- Explorer: 移植自 Jaya 文件管理器（BSD-3）。Behaviors 用于双击导航等交互；Newtonsoft 保留 Jaya 配置模型序列化 -->
+        <PackageVersion Include="Xaml.Behaviors.Avalonia" Version="12.0.0.1" />
+        <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
+
+        <!-- Browser: 官方 Avalonia WebView 组件（NativeWebView），平台原生引擎（Win=WebView2/macOS=WKWebView/Linux=WebKitGTK） -->
+        <PackageVersion Include="Avalonia.Controls.WebView" Version="12.0.1" />
+
+        <!-- Video Player example: managed Avalonia control + Windows native VLC runtime. -->
+        <PackageVersion Include="LibVLCSharp.Avalonia" Version="3.10.0" />
+        <PackageVersion Include="VideoLAN.LibVLC.Windows" Version="3.0.23.1" />
+    </ItemGroup>
+</Project>

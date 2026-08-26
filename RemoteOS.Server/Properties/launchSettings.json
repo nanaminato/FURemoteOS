@@ -1,0 +1,27 @@
+﻿{
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "http": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5090",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "GuardianAgent__PipeName": "remoteos-guardian-dev",
+        "GuardianAgent__SharedSecret": "dev-guardian-secret-local-only"
+      }
+    },
+    "https": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "https://localhost:7260;http://localhost:5090",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "GuardianAgent__PipeName": "remoteos-guardian-dev",
+        "GuardianAgent__SharedSecret": "dev-guardian-secret-local-only"
+      }
+    }
+  }
+}
