@@ -1,0 +1,4 @@
+// Placeholder app icon ICO path.
+// Replace with a real 256x256 multi-size .ico file or run `flutter create` which
+// generates one. For now Flutter will fall back to the system default window
+// icon when app_icon.ico is absent at build time.
