@@ -1,0 +1,68 @@
+name: remoteos_client
+description: RemoteOS Flutter Client - A remote desktop operating system client
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+  flutter: ">=3.19.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  
+  # State management
+  provider: ^6.1.2
+  flutter_riverpod: ^2.5.1
+  
+  # Networking
+  http: ^1.2.1
+  signalr_core: ^1.1.1
+  dio: ^5.4.3+1
+  
+  # Local storage
+  shared_preferences: ^2.2.3
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  
+  # Window management (desktop)
+  window_manager: ^0.3.9
+  bitsdojo_window: ^0.1.6
+  
+  # Icons
+  fluentui_system_icons: ^1.1.245
+  font_awesome_flutter: ^10.7.0
+  
+  # Internationalization
+  easy_localization: ^3.0.7
+  
+  # Routing
+  go_router: ^14.2.0
+
+  # Utilities
+  intl: ^0.19.0
+  uuid: ^4.4.0
+  collection: ^1.18.0
+  json_annotation: ^4.9.0
+  freezed_annotation: ^2.4.1
+  
+  # Terminal
+  xterm: ^4.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  build_runner: ^2.4.11
+  json_serializable: ^6.8.0
+  freezed: ^2.5.2
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/translations/
+    - assets/icons/
+    - assets/images/
