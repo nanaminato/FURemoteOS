@@ -1,92 +1,65 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:easy_localization/easy_localization.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 
-/// Authentication session state.
+import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../features/auth/data/remoteos_auth_api.dart';
+import '../../features/auth/domain/auth_models.dart';
+
+/// The lifecycle of an authenticated RemoteOS session.
 enum AuthState { unauthenticated, authenticating, authenticated, error }
 
-/// End reason for auth transitions.
-enum AuthEndReason {
-  none,
-  userInitiated,
-  refreshTokenInvalid,
-  networkError,
-}
+enum AuthEndReason { none, userInitiated, refreshTokenInvalid, networkError }
 
+/// UI-facing snapshot of the RemoteOS authentication session.
+///
+/// Transport DTOs are deliberately kept in `features/auth`; this state only
+/// exposes the data needed by routing and desktop features.
 class AuthSessionState {
-  final AuthState state;
-  final AuthEndReason endReason;
-  final String? errorMessage;
-  final String? serverUrl;
-  final String? username;
-  final String? accessToken;
-  final String? refreshToken;
-  final DateTime? expiresAt;
-
   const AuthSessionState({
     this.state = AuthState.unauthenticated,
     this.endReason = AuthEndReason.none,
     this.errorMessage,
     this.serverUrl,
     this.username,
+    this.workspaceName,
     this.accessToken,
     this.refreshToken,
     this.expiresAt,
   });
 
+  final AuthState state;
+  final AuthEndReason endReason;
+  final String? errorMessage;
+  final String? serverUrl;
+  final String? username;
+  final String? workspaceName;
+  final String? accessToken;
+  final String? refreshToken;
+  final DateTime? expiresAt;
+
   bool get isAuthenticated =>
       state == AuthState.authenticated && accessToken != null;
-
-  bool get isExpired {
-    if (expiresAt == null) return true;
-    return DateTime.now().isAfter(expiresAt!);
-  }
-
-  AuthSessionState copyWith({
-    AuthState? state,
-    AuthEndReason? endReason,
-    String? errorMessage,
-    String? serverUrl,
-    String? username,
-    String? accessToken,
-    String? refreshToken,
-    DateTime? expiresAt,
-  }) =>
-      AuthSessionState(
-        state: state ?? this.state,
-        endReason: endReason ?? this.endReason,
-        errorMessage: errorMessage ?? this.errorMessage,
-        serverUrl: serverUrl ?? this.serverUrl,
-        username: username ?? this.username,
-        accessToken: accessToken ?? this.accessToken,
-        refreshToken: refreshToken ?? this.refreshToken,
-        expiresAt: expiresAt ?? this.expiresAt,
-      );
-
-  AuthSessionState clearTokens() => AuthSessionState(
-        state: AuthState.unauthenticated,
-        endReason: endReason,
-        errorMessage: errorMessage,
-        serverUrl: serverUrl,
-        username: username,
-      );
+  bool get isExpired => expiresAt == null || DateTime.now().isAfter(expiresAt!);
 }
 
-/// Remembered login profile for quick reconnect.
+/// A locally remembered server/user pair.
 class SavedLoginProfile {
-  final String serverUrl;
-  final String username;
-  final String? encryptedPassword;
-  final DateTime lastUsed;
-
   const SavedLoginProfile({
     required this.serverUrl,
     required this.username,
     this.encryptedPassword,
     required this.lastUsed,
   });
+
+  final String serverUrl;
+  final String username;
+  final String? encryptedPassword;
+  final DateTime lastUsed;
 
   Map<String, dynamic> toJson() => {
         'serverUrl': serverUrl,
@@ -104,21 +77,33 @@ class SavedLoginProfile {
       );
 }
 
+/// Session coordinator. It owns state transitions, while [RemoteOsAuthApi]
+/// owns the `/api/v1/auth/*` wire protocol.
 class AuthNotifier extends StateNotifier<AuthSessionState> {
-  AuthNotifier() : super(const AuthSessionState());
+  AuthNotifier({http.Client? httpClient})
+      : _httpClient = httpClient,
+        _ownsHttpClient = httpClient == null,
+        super(const AuthSessionState());
 
   static const _prefsServerKey = 'auth.remembered.server';
   static const _prefsUsernameKey = 'auth.remembered.username';
   static const _prefsProfilesKey = 'auth.remembered.profiles';
+  static const _clientVersion = '1.0.0-flutter';
 
   http.Client? _httpClient;
+  bool _ownsHttpClient;
 
-  /// Set a custom HTTP client (for testing or DI).
-  void setHttpClient(http.Client client) => _httpClient = client;
+  http.Client get _client => _httpClient ??= http.Client();
+  RemoteOsAuthApi get _api => RemoteOsAuthApi(_client);
+  AuthSessionState get current => state;
 
-  http.Client get _client => _httpClient ?? http.Client();
+  /// Allows test and application composition roots to supply one shared client.
+  void setHttpClient(http.Client client) {
+    if (_ownsHttpClient) _httpClient?.close();
+    _httpClient = client;
+    _ownsHttpClient = false;
+  }
 
-  /// Load remembered server/username from local storage.
   Future<({String server, String username})> loadSavedCredentials() async {
     final prefs = await SharedPreferences.getInstance();
     return (
@@ -127,32 +112,25 @@ class AuthNotifier extends StateNotifier<AuthSessionState> {
     );
   }
 
-  /// Load all saved login profiles (without passwords unless secure storage available).
   Future<List<SavedLoginProfile>> loadSavedProfiles() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getStringList(_prefsProfilesKey);
-    if (raw == null) return const [];
-    final result = <SavedLoginProfile>[];
-    for (final item in raw) {
+    final rawProfiles =
+        prefs.getStringList(_prefsProfilesKey) ?? const <String>[];
+    final profiles = <SavedLoginProfile>[];
+    for (final rawProfile in rawProfiles) {
       try {
-        result.add(SavedLoginProfile.fromJson(jsonDecode(item) as Map<String, dynamic>));
-      } catch (_) {}
+        profiles.add(SavedLoginProfile.fromJson(
+            jsonDecode(rawProfile) as Map<String, dynamic>));
+      } on FormatException {
+        // Ignore a corrupt remembered profile rather than blocking sign-in.
+      }
     }
-    result.sort((a, b) => b.lastUsed.compareTo(a.lastUsed));
-    return result;
+    profiles.sort((a, b) => b.lastUsed.compareTo(a.lastUsed));
+    return profiles;
   }
 
-  /// Validate server URL format.
-  bool isValidServerUrl(String url) {
-    try {
-      final uri = Uri.parse(url);
-      return uri.isAbsolute && (uri.scheme == 'http' || uri.scheme == 'https');
-    } catch (_) {
-      return false;
-    }
-  }
+  bool isValidServerUrl(String value) => _parseServerUrl(value) != null;
 
-  /// Attempt to login.
   Future<bool> login({
     required String serverUrl,
     required String username,
@@ -160,78 +138,128 @@ class AuthNotifier extends StateNotifier<AuthSessionState> {
     bool rememberServer = true,
     bool rememberPassword = false,
   }) async {
-    if (!isValidServerUrl(serverUrl)) {
-      state = state.copyWith(
+    final serverUri = _parseServerUrl(serverUrl);
+    if (serverUri == null) {
+      state = const AuthSessionState(
         state: AuthState.error,
-        errorMessage: 'login.error.invalid_server'.tr(),
+        errorMessage:
+            'The server address is invalid. Enter a complete HTTP or HTTPS address.',
       );
       return false;
     }
 
-    state = state.copyWith(
+    state = AuthSessionState(
       state: AuthState.authenticating,
-      serverUrl: serverUrl,
+      serverUrl: serverUri.toString(),
       username: username,
-      errorMessage: null,
     );
 
     try {
-      final uri = Uri.parse('$serverUrl/api/auth/login');
-      final response = await _client.post(
-        uri,
-        headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
-        body: jsonEncode({
-          'username': username,
-          'password': password,
-          'deviceName': 'RemoteOS Flutter Client',
-        }),
-      ).timeout(const Duration(seconds: 15));
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final body = jsonDecode(response.body) as Map<String, dynamic>;
-        final accessToken = body['accessToken'] as String?;
-        final refreshToken = body['refreshToken'] as String?;
-        final expiresIn = body['expiresIn'] as int? ?? 3600;
-
-        state = state.copyWith(
-          state: AuthState.authenticated,
-          endReason: AuthEndReason.none,
-          accessToken: accessToken,
-          refreshToken: refreshToken,
-          expiresAt: DateTime.now().add(Duration(seconds: expiresIn)),
-          errorMessage: null,
-        );
-
-        await _persistRemembered(serverUrl, username, rememberServer, rememberPassword, password);
-        return true;
-      } else if (response.statusCode == 401) {
-        state = state.copyWith(
-          state: AuthState.error,
-          errorMessage: 'Invalid credentials. Please try again.',
-        );
-      } else {
-        state = state.copyWith(
-          state: AuthState.error,
-          errorMessage: '${'login.error.unable_to_connect'.tr()} HTTP ${response.statusCode}',
-        );
-      }
-    } on FormatException {
-      state = state.copyWith(
-        state: AuthState.error,
-        errorMessage: 'login.error.invalid_server'.tr(),
+      final result = await _api.login(
+        serverUrl: serverUri,
+        username: username,
+        password: password,
+        deviceName: Platform.localHostname,
+        clientVersion: _clientVersion,
       );
-    } on StateError catch (_) {
-      state = state.copyWith(
+      state = AuthSessionState(
+        state: AuthState.authenticated,
+        serverUrl: serverUri.toString(),
+        username: result.username ?? username,
+        workspaceName: result.workspaceName,
+        accessToken: result.tokens.accessToken,
+        refreshToken: result.tokens.refreshToken,
+        expiresAt: result.tokens.accessTokenExpiresAt,
+      );
+      await _persistRemembered(serverUri.toString(), username, rememberServer,
+          rememberPassword, password);
+      return true;
+    } on RemoteOsApiException catch (error) {
+      state = AuthSessionState(
         state: AuthState.error,
+        serverUrl: serverUri.toString(),
+        username: username,
+        errorMessage: _messageForApiError(error),
+      );
+    } on TimeoutException {
+      state = AuthSessionState(
+        state: AuthState.error,
+        serverUrl: serverUri.toString(),
+        username: username,
+        errorMessage: 'login.error.timeout'.tr(),
+      );
+    } on http.ClientException {
+      state = AuthSessionState(
+        state: AuthState.error,
+        serverUrl: serverUri.toString(),
+        username: username,
         errorMessage: 'login.error.connection_refused'.tr(),
       );
-    } catch (e) {
-      state = state.copyWith(
+    } on FormatException {
+      state = AuthSessionState(
         state: AuthState.error,
-        errorMessage: '${'login.error.unable_to_connect'.tr()} ${e.toString().split('\n').first}',
+        serverUrl: serverUri.toString(),
+        username: username,
+        errorMessage: 'The server returned an invalid authentication response.',
+      );
+    } catch (error) {
+      state = AuthSessionState(
+        state: AuthState.error,
+        serverUrl: serverUri.toString(),
+        username: username,
+        errorMessage:
+            '${'login.error.unable_to_connect'.tr()}${error.toString().split('\n').first}',
       );
     }
     return false;
+  }
+
+  Future<bool> refreshToken() async {
+    final current = state;
+    final serverUri =
+        current.serverUrl == null ? null : _parseServerUrl(current.serverUrl!);
+    if (current.refreshToken == null || serverUri == null) return false;
+
+    try {
+      final tokens = await _api.refresh(
+          serverUrl: serverUri, refreshToken: current.refreshToken!);
+      state = AuthSessionState(
+        state: AuthState.authenticated,
+        serverUrl: current.serverUrl,
+        username: current.username,
+        workspaceName: current.workspaceName,
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresAt: tokens.accessTokenExpiresAt,
+      );
+      return true;
+    } on RemoteOsApiException catch (error) {
+      if (error.statusCode == 401) {
+        state = const AuthSessionState(
+            endReason: AuthEndReason.refreshTokenInvalid);
+      }
+      return false;
+    } catch (_) {
+      // A transient failure must not discard a still-valid local session.
+      return false;
+    }
+  }
+
+  Future<void> logout() async {
+    final current = state;
+    final serverUri =
+        current.serverUrl == null ? null : _parseServerUrl(current.serverUrl!);
+    try {
+      if (serverUri != null && current.accessToken != null) {
+        await _api.logout(
+          serverUrl: serverUri,
+          accessToken: current.accessToken!,
+          refreshToken: current.refreshToken,
+        );
+      }
+    } finally {
+      state = const AuthSessionState(endReason: AuthEndReason.userInitiated);
+    }
   }
 
   Future<void> _persistRemembered(
@@ -242,130 +270,108 @@ class AuthNotifier extends StateNotifier<AuthSessionState> {
     String password,
   ) async {
     final prefs = await SharedPreferences.getInstance();
-    if (rememberServer) {
-      await prefs.setString(_prefsServerKey, serverUrl);
-      await prefs.setString(_prefsUsernameKey, username);
-    } else {
+    if (!rememberServer) {
       await prefs.remove(_prefsServerKey);
       await prefs.remove(_prefsUsernameKey);
+      return;
     }
 
+    await prefs.setString(_prefsServerKey, serverUrl);
+    await prefs.setString(_prefsUsernameKey, username);
     final profiles = await loadSavedProfiles();
-    final updated = <SavedLoginProfile>[
+    final updatedProfiles = <SavedLoginProfile>[
       SavedLoginProfile(
         serverUrl: serverUrl,
         username: username,
-        encryptedPassword: rememberPassword ? _obfuscate(password) : null,
+        // Retained for compatibility with profiles created by the previous
+        // Flutter migration. A secure credential store is the next migration
+        // unit; session transport never reads this value.
+        encryptedPassword:
+            rememberPassword ? base64.encode(utf8.encode(password)) : null,
         lastUsed: DateTime.now(),
       ),
-      ...profiles.where((p) => !(p.serverUrl == serverUrl && p.username == username)),
+      ...profiles.where((profile) =>
+          profile.serverUrl != serverUrl || profile.username != username),
     ].take(10).toList();
-
     await prefs.setStringList(
       _prefsProfilesKey,
-      updated.map((p) => jsonEncode(p.toJson())).toList(),
+      updatedProfiles.map((profile) => jsonEncode(profile.toJson())).toList(),
     );
   }
 
-  /// Simple, intentionally non-secure obfuscation for demo purposes.
-  /// In production, use platform secure storage (flutter_secure_storage).
-  static String _obfuscate(String input) =>
-      base64.encode(utf8.encode(input));
-
-  static String _deobfuscate(String encoded) {
-    try {
-      return utf8.decode(base64.decode(encoded));
-    } catch (_) {
-      return '';
+  static Uri? _parseServerUrl(String value) {
+    final uri = Uri.tryParse(value.trim());
+    if (uri == null ||
+        !uri.isAbsolute ||
+        uri.host.isEmpty ||
+        (uri.scheme != 'http' && uri.scheme != 'https')) {
+      return null;
     }
+    return uri.replace(query: null, fragment: null);
   }
 
-  /// Attempt to refresh the access token.
-  Future<bool> refreshToken() async {
-    if (state.refreshToken == null || state.serverUrl == null) return false;
-    try {
-      final uri = Uri.parse('${state.serverUrl}/api/auth/refresh');
-      final response = await _client.post(
-        uri,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'refreshToken': state.refreshToken}),
-      );
-      if (response.statusCode == 200) {
-        final body = jsonDecode(response.body) as Map<String, dynamic>;
-        state = state.copyWith(
-          state: AuthState.authenticated,
-          accessToken: body['accessToken'] as String?,
-          refreshToken: body['refreshToken'] as String?,
-          expiresAt: DateTime.now().add(Duration(seconds: body['expiresIn'] as int? ?? 3600)),
-        );
-        return true;
-      }
-    } catch (_) {}
-    state = state.copyWith(
-      state: AuthState.unauthenticated,
-      endReason: AuthEndReason.refreshTokenInvalid,
-    );
-    return false;
+  static String _messageForApiError(RemoteOsApiException error) {
+    if (error.statusCode == 401) {
+      return 'Invalid credentials. Please try again.';
+    }
+    if (error.statusCode == 404) {
+      return 'The server does not expose the RemoteOS v1 authentication API. Check the server address and version.';
+    }
+    return error.message;
   }
 
-  /// Logout.
-  Future<void> logout() async {
-    state = state.clearTokens().copyWith(
-          state: AuthState.unauthenticated,
-          endReason: AuthEndReason.userInitiated,
-        );
+  @override
+  void dispose() {
+    if (_ownsHttpClient) {
+      _httpClient?.close();
+    }
+    super.dispose();
   }
 
-  /// Get an authenticated HTTP client.
   AuthenticatedHttpClient authenticatedClient() =>
       AuthenticatedHttpClient(this, _client);
 }
 
-/// Provider for AuthNotifier.
 final authProvider = StateNotifierProvider<AuthNotifier, AuthSessionState>(
   (ref) => AuthNotifier(),
 );
 
-/// Convenience: watch only auth status boolean.
-final isAuthenticatedProvider = Provider<bool>((ref) {
-  return ref.watch(authProvider.select((s) => s.isAuthenticated));
-});
+final isAuthenticatedProvider = Provider<bool>(
+  (ref) => ref.watch(authProvider.select((state) => state.isAuthenticated)),
+);
 
-/// An HTTP client that attaches the bearer token and refreshes on 401.
+/// Adds bearer authentication and retries once with refreshed credentials.
 class AuthenticatedHttpClient extends http.BaseClient {
+  AuthenticatedHttpClient(this.auth, this._inner);
+
   final AuthNotifier auth;
   final http.Client _inner;
 
-  AuthenticatedHttpClient(this.auth, this._inner);
-
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
-    String? token = auth.state.accessToken;
-    if (token != null) {
-      request.headers['Authorization'] = 'Bearer $token';
+    final token = auth.current.accessToken;
+    if (token != null) request.headers['Authorization'] = 'Bearer $token';
+    request.headers.putIfAbsent('Accept-Language', () => 'en-US');
+    final response = await _inner.send(request);
+    if (response.statusCode != 401 ||
+        auth.current.refreshToken == null ||
+        !await auth.refreshToken()) {
+      return response;
     }
-    request.headers['Accept-Language'] = 'en-US';
-    var response = await _inner.send(request);
-    if (response.statusCode == 401 && auth.state.refreshToken != null) {
-      final refreshed = await auth.refreshToken();
-      if (refreshed) {
-        final cloned = await _cloneRequest(request);
-        cloned.headers['Authorization'] = 'Bearer ${auth.state.accessToken}';
-        response = await _inner.send(cloned);
-      }
-    }
-    return response;
+
+    final retry = await _cloneRequest(request);
+    retry.headers['Authorization'] = 'Bearer ${auth.current.accessToken}';
+    return _inner.send(retry);
   }
 
-  static Future<http.BaseRequest> _cloneRequest(http.BaseRequest original) async {
-    final request = http.Request(original.method, original.url);
-    request.headers.addAll(original.headers);
-    request.persistentConnection = original.persistentConnection;
-    request.followRedirects = original.followRedirects;
-    request.maxRedirects = original.maxRedirects;
-    if (original is http.Request) {
-      request.bodyBytes = original.bodyBytes;
-    }
+  static Future<http.BaseRequest> _cloneRequest(
+      http.BaseRequest original) async {
+    final request = http.Request(original.method, original.url)
+      ..headers.addAll(original.headers)
+      ..persistentConnection = original.persistentConnection
+      ..followRedirects = original.followRedirects
+      ..maxRedirects = original.maxRedirects;
+    if (original is http.Request) request.bodyBytes = original.bodyBytes;
     return request;
   }
 }
