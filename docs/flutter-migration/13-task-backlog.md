@@ -3,8 +3,8 @@
 | ID | Goal | Status | Avalonia Reference | Depends on |
 |---|---|---|---|---|
 | FLUTTER-001 | Desktop skeleton | Completed — 2026-08-27 | `Client/RemoteOS.Client.Desktop/Program.cs` | — |
-| FLUTTER-002 | Auth + REST foundation | Not verified | `Services/Auth/*`、Protocol Auth | 001 |
-| FLUTTER-003 | Localization compatibility | Not verified | `Localization/*`、`LocalizationService.cs` | 001 |
+| FLUTTER-002 | Auth + REST foundation | Completed — 2026-08-27 | `Services/Auth/*`、Protocol Auth | 001 |
+| FLUTTER-003 | Localization compatibility | Completed — 2026-08-27 | `Localization/*`、`LocalizationService.cs` | 001 |
 | FLUTTER-004 | Theme palette compatibility | Not verified | `ThemeService.cs`、TokenContract | 001 |
 | FLUTTER-005 | WindowService / ManagedWindowHost | Not verified | `Framework/RemoteOS.WindowManager/*` | 001,004 |
 | FLUTTER-006 | ModalManager | Not verified | `ModalDialog.cs`、`WindowManager.cs` | 005 |

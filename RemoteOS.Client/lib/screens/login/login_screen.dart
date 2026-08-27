@@ -1,4 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -50,13 +51,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final notifier = ref.read(authProvider.notifier);
     final credentials = await notifier.loadSavedCredentials();
     final profiles = await notifier.loadSavedProfiles();
+    final savedProfile = profiles
+        .where((profile) =>
+            profile.serverUrl == credentials.server &&
+            profile.username == credentials.username)
+        .firstOrNull;
+    final password = savedProfile?.hasSavedPassword == true
+        ? await notifier.loadSavedPassword(
+            serverUrl: credentials.server, username: credentials.username)
+        : null;
     if (!mounted) return;
     setState(() {
       _serverController.text = credentials.server;
       _usernameController.text = credentials.username;
-      _rememberPassword = profiles.any((profile) =>
-          profile.serverUrl == credentials.server &&
-          profile.encryptedPassword != null);
+      _passwordController.text = password ?? '';
+      _rememberPassword = password != null;
       _showOptions = !_rememberPassword;
     });
   }

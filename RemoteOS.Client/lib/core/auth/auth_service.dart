@@ -4,6 +4,7 @@ import 'dart:io' show Platform;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -52,19 +53,22 @@ class SavedLoginProfile {
   const SavedLoginProfile({
     required this.serverUrl,
     required this.username,
-    this.encryptedPassword,
+    required this.hasSavedPassword,
     required this.lastUsed,
   });
 
   final String serverUrl;
   final String username;
-  final String? encryptedPassword;
+
+  /// The secret itself is held by the operating-system credential store.
+  /// SharedPreferences keeps only this non-sensitive UI hint.
+  final bool hasSavedPassword;
   final DateTime lastUsed;
 
   Map<String, dynamic> toJson() => {
         'serverUrl': serverUrl,
         'username': username,
-        'encryptedPassword': encryptedPassword,
+        'hasSavedPassword': hasSavedPassword,
         'lastUsed': lastUsed.toIso8601String(),
       };
 
@@ -72,7 +76,8 @@ class SavedLoginProfile {
       SavedLoginProfile(
         serverUrl: json['serverUrl'] as String,
         username: json['username'] as String,
-        encryptedPassword: json['encryptedPassword'] as String?,
+        // Do not migrate the previous base64 value: it was not encryption.
+        hasSavedPassword: json['hasSavedPassword'] as bool? ?? false,
         lastUsed: DateTime.parse(json['lastUsed'] as String),
       );
 }
@@ -80,9 +85,10 @@ class SavedLoginProfile {
 /// Session coordinator. It owns state transitions, while [RemoteOsAuthApi]
 /// owns the `/api/v1/auth/*` wire protocol.
 class AuthNotifier extends StateNotifier<AuthSessionState> {
-  AuthNotifier({http.Client? httpClient})
+  AuthNotifier({http.Client? httpClient, CredentialStore? credentialStore})
       : _httpClient = httpClient,
         _ownsHttpClient = httpClient == null,
+        _credentialStore = credentialStore ?? const SecureCredentialStore(),
         super(const AuthSessionState());
 
   static const _prefsServerKey = 'auth.remembered.server';
@@ -92,6 +98,7 @@ class AuthNotifier extends StateNotifier<AuthSessionState> {
 
   http.Client? _httpClient;
   bool _ownsHttpClient;
+  final CredentialStore _credentialStore;
 
   http.Client get _client => _httpClient ??= http.Client();
   RemoteOsAuthApi get _api => RemoteOsAuthApi(_client);
@@ -128,6 +135,12 @@ class AuthNotifier extends StateNotifier<AuthSessionState> {
     profiles.sort((a, b) => b.lastUsed.compareTo(a.lastUsed));
     return profiles;
   }
+
+  Future<String?> loadSavedPassword({
+    required String serverUrl,
+    required String username,
+  }) =>
+      _credentialStore.read(_passwordKey(serverUrl, username));
 
   bool isValidServerUrl(String value) => _parseServerUrl(value) != null;
 
@@ -171,8 +184,15 @@ class AuthNotifier extends StateNotifier<AuthSessionState> {
         refreshToken: result.tokens.refreshToken,
         expiresAt: result.tokens.accessTokenExpiresAt,
       );
-      await _persistRemembered(serverUri.toString(), username, rememberServer,
-          rememberPassword, password);
+      // A successful remote authentication must not be invalidated merely
+      // because optional local persistence (for example, an unavailable
+      // desktop keychain) is unavailable.
+      try {
+        await _persistRemembered(serverUri.toString(), username, rememberServer,
+            rememberPassword, password);
+      } catch (_) {
+        // The live session remains usable; the next sign-in can retry saving.
+      }
       return true;
     } on RemoteOsApiException catch (error) {
       state = AuthSessionState(
@@ -273,21 +293,35 @@ class AuthNotifier extends StateNotifier<AuthSessionState> {
     if (!rememberServer) {
       await prefs.remove(_prefsServerKey);
       await prefs.remove(_prefsUsernameKey);
+      await _credentialStore.delete(_passwordKey(serverUrl, username));
       return;
     }
 
     await prefs.setString(_prefsServerKey, serverUrl);
     await prefs.setString(_prefsUsernameKey, username);
+    final passwordKey = _passwordKey(serverUrl, username);
+    var passwordSaved = false;
+    if (rememberPassword) {
+      try {
+        await _credentialStore.write(passwordKey, password);
+        passwordSaved = true;
+      } catch (_) {
+        // Preserve the login without falsely advertising that a password was
+        // saved when the platform keychain rejects the request.
+      }
+    } else {
+      try {
+        await _credentialStore.delete(passwordKey);
+      } catch (_) {
+        // A stale optional credential must not affect the active session.
+      }
+    }
     final profiles = await loadSavedProfiles();
     final updatedProfiles = <SavedLoginProfile>[
       SavedLoginProfile(
         serverUrl: serverUrl,
         username: username,
-        // Retained for compatibility with profiles created by the previous
-        // Flutter migration. A secure credential store is the next migration
-        // unit; session transport never reads this value.
-        encryptedPassword:
-            rememberPassword ? base64.encode(utf8.encode(password)) : null,
+        hasSavedPassword: passwordSaved,
         lastUsed: DateTime.now(),
       ),
       ...profiles.where((profile) =>
@@ -310,6 +344,10 @@ class AuthNotifier extends StateNotifier<AuthSessionState> {
     return uri.replace(query: null, fragment: null);
   }
 
+  static String _passwordKey(String serverUrl, String username) =>
+      'remoteos.auth.password.v1.' +
+      base64UrlEncode(utf8.encode('$serverUrl\u0000$username'));
+
   static String _messageForApiError(RemoteOsApiException error) {
     if (error.statusCode == 401) {
       return 'Invalid credentials. Please try again.';
@@ -330,6 +368,32 @@ class AuthNotifier extends StateNotifier<AuthSessionState> {
 
   AuthenticatedHttpClient authenticatedClient() =>
       AuthenticatedHttpClient(this, _client);
+}
+
+/// Small seam around the platform keychain so authentication can be tested
+/// without a platform channel. Passwords must never be stored in preferences.
+abstract interface class CredentialStore {
+  const CredentialStore();
+
+  Future<String?> read(String key);
+  Future<void> write(String key, String value);
+  Future<void> delete(String key);
+}
+
+class SecureCredentialStore implements CredentialStore {
+  const SecureCredentialStore();
+
+  static const _storage = FlutterSecureStorage();
+
+  @override
+  Future<String?> read(String key) => _storage.read(key: key);
+
+  @override
+  Future<void> write(String key, String value) =>
+      _storage.write(key: key, value: value);
+
+  @override
+  Future<void> delete(String key) => _storage.delete(key: key);
 }
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthSessionState>(

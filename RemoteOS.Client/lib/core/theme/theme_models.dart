@@ -21,6 +21,9 @@ class ThemePaletteDto {
   final String name;
   final Map<String, String>? lightColors;
   final Map<String, String>? darkColors;
+  /// Protocol v1 import compatibility. The server normalizes it to v2.
+  final String? mode;
+  final Map<String, String>? colors;
 
   const ThemePaletteDto({
     this.formatVersion = 2,
@@ -28,7 +31,30 @@ class ThemePaletteDto {
     required this.name,
     this.lightColors,
     this.darkColors,
+    this.mode,
+    this.colors,
   });
+
+  factory ThemePaletteDto.fromJson(Map<String, dynamic> json) =>
+      ThemePaletteDto(
+        formatVersion: json['formatVersion'] as int? ?? 2,
+        id: json['id'] as String? ?? '',
+        name: json['name'] as String? ?? '',
+        lightColors: _colorMap(json['lightColors']),
+        darkColors: _colorMap(json['darkColors']),
+        mode: json['mode'] as String?,
+        colors: _colorMap(json['colors']),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'formatVersion': formatVersion,
+        'id': id,
+        'name': name,
+        if (lightColors != null) 'lightColors': lightColors,
+        if (darkColors != null) 'darkColors': darkColors,
+        if (mode != null) 'mode': mode,
+        if (colors != null) 'colors': colors,
+      };
 }
 
 /// Theme preferences DTO (mirrors Protocol DTO).
@@ -62,6 +88,28 @@ class ThemePreferencesDto {
   }
 
   static const ThemePreferencesDto defaults = ThemePreferencesDto();
+
+  factory ThemePreferencesDto.fromJson(Map<String, dynamic> json) {
+    final rawPalettes = json['customPalettes'];
+    return ThemePreferencesDto(
+      styleId: json['styleId'] as String? ?? 'remoteos',
+      paletteId: json['paletteId'] as String? ?? PaletteIds.remoteosBlue,
+      accentOverride: json['accentOverride'] as String?,
+      customPalettes: rawPalettes is List
+          ? rawPalettes
+              .whereType<Map<String, dynamic>>()
+              .map(ThemePaletteDto.fromJson)
+              .toList(growable: false)
+          : const [],
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'styleId': styleId,
+        'paletteId': paletteId,
+        'accentOverride': accentOverride,
+        'customPalettes': customPalettes.map((palette) => palette.toJson()).toList(),
+      };
 }
 
 /// Token contract for required palette keys.
@@ -98,7 +146,6 @@ class ThemePaletteContract {
     'Danger',
     'DangerHover',
     'DangerPressed',
-    'DangerMuted',
     'Info',
   };
 
@@ -130,4 +177,14 @@ class ThemePaletteContract {
       'ChartSeries8',
     }
   };
+}
+
+Map<String, String>? _colorMap(Object? value) {
+  if (value is! Map) return null;
+  final result = <String, String>{};
+  for (final entry in value.entries) {
+    if (entry.key is! String || entry.value is! String) return null;
+    result[entry.key as String] = entry.value as String;
+  }
+  return result;
 }

@@ -232,7 +232,7 @@ class ThemePaletteDefaults {
       if (palette.formatVersion >= 2) {
         return dark ? palette.darkColors : palette.lightColors;
       }
-      return null;
+      return palette.mode == (dark ? 'dark' : 'light') ? palette.colors : null;
     } catch (_) {
       return null;
     }

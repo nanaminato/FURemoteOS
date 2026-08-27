@@ -37,7 +37,17 @@
       "custom": "自定义"
     },
     "accent_color": "强调色",
-    "developer_mode": "开发者模式"
+    "developer_mode": {
+      "title": "开发者模式",
+      "description": "启用高级诊断和开发工具。"
+    },
+    "language_region": {
+      "description": "选择 RemoteOS 全局使用的语言。"
+    },
+    "system": {
+      "tagline": "设备、账户和工作区信息"
+    },
+    "test_connection": "测试连接"
   },
   "theme": {
     "mode_light": "浅色",

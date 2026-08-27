@@ -729,7 +729,7 @@ class _SettingsAppState extends ConsumerState<SettingsApp>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('settings.developer_mode'.tr(),
+                    Text('settings.developer_mode.title'.tr(),
                         style: TextStyle(
                             color: p.textPrimary,
                             fontSize: 14,

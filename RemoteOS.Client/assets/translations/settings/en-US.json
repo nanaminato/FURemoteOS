@@ -37,7 +37,17 @@
       "custom": "Custom"
     },
     "accent_color": "Accent color",
-    "developer_mode": "Developer mode"
+    "developer_mode": {
+      "title": "Developer mode",
+      "description": "Enable advanced diagnostic and development tools."
+    },
+    "language_region": {
+      "description": "Choose the language used throughout RemoteOS."
+    },
+    "system": {
+      "tagline": "Device, account, and workspace information"
+    },
+    "test_connection": "Test connection"
   },
   "theme": {
     "mode_light": "Light",

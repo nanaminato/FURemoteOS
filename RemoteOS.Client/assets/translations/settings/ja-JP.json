@@ -37,7 +37,17 @@
       "custom": "カスタム"
     },
     "accent_color": "アクセント カラー",
-    "developer_mode": "開発者モード"
+    "developer_mode": {
+      "title": "開発者モード",
+      "description": "高度な診断ツールと開発ツールを有効にします。"
+    },
+    "language_region": {
+      "description": "RemoteOS 全体で使用する言語を選択します。"
+    },
+    "system": {
+      "tagline": "デバイス、アカウント、ワークスペースの情報"
+    },
+    "test_connection": "接続をテスト"
   },
   "theme": {
     "mode_light": "ライト",
