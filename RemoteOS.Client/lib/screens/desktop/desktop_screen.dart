@@ -191,11 +191,19 @@ class _DesktopScreenState extends ConsumerState<DesktopScreen> {
     return Positioned.fromRect(
       rect: workArea,
       child: ClipRect(
-        child: Stack(
-          children: sorted
-              .map((w) => RemoteWindowChrome(window: w, workArea: workArea))
-              .toList(),
-        ),
+        child: Stack(children: [
+          for (final window in sorted) ...[
+            if (window.isModal)
+              _ModalBlocker(
+                  owner: sorted
+                          .where((item) => item.id == window.modalOwnerId)
+                          .isEmpty
+                      ? null
+                      : sorted.firstWhere(
+                          (item) => item.id == window.modalOwnerId)),
+            RemoteWindowChrome(window: window, workArea: workArea),
+          ],
+        ]),
       ),
     );
   }
@@ -207,6 +215,26 @@ class _DesktopScreenState extends ConsumerState<DesktopScreen> {
           child: const SizedBox.expand(),
         ),
       );
+}
+
+/// Input shield for a modal owner. It is placed immediately below its dialog,
+/// leaving other top-level windows usable just like the original desktop.
+class _ModalBlocker extends StatelessWidget {
+  const _ModalBlocker({required this.owner});
+  final RemoteWindow? owner;
+
+  @override
+  Widget build(BuildContext context) {
+    if (owner == null) return const SizedBox.shrink();
+    return Positioned.fromRect(
+      rect: owner!.bounds,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {},
+        child: ColoredBox(color: Colors.black.withOpacity(0.16)),
+      ),
+    );
+  }
 }
 
 class _DesktopPatternPainter extends CustomPainter {

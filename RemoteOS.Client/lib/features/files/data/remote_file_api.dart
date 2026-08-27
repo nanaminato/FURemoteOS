@@ -19,7 +19,8 @@ class RemoteFileEntry {
         name: (json['name'] ?? '').toString(),
         path: (json['path'] ?? '').toString(),
         isDirectory: json['isDirectory'] == true ||
-            json['entryType']?.toString().toLowerCase() == 'directory',
+            json['entryType']?.toString().toLowerCase() == 'directory' ||
+            json['type']?.toString().toLowerCase() == 'directory',
         size: (json['size'] as num?)?.toInt(),
         lastWriteTime: DateTime.tryParse(
             (json['lastWriteTime'] ?? json['modifiedAt'] ?? '').toString()),
@@ -41,6 +42,27 @@ class RemoteSpecialLocation {
       );
 }
 
+/// Mirrors `DriveDto`; all paths originate at the remote host, so Windows
+/// drive letters and Linux mount points work from either client platform.
+class RemoteDrive {
+  const RemoteDrive(
+      {required this.name,
+      required this.path,
+      this.totalSize,
+      required this.isReady});
+  final String name;
+  final String path;
+  final int? totalSize;
+  final bool isReady;
+
+  factory RemoteDrive.fromJson(Map<String, dynamic> json) => RemoteDrive(
+        name: (json['name'] ?? json['path'] ?? '').toString(),
+        path: (json['path'] ?? '').toString(),
+        totalSize: (json['totalSize'] as num?)?.toInt(),
+        isReady: json['isReady'] != false,
+      );
+}
+
 /// Typed client for `/api/v1/files`, retaining the old desktop protocol paths.
 class RemoteFileApi {
   RemoteFileApi(this._api);
@@ -49,15 +71,37 @@ class RemoteFileApi {
   Future<List<RemoteFileEntry>> list(String path) async {
     final body =
         await _api.getJson('/api/v1/files/list', query: {'path': path});
-    final values = body is List
-        ? body
-        : body is Map && body['entries'] is List
-            ? body['entries'] as List
-            : const [];
+    if (body is List) return _entries(body);
+    if (body is! Map) return const [];
+    // `DirectoryDto` separates folders and files. The former Flutter port
+    // looked only for `entries`, which is not part of the original contract.
+    final directories =
+        body['directories'] is List ? body['directories'] as List : const [];
+    final files = body['files'] is List ? body['files'] as List : const [];
+    if (directories.isNotEmpty || files.isNotEmpty) {
+      return [
+        ..._entries(directories, forceDirectory: true),
+        ..._entries(files)
+      ];
+    }
+    return _entries(
+        body['entries'] is List ? body['entries'] as List : const []);
+  }
+
+  List<RemoteFileEntry> _entries(List values, {bool forceDirectory = false}) =>
+      values.whereType<Map>().map((item) {
+        final json = Map<String, dynamic>.from(item);
+        if (forceDirectory) json['isDirectory'] = true;
+        return RemoteFileEntry.fromJson(json);
+      }).toList();
+
+  Future<List<RemoteDrive>> drives() async {
+    final body = await _api.getJson('/api/v1/files/drives');
+    final values = body is List ? body : const [];
     return values
         .whereType<Map>()
-        .map(
-            (item) => RemoteFileEntry.fromJson(Map<String, dynamic>.from(item)))
+        .map((item) => RemoteDrive.fromJson(Map<String, dynamic>.from(item)))
+        .where((drive) => drive.path.isNotEmpty && drive.isReady)
         .toList();
   }
 

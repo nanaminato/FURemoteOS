@@ -17,11 +17,13 @@ class ExplorerApp extends ConsumerStatefulWidget {
 
 class _ExplorerAppState extends ConsumerState<ExplorerApp> {
   String _location = 'Home';
-  String _path = '/home/user';
+  String _path = '';
   final _search = TextEditingController();
-  final _address = TextEditingController(text: '/home/user');
+  final _address = TextEditingController();
   bool _detailsView = true;
   List<_FileEntry> _entries = const [];
+  List<RemoteSpecialLocation> _specialLocations = const [];
+  List<RemoteDrive> _drives = const [];
   bool _loading = false;
   String? _loadError;
 
@@ -72,15 +74,25 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
   Future<void> _loadInitial() async {
     try {
       final api = RemoteFileApi(ref.read(remoteOsApiProvider));
-      final locations = await api.specialLocations();
+      final results = await Future.wait([api.specialLocations(), api.drives()]);
+      final locations = results[0] as List<RemoteSpecialLocation>;
+      final drives = results[1] as List<RemoteDrive>;
       final home = locations
           .where((location) => location.name.toLowerCase() == 'home')
           .firstOrNull;
-      if (home != null && mounted) {
+      final initial = home ?? (locations.isNotEmpty ? locations.first : null);
+      if (mounted) {
         setState(() {
-          _location = home.name;
-          _path = home.path;
-          _address.text = home.path;
+          _specialLocations = locations;
+          _drives = drives;
+          if (initial != null) {
+            _location = initial.name;
+            _path = initial.path;
+          } else if (drives.isNotEmpty) {
+            _location = drives.first.name;
+            _path = drives.first.path;
+          }
+          _address.text = _path;
         });
       }
     } catch (_) {
@@ -206,20 +218,14 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
             padding: const EdgeInsets.symmetric(vertical: 8),
             children: [
               _treeHeading(palette, 'Quick access'),
-              _treeItem(palette, 'Home', Icons.home_outlined, '/home/user'),
-              _treeItem(palette, 'Desktop', Icons.desktop_windows_outlined,
-                  '/home/user/Desktop'),
-              _treeItem(palette, 'Documents', Icons.description_outlined,
-                  '/home/user/Documents'),
-              _treeItem(palette, 'Downloads', Icons.download_outlined,
-                  '/home/user/Downloads'),
-              _treeItem(palette, 'Pictures', Icons.image_outlined,
-                  '/home/user/Pictures'),
+              for (final location in _specialLocations)
+                _treeItem(palette, location.name, _locationIcon(location.name),
+                    location.path),
               const SizedBox(height: 8),
               _treeHeading(palette, 'This PC'),
-              _treeItem(palette, 'File system', Icons.storage_outlined, '/'),
-              _treeItem(palette, 'Remote workspace', Icons.cloud_outlined,
-                  '/workspace'),
+              for (final drive in _drives)
+                _treeItem(
+                    palette, drive.name, Icons.storage_outlined, drive.path),
             ]),
       );
 
@@ -232,6 +238,17 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
                 letterSpacing: .7,
                 color: palette.textTertiary)),
       );
+
+  IconData _locationIcon(String name) => switch (name.toLowerCase()) {
+        'home' => Icons.home_outlined,
+        'desktop' => Icons.desktop_windows_outlined,
+        'documents' => Icons.description_outlined,
+        'downloads' => Icons.download_outlined,
+        'pictures' => Icons.image_outlined,
+        'music' => Icons.music_note_outlined,
+        'videos' => Icons.video_library_outlined,
+        _ => Icons.folder_outlined,
+      };
 
   Widget _treeItem(
       ThemePalette palette, String label, IconData icon, String path) {

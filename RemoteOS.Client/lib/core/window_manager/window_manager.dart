@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import 'package:easy_localization/easy_localization.dart';
+import 'dart:async';
 import '../apps/app_registry.dart';
 import '../../core/theme/theme_service.dart';
 
@@ -17,9 +18,12 @@ class RemoteWindow {
   final IconData icon;
 
   Rect bounds;
+  Rect? restoreBounds;
   final Size minimumSize;
   RemoteWindowState state;
   int zOrder;
+  final String? modalOwnerId;
+  final Completer<Object?>? _modalCompletion;
 
   RemoteWindow({
     required this.id,
@@ -31,7 +35,11 @@ class RemoteWindow {
     this.minimumSize = const Size(320, 240),
     this.state = RemoteWindowState.normal,
     this.zOrder = 0,
-  });
+    this.modalOwnerId,
+    Completer<Object?>? modalCompletion,
+  }) : _modalCompletion = modalCompletion;
+
+  bool get isModal => modalOwnerId != null;
 }
 
 /// State notifier for the window manager.
@@ -39,7 +47,6 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
   WindowManagerNotifier() : super([]);
 
   int _zCounter = 0;
-  Rect? _restoreBounds;
 
   /// Open a new window from an app registry entry.
   RemoteWindow openApp({
@@ -93,8 +100,75 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
 
   /// Close a window.
   void close(String windowId) {
-    state = state.where((w) => w.id != windowId).toList();
+    final closingIds = <String>{windowId};
+    // Closing an owner also cancels every nested modal, matching the old
+    // WindowManager's modal-chain teardown.
+    while (true) {
+      final descendants = state
+          .where((window) =>
+              window.modalOwnerId != null &&
+              closingIds.contains(window.modalOwnerId))
+          .map((window) => window.id)
+          .toSet();
+      if (descendants.every(closingIds.contains)) break;
+      closingIds.addAll(descendants);
+    }
+    for (final window
+        in state.where((window) => closingIds.contains(window.id))) {
+      window._modalCompletion?.complete(null);
+    }
+    state = state.where((window) => !closingIds.contains(window.id)).toList();
   }
+
+  /// Opens a real managed modal window and returns its completion value. Its
+  /// owner remains visible but cannot receive pointer input until completion.
+  Future<T?> showDialog<T>({
+    required RemoteWindow owner,
+    required String title,
+    required IconData icon,
+    required Widget child,
+    Size preferredSize = const Size(460, 320),
+  }) {
+    final completion = Completer<Object?>();
+    final width = preferredSize.width
+        .clamp(
+            320.0, (owner.bounds.width - 48).clamp(320.0, preferredSize.width))
+        .toDouble();
+    final height = preferredSize.height
+        .clamp(220.0,
+            (owner.bounds.height - 56).clamp(220.0, preferredSize.height))
+        .toDouble();
+    final bounds = Rect.fromLTWH(
+        owner.bounds.left + (owner.bounds.width - width) / 2,
+        owner.bounds.top + (owner.bounds.height - height) / 2,
+        width,
+        height);
+    final id = const Uuid().v4();
+    final dialog = RemoteWindow(
+      id: id,
+      appId: owner.appId,
+      title: title,
+      child: RemoteModalScope(windowId: id, child: child),
+      icon: icon,
+      bounds: bounds,
+      minimumSize: const Size(320, 220),
+      zOrder: _zCounter++,
+      modalOwnerId: owner.id,
+      modalCompletion: completion,
+    );
+    state = [...state, dialog];
+    return completion.future.then((value) => value as T?);
+  }
+
+  void completeDialog<T>(String windowId, [T? value]) {
+    final matches = state.where((w) => w.id == windowId);
+    final dialog = matches.isEmpty ? null : matches.first;
+    dialog?._modalCompletion?.complete(value);
+    close(windowId);
+  }
+
+  bool isBlocked(String windowId) =>
+      state.any((w) => w.modalOwnerId == windowId);
 
   /// Minimize a window.
   void minimize(String windowId) {
@@ -125,7 +199,7 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
           if (w.state == RemoteWindowState.maximized)
             w
               ..state = RemoteWindowState.normal
-              ..bounds = _restoreBounds ?? w.bounds
+              ..bounds = w.restoreBounds ?? w.bounds
               ..zOrder = _zCounter++
           else
             _maximize(w, screenWorkArea)
@@ -135,7 +209,7 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
   }
 
   RemoteWindow _maximize(RemoteWindow window, Rect? screenWorkArea) {
-    _restoreBounds = window.bounds;
+    window.restoreBounds = window.bounds;
     return window
       ..state = RemoteWindowState.maximized
       ..bounds = screenWorkArea ?? window.bounds
@@ -154,21 +228,19 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
         if (w.id == windowId)
           () {
             final bounds = startBounds ?? w.bounds;
+            final moved = bounds.shift(delta);
+            // Match the Avalonia manager: keep a 120px grab area visible on
+            // the horizontal axis and a title-bar strip on the vertical axis.
+            // Do not rebuild the rectangle from independently clamped points,
+            // which used to shrink windows when they reached an edge.
+            final left = moved.left
+                .clamp(-moved.width + 120.0, constraints.right - 120.0)
+                .toDouble();
+            final top = moved.top
+                .clamp(constraints.top, constraints.bottom - 36.0)
+                .toDouble();
             return w
-              ..bounds = Rect.fromPoints(
-                Offset(
-                  (bounds.left + delta.dx)
-                      .clamp(0.0, constraints.width - bounds.width),
-                  (bounds.top + delta.dy)
-                      .clamp(0.0, constraints.height - bounds.height),
-                ),
-                Offset(
-                  (bounds.right + delta.dx)
-                      .clamp(w.minimumSize.width, constraints.width),
-                  (bounds.bottom + delta.dy)
-                      .clamp(w.minimumSize.height, constraints.height),
-                ),
-              );
+              ..bounds = Rect.fromLTWH(left, top, moved.width, moved.height);
           }()
         else
           w,
@@ -255,6 +327,37 @@ final windowManagerProvider =
     StateNotifierProvider<WindowManagerNotifier, List<RemoteWindow>>(
         (ref) => WindowManagerNotifier());
 
+/// Makes the owning managed dialog available to arbitrary dialog content.
+/// Call `completeDialog(RemoteModalScope.of(context).windowId, value)` from a
+/// Consumer widget to close it with a result.
+class RemoteModalScope extends InheritedWidget {
+  const RemoteModalScope(
+      {super.key, required this.windowId, required super.child});
+  final String windowId;
+
+  static RemoteModalScope of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<RemoteModalScope>()!;
+
+  @override
+  bool updateShouldNotify(RemoteModalScope oldWidget) =>
+      windowId != oldWidget.windowId;
+}
+
+/// Exposes the managed window owning an application subtree. Applications use
+/// it to create owner-bound dialogs without depending on desktop screen code.
+class RemoteWindowScope extends InheritedWidget {
+  const RemoteWindowScope(
+      {super.key, required this.window, required super.child});
+  final RemoteWindow window;
+
+  static RemoteWindowScope of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<RemoteWindowScope>()!;
+
+  @override
+  bool updateShouldNotify(RemoteWindowScope oldWidget) =>
+      oldWidget.window != window;
+}
+
 /// Draggable, resizable window chrome.
 class RemoteWindowChrome extends ConsumerStatefulWidget {
   final RemoteWindow window;
@@ -293,36 +396,41 @@ class _RemoteWindowChromeState extends ConsumerState<RemoteWindowChrome> {
           // Bounds are updated for every drag/resize pointer event.  An
           // AnimatedContainer restarts its animation on each update, which is
           // especially noticeable as flickering on Linux desktop compositors.
-          child: Container(
-            decoration: BoxDecoration(
-              color: palette.windowFrameBackground,
-              borderRadius: BorderRadius.circular(isMaximized ? 0 : 8),
-              border: Border.all(color: palette.borderDefault, width: 1),
-              boxShadow: [
-                BoxShadow(
-                  color: palette.flyoutShadow,
-                  blurRadius: isMaximized ? 0 : 18,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Column(
-                  children: [
-                    _buildTitleBar(palette, wm, win, isMaximized),
-                    Divider(
-                      height: 1,
-                      color: palette.borderSubtle,
-                      thickness: 1,
-                    ),
-                    Expanded(child: win.child),
-                  ],
-                ),
-                if (!isMaximized) _buildResizeHandles(palette, wm, win),
-              ],
+          child: AbsorbPointer(
+            absorbing: wm.isBlocked(win.id),
+            child: Container(
+              decoration: BoxDecoration(
+                color: palette.windowFrameBackground,
+                borderRadius: BorderRadius.circular(isMaximized ? 0 : 8),
+                border: Border.all(color: palette.borderDefault, width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: palette.flyoutShadow,
+                    blurRadius: isMaximized ? 0 : 18,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Column(
+                    children: [
+                      _buildTitleBar(palette, wm, win, isMaximized),
+                      Divider(
+                        height: 1,
+                        color: palette.borderSubtle,
+                        thickness: 1,
+                      ),
+                      Expanded(
+                          child:
+                              RemoteWindowScope(window: win, child: win.child)),
+                    ],
+                  ),
+                  if (!isMaximized) _buildResizeHandles(palette, wm, win),
+                ],
+              ),
             ),
           ),
         ),
