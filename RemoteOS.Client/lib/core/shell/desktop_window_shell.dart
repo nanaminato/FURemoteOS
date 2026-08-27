@@ -104,7 +104,9 @@ class _DesktopWindowShellState extends State<DesktopWindowShell>
                   const SingleActivator(LogicalKeyboardKey.escape):
                       _toggleFullScreen,
               },
-              child: ColoredBox(
+              // The shell is outside Navigator/Scaffold, so it must supply
+              // its own Material for the title-bar InkWell controls.
+              child: Material(
                 color: colorScheme.surface,
                 child: Column(
                   children: [
