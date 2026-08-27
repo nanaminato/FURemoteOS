@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:remoteos_client/screens/login/login_screen.dart';
+import 'package:remoteos_client/core/localization/modular_asset_loader.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -22,6 +23,7 @@ void main() {
       EasyLocalization(
         supportedLocales: const [Locale('en', 'US')],
         path: 'assets/translations',
+        assetLoader: const ModularAssetLoader(),
         fallbackLocale: const Locale('en', 'US'),
         child: ProviderScope(
           child: Builder(

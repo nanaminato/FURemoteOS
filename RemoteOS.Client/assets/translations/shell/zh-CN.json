@@ -1,0 +1,45 @@
+{
+  "shell": {
+    "connection": {
+      "not_connected": "未连接",
+      "unknown_user": "未知用户",
+      "default_workspace": "默认工作区",
+      "close": "关闭连接",
+      "close_tooltip": "断开连接并退出",
+      "info": "连接信息",
+      "info_tooltip": "查看连接信息",
+      "server": "服务器",
+      "user": "用户",
+      "workspace": "工作区"
+    },
+    "window_title": "RemoteOS 远程桌面",
+    "shutdown": "关机",
+    "full_screen": {
+      "enter": "全屏",
+      "enter_tooltip": "进入全屏",
+      "exit": "退出全屏"
+    },
+    "desktop_display": {
+      "title": "配置桌面显示项目",
+      "welcome_title": "欢迎使用 RemoteOS 桌面",
+      "configure_ellipsis": "配置桌面显示项目...",
+      "welcome_heading": "欢迎使用 RemoteOS！",
+      "welcome_description": "选择要在桌面上显示的内容。之后可随时通过桌面右键菜单或 Ctrl+Shift+D 重新配置。",
+      "description": "选择要在桌面上显示的内容。偏好会保存到当前工作区，并在设备间同步。",
+      "built_in_apps": "内置应用程序",
+      "show_built_in_apps": "在桌面上显示内置应用程序",
+      "show_all_built_in_apps": "显示全部内置应用程序（默认）",
+      "show_selected_apps": "仅显示选定的应用程序：",
+      "server_desktop_files": "服务器桌面文件",
+      "show_server_files": "显示服务器桌面中的文件（文件夹、文档、图片等）",
+      "show_server_shortcuts": "显示服务器桌面快捷方式（.lnk / .desktop）",
+      "shortcuts_tooltip": "快捷方式通常指向宿主机本地路径，可能无法在 RemoteOS 中直接打开。",
+      "get_started": "开始使用"
+    },
+    "taskbar": {
+      "start": "开始",
+      "search": "搜索",
+      "all_apps": "所有应用"
+    }
+  }
+}

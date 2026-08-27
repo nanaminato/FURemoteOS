@@ -1,0 +1,51 @@
+{
+  "settings": {
+    "page": {
+      "applications": "Applications",
+      "default_apps": "Default apps",
+      "developer": "Developer",
+      "network": "Network",
+      "image_mirrors": "Image mirrors",
+      "personalization": "Personalization",
+      "time_language": "Time & language",
+      "system": "System"
+    },
+    "title": "Settings",
+    "about": "About",
+    "version": "Version",
+    "connection_status": "Connection status",
+    "server": "Server",
+    "account_workspace": "Account & workspace",
+    "username": "Username",
+    "host_platform": "Host platform",
+    "workspace": "Workspace",
+    "device": "Device",
+    "device_role": "Device role",
+    "last_login": "Last login",
+    "display_language": "Display language",
+    "wallpaper": "Wallpaper",
+    "theme": "Theme",
+    "theme_mode": {
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System default"
+    },
+    "palette": {
+      "remoteos_blue": "RemoteOS Blue",
+      "nord": "Nord",
+      "catppuccin": "Catppuccin",
+      "custom": "Custom"
+    },
+    "accent_color": "Accent color",
+    "developer_mode": "Developer mode"
+  },
+  "theme": {
+    "mode_light": "Light",
+    "mode_dark": "Dark",
+    "mode_system": "System",
+    "palette_remoteos_blue": "RemoteOS Blue",
+    "palette_nord": "Nord",
+    "palette_catppuccin": "Catppuccin",
+    "accent_color": "Accent color"
+  }
+}

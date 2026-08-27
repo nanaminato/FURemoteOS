@@ -58,6 +58,10 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/translations/
+    - assets/translations/shared/
+    - assets/translations/login/
+    - assets/translations/shell/
+    - assets/translations/settings/
+    - assets/translations/apps/
     - assets/icons/
     - assets/images/

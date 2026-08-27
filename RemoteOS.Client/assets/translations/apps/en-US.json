@@ -1,0 +1,22 @@
+{
+  "app": {
+    "welcome": "Welcome",
+    "notepad": "Notepad",
+    "code_editor": "Code Editor",
+    "image_viewer": "Image Viewer",
+    "settings": "Settings",
+    "terminal": "Terminal",
+    "explorer": "File Explorer",
+    "browser": "Browser",
+    "task_manager": "Task Manager",
+    "docker_manager": "Docker Manager",
+    "firewall": "Firewall",
+    "certificates": "Certificates",
+    "web_servers": "Web Servers",
+    "tunnels": "Tunnels",
+    "git_client": "Git Client",
+    "port_forwarding": "Port Forwarding",
+    "process_guardian": "Process Guardian",
+    "app_installer": "App Installer"
+  }
+}

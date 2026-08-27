@@ -1,0 +1,41 @@
+{
+  "login": {
+    "title": "远程桌面连接",
+    "display_language": "显示语言：",
+    "connection_instructions": "输入要连接的远程计算机名称。",
+    "credentials_instructions": "连接时将使用以下凭据。",
+    "computer": "计算机：",
+    "username": "用户名：",
+    "password": "密码：",
+    "username_placeholder": "例如：alice",
+    "password_placeholder": "输入密码",
+    "options_hide": "隐藏选项",
+    "options_show": "显示选项",
+    "password_hide": "隐藏",
+    "password_show": "显示",
+    "remember_server": "记住此计算机和用户名",
+    "remember_password": "安全保存密码；下次选择此计算机时将自动登录",
+    "password_save": {
+      "title": "密码未保存",
+      "secure_storage_unavailable": "已登录，但无法将密码安全保存到系统凭据库。服务器和用户名已保存。请启动或解锁系统密钥环/凭据服务后重新登录。",
+      "local_storage_failed": "已登录，但 RemoteOS 无法保存此连接信息。请确认系统凭据库可用且本地数据目录可写，然后重新登录。",
+      "do_not_show_again": "下次不再提示"
+    },
+    "identity_notice": "系统将提示你验证远程计算机的身份。",
+    "connection_settings": "连接设置",
+    "connection_settings_description": "RemoteOS 将使用此计算机的名称和本地显示设置打开工作区。",
+    "client_name": "RemoteOS 远程桌面客户端",
+    "status": {
+      "connecting": "正在连接...",
+      "opening_desktop": "已连接。正在打开桌面..."
+    },
+    "error": {
+      "invalid_server": "服务器地址无效。请输入完整地址，例如：http://host:port。",
+      "connection_refused": "无法连接到服务器：连接被拒绝。请确认服务器正在运行，并且地址和端口正确。",
+      "connection_reset": "无法连接到服务器：远程主机已关闭连接。请确认服务器正在运行，并使用相同的协议。",
+      "timeout": "连接服务器超时。请检查网络或服务器地址。",
+      "session_expired": "会话已过期，请重新登录后继续操作。",
+      "unable_to_connect": "无法连接到服务器："
+    }
+  }
+}

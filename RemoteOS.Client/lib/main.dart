@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'core/theme/theme_service.dart';
 import 'core/theme/theme_models.dart';
 import 'core/auth/auth_service.dart';
+import 'core/localization/modular_asset_loader.dart';
 import 'core/shell/desktop_window_shell.dart';
 import 'screens/login/login_screen.dart';
 import 'screens/desktop/desktop_screen.dart';
@@ -48,6 +49,7 @@ class _RootLocalizationWrapper extends StatelessWidget {
         Locale('ja', 'JP'),
       ],
       path: 'assets/translations',
+      assetLoader: const ModularAssetLoader(),
       fallbackLocale: const Locale('en', 'US'),
       useOnlyLangCode: false,
       child: const RemoteOSApp(),
