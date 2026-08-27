@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'core/theme/theme_service.dart';
 import 'core/theme/theme_models.dart';
 import 'core/auth/auth_service.dart';
+import 'core/shell/desktop_window_shell.dart';
 import 'screens/login/login_screen.dart';
 import 'screens/desktop/desktop_screen.dart';
 
@@ -22,19 +23,17 @@ void main() async {
     backgroundColor: Colors.transparent,
     skipTaskbar: false,
     titleBarStyle: TitleBarStyle.hidden,
+    windowButtonVisibility: false,
     title: 'RemoteOS',
   );
 
   await windowManager.waitUntilReadyToShow(windowOptions, () async {
+    await windowManager.setResizable(true);
     await windowManager.show();
     await windowManager.focus();
   });
 
-  runApp(
-    const ProviderScope(
-      child: _RootLocalizationWrapper(),
-    ),
-  );
+  runApp(const ProviderScope(child: _RootLocalizationWrapper()));
 }
 
 class _RootLocalizationWrapper extends StatelessWidget {
@@ -89,11 +88,8 @@ class _RemoteOSAppState extends ConsumerState<RemoteOSApp> {
           builder: (context, state) => const DesktopScreen(),
         ),
       ],
-      errorBuilder: (context, state) => Scaffold(
-        body: Center(
-          child: Text('Page not found: ${state.uri}'),
-        ),
-      ),
+      errorBuilder: (context, state) =>
+          Scaffold(body: Center(child: Text('Page not found: ${state.uri}'))),
     );
   }
 
@@ -101,7 +97,9 @@ class _RemoteOSAppState extends ConsumerState<RemoteOSApp> {
   Widget build(BuildContext context) {
     ref.listen<AuthSessionState>(authProvider, (previous, next) {
       final current = _router.routeInformationProvider.value.uri.toString();
-      if (next.isAuthenticated && current != '/desktop' && current.startsWith('/login')) {
+      if (next.isAuthenticated &&
+          current != '/desktop' &&
+          current.startsWith('/login')) {
         _router.go('/desktop');
       } else if (!next.isAuthenticated && !current.startsWith('/login')) {
         _router.go('/login');
@@ -130,6 +128,9 @@ class _RemoteOSAppState extends ConsumerState<RemoteOSApp> {
         ThemeKind.system => ThemeMode.system,
       },
       routerConfig: _router,
+      builder: (context, child) => VirtualWindowFrame(
+        child: DesktopWindowShell(child: child ?? const SizedBox.shrink()),
+      ),
     );
   }
 }
