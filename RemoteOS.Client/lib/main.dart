@@ -8,6 +8,7 @@ import 'core/theme/theme_service.dart';
 import 'core/theme/theme_models.dart';
 import 'core/auth/auth_service.dart';
 import 'core/localization/modular_asset_loader.dart';
+import 'core/localization/language_catalog.dart';
 import 'core/shell/desktop_window_shell.dart';
 import 'screens/login/login_screen.dart';
 import 'screens/desktop/desktop_screen.dart';
@@ -16,10 +17,13 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await EasyLocalization.ensureInitialized();
   await windowManager.ensureInitialized();
+  final languageCatalog = await LanguageCatalog.load();
 
   const windowOptions = WindowOptions(
     size: Size(1280, 800),
-    minimumSize: Size(800, 600),
+    // The sign-in screen is deliberately scroll-free, so its compact
+    // Remote Desktop Connection layout is protected by a real minimum size.
+    minimumSize: Size(760, 700),
     center: true,
     backgroundColor: Colors.transparent,
     skipTaskbar: false,
@@ -34,23 +38,26 @@ void main() async {
     await windowManager.focus();
   });
 
-  runApp(const ProviderScope(child: _RootLocalizationWrapper()));
+  runApp(ProviderScope(
+    overrides: [languageCatalogProvider.overrideWithValue(languageCatalog)],
+    child: _RootLocalizationWrapper(catalog: languageCatalog),
+  ));
 }
 
 class _RootLocalizationWrapper extends StatelessWidget {
-  const _RootLocalizationWrapper();
+  const _RootLocalizationWrapper({required this.catalog});
+
+  final LanguageCatalog catalog;
 
   @override
   Widget build(BuildContext context) {
     return EasyLocalization(
-      supportedLocales: const [
-        Locale('en', 'US'),
-        Locale('zh', 'CN'),
-        Locale('ja', 'JP'),
-      ],
+      supportedLocales:
+          catalog.languages.map((language) => language.locale).toList(),
       path: 'assets/translations',
-      assetLoader: const ModularAssetLoader(),
-      fallbackLocale: const Locale('en', 'US'),
+      assetLoader: ModularAssetLoader(catalog: catalog),
+      fallbackLocale: catalog.fallbackLocale,
+      useFallbackTranslations: true,
       useOnlyLangCode: false,
       child: const RemoteOSApp(),
     );

@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "fallbackLocale": "en-US",
+  "bundles": ["shared", "login", "shell", "settings", "apps"],
+  "languages": [
+    { "locale": "en-US", "displayName": "English", "sortOrder": 0 },
+    { "locale": "zh-CN", "displayName": "简体中文", "sortOrder": 10 },
+    { "locale": "ja-JP", "displayName": "日本語", "sortOrder": 20 }
+  ]
+}

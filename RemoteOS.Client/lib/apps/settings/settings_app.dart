@@ -6,6 +6,7 @@ import '../../../core/theme/theme_service.dart';
 import '../../../core/theme/theme_models.dart';
 import '../../../core/theme/theme_palette_defaults.dart';
 import '../../../core/auth/auth_service.dart';
+import '../../../core/localization/language_catalog.dart';
 
 /// A fully functional Settings app with:
 /// - Theme mode (Light/Dark/System)
@@ -265,6 +266,7 @@ class _SettingsAppState extends ConsumerState<SettingsApp>
 
   // ======= Language Page =======
   Widget _buildLanguagePage(ThemePalette p) {
+    final languages = ref.watch(languageCatalogProvider).languages;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -279,9 +281,7 @@ class _SettingsAppState extends ConsumerState<SettingsApp>
             spacing: 8,
             runSpacing: 8,
             children: [
-              _languageChip(p, const Locale('en', 'US')),
-              _languageChip(p, const Locale('zh', 'CN')),
-              _languageChip(p, const Locale('ja', 'JP')),
+              for (final language in languages) _languageChip(p, language),
             ],
           ),
         ]),
@@ -289,12 +289,12 @@ class _SettingsAppState extends ConsumerState<SettingsApp>
     );
   }
 
-  Widget _languageChip(ThemePalette p, Locale locale) {
+  Widget _languageChip(ThemePalette p, LanguageOption language) {
+    final locale = language.locale;
     final current = context.locale;
     final selected = current.toLanguageTag() == locale.toLanguageTag();
-    final key = 'language.${locale.toLanguageTag().replaceAll('-', '_')}';
     return ChoiceChip(
-      label: Text(key.tr(),
+      label: Text(language.displayName,
           style: TextStyle(
               fontSize: 13, color: selected ? p.textOnAccent : p.textPrimary)),
       selected: selected,

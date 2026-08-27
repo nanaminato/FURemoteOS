@@ -4,37 +4,44 @@ import 'dart:ui';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/services.dart';
 
+import 'language_catalog.dart';
+
 /// Loads each feature's translation bundle and exposes them as one catalog.
 ///
 /// Translation keys stay stable (for example, `settings.title`), while the
 /// files that own them live next to their feature-level catalog.
 class ModularAssetLoader extends AssetLoader {
-  const ModularAssetLoader();
+  const ModularAssetLoader({this.catalog});
 
-  static const _bundles = <String>[
-    'shared',
-    'login',
-    'shell',
-    'settings',
-    'apps',
-  ];
+  final LanguageCatalog? catalog;
 
   @override
   Future<Map<String, dynamic>> load(String path, Locale locale) async {
+    final activeCatalog = catalog ?? await LanguageCatalog.load();
     final localeName = locale.toStringWithSeparator(separator: '-');
-    final catalog = <String, dynamic>{};
+    final localizedStrings = <String, dynamic>{};
 
-    for (final bundle in _bundles) {
-      final assetPath = '$path/$bundle/$localeName.json';
-      final decoded = jsonDecode(await rootBundle.loadString(assetPath));
-      if (decoded is! Map<String, dynamic>) {
-        throw FormatException(
-            'Translation bundle must be a JSON object: $assetPath');
+    // Load English (or another configured source locale) first.  An optional
+    // pack is allowed to translate only the strings it owns without exposing
+    // resource keys for the rest of the UI.
+    final localesToLoad = <String>{activeCatalog.fallbackLocaleTag, localeName};
+    for (final tag in localesToLoad) {
+      if (!activeCatalog.isBuiltIn(tag)) continue;
+      for (final bundle in activeCatalog.bundles) {
+        final assetPath = '$path/$bundle/$tag.json';
+        final decoded = jsonDecode(await rootBundle.loadString(assetPath));
+        if (decoded is! Map<String, dynamic>) {
+          throw FormatException(
+              'Translation bundle must be a JSON object: $assetPath');
+        }
+        _merge(localizedStrings, decoded);
       }
-      _merge(catalog, decoded);
     }
 
-    return catalog;
+    final external = activeCatalog.externalTranslationsFor(localeName);
+    if (external != null) _merge(localizedStrings, external);
+
+    return localizedStrings;
   }
 
   static void _merge(Map<String, dynamic> target, Map<String, dynamic> source) {
