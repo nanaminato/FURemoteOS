@@ -19,6 +19,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
 
+  // A remembered password means the compact connection form is sufficient on
+  // the next launch.  Keep the detailed fields available, but do not let the
+  // expanded state dictate the window's height.
   bool _showOptions = true;
   bool _isPasswordVisible = false;
   bool _rememberServer = true;
@@ -42,10 +45,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _loadSavedCredentials() async {
     final creds = await ref.read(authProvider.notifier).loadSavedCredentials();
+    final profiles = await ref.read(authProvider.notifier).loadSavedProfiles();
     if (mounted) {
       setState(() {
         _serverController.text = creds.server;
         _usernameController.text = creds.username;
+        _rememberPassword = profiles.any((profile) =>
+            profile.serverUrl == creds.server &&
+            profile.encryptedPassword != null);
+        _showOptions = !_rememberPassword;
       });
     }
   }
@@ -90,124 +98,147 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     return Scaffold(
       backgroundColor: palette.shellBackground,
-      body: Center(
-        child: Container(
-          width: 560,
-          margin: const EdgeInsets.all(32),
-          decoration: BoxDecoration(
-            color: palette.surface,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: palette.borderDefault),
-            boxShadow: [
-              BoxShadow(
-                color: palette.cardShadow,
-                blurRadius: 16,
-                offset: const Offset(0, 8),
+      body: LayoutBuilder(
+        builder: (context, viewport) {
+          final horizontalMargin = viewport.maxWidth < 640 ? 16.0 : 32.0;
+          final cardWidth = (viewport.maxWidth - horizontalMargin * 2)
+              .clamp(280.0, 560.0)
+              .toDouble();
+          // The header and footer stay visible.  Only the form scrolls, so
+          // revealing connection options cannot overflow a short window.
+          final cardHeight =
+              (viewport.maxHeight - 32).clamp(360.0, 700.0).toDouble();
+          return Center(
+            child: Container(
+              width: cardWidth,
+              height: cardHeight,
+              margin: EdgeInsets.symmetric(
+                  horizontal: horizontalMargin, vertical: 16),
+              decoration: BoxDecoration(
+                color: palette.surface,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: palette.borderDefault),
+                boxShadow: [
+                  BoxShadow(
+                    color: palette.cardShadow,
+                    blurRadius: 16,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildHeader(palette),
-              Padding(
-                padding: const EdgeInsets.all(32),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLanguageSelector(palette),
-                      const SizedBox(height: 20),
-                      Text(
-                        'login.connection_instructions'.tr(),
-                        style: TextStyle(
-                          color: palette.textSecondary,
-                          fontSize: 13,
-                          height: 1.4,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      _buildComputerField(palette),
-                      const SizedBox(height: 16),
-                      Text(
-                        'login.credentials_instructions'.tr(),
-                        style: TextStyle(
-                          color: palette.textSecondary,
-                          fontSize: 13,
-                          height: 1.4,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      _buildUsernameField(palette),
-                      const SizedBox(height: 16),
-                      _buildPasswordField(palette),
-                      const SizedBox(height: 8),
-                      if (_errorMessage != null)
-                        _buildErrorMessage(palette),
-                      if (authState.state == AuthState.authenticating)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildHeader(palette),
+                  Expanded(
+                    child: Scrollbar(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(32),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: palette.accent,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
+                              _buildLanguageSelector(palette),
+                              const SizedBox(height: 20),
                               Text(
-                                'login.status.connecting'.tr(),
+                                'login.connection_instructions'.tr(),
                                 style: TextStyle(
                                   color: palette.textSecondary,
                                   fontSize: 13,
+                                  height: 1.4,
                                 ),
+                              ),
+                              const SizedBox(height: 24),
+                              _buildComputerField(palette),
+                              const SizedBox(height: 16),
+                              Text(
+                                'login.credentials_instructions'.tr(),
+                                style: TextStyle(
+                                  color: palette.textSecondary,
+                                  fontSize: 13,
+                                  height: 1.4,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              _buildUsernameField(palette),
+                              const SizedBox(height: 16),
+                              _buildPasswordField(palette),
+                              const SizedBox(height: 8),
+                              if (_errorMessage != null)
+                                _buildErrorMessage(palette),
+                              if (authState.state == AuthState.authenticating)
+                                Padding(
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                  child: Row(
+                                    children: [
+                                      SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: palette.accent,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Text(
+                                        'login.status.connecting'.tr(),
+                                        style: TextStyle(
+                                          color: palette.textSecondary,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              const SizedBox(height: 8),
+                              _buildOptionsToggle(palette),
+                              if (_showOptions) _buildOptionsPanel(palette),
+                              const SizedBox(height: 24),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                alignment: WrapAlignment.spaceBetween,
+                                children: [
+                                  TextButton(
+                                    onPressed: () {},
+                                    child:
+                                        Text('common.settings_ellipsis'.tr()),
+                                  ),
+                                  FilledButton(
+                                    onPressed: _isLoading ||
+                                            authState.state ==
+                                                AuthState.authenticating
+                                        ? null
+                                        : _connect,
+                                    style: FilledButton.styleFrom(
+                                      minimumSize: const Size(120, 40),
+                                    ),
+                                    child: Text('common.connect'.tr()),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
                         ),
-                      const SizedBox(height: 8),
-                      _buildOptionsToggle(palette),
-                      if (_showOptions) _buildOptionsPanel(palette),
-                      const SizedBox(height: 24),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          TextButton(
-                            onPressed: () {},
-                            child: Text('common.settings_ellipsis'.tr()),
-                          ),
-                          FilledButton(
-                            onPressed:
-                                _isLoading || authState.state == AuthState.authenticating
-                                    ? null
-                                    : _connect,
-                            style: FilledButton.styleFrom(
-                              minimumSize: const Size(120, 40),
-                            ),
-                            child: Text('common.connect'.tr()),
-                          ),
-                        ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
+                  _buildFooter(palette),
+                ],
               ),
-              _buildFooter(palette),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
 
   Widget _buildHeader(ThemePalette palette) {
     return Container(
-      height: 120,
-      padding: const EdgeInsets.all(28),
+      height: 112,
+      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -231,6 +262,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           const SizedBox(height: 8),
           Text(
             'login.title'.tr(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: palette.textOnAccent,
               fontSize: 22,
@@ -240,6 +273,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           const SizedBox(height: 2),
           Text(
             'login.client_name'.tr(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: palette.textOnAccent.withOpacity(0.85),
               fontSize: 12,
@@ -251,29 +286,36 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Widget _buildLanguageSelector(ThemePalette palette) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'login.display_language'.tr(),
           style: TextStyle(color: palette.textSecondary, fontSize: 13),
         ),
-        const SizedBox(width: 8),
-        DropdownButtonHideUnderline(
-          child: DropdownButton<Locale>(
-            value: context.locale,
-            dropdownColor: palette.surface,
-            icon: Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: palette.textSecondary),
-            items: context.supportedLocales.map((locale) {
-              final nameKey = 'language.${locale.toLanguageTag().replaceAll('-', '_')}';
-              return DropdownMenuItem<Locale>(
-                value: locale,
-                child: Text(
-                  nameKey.tr(),
-                  style: TextStyle(color: palette.textPrimary, fontSize: 13),
-                ),
-              );
-            }).toList(),
-            onChanged: _changeLanguage,
+        const SizedBox(height: 6),
+        SizedBox(
+          width: 220,
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<Locale>(
+              value: context.locale,
+              isExpanded: true,
+              dropdownColor: palette.surface,
+              icon: Icon(Icons.keyboard_arrow_down_rounded,
+                  size: 18, color: palette.textSecondary),
+              items: context.supportedLocales.map((locale) {
+                final nameKey =
+                    'language.${locale.toLanguageTag().replaceAll('-', '_')}';
+                return DropdownMenuItem<Locale>(
+                  value: locale,
+                  child: Text(
+                    nameKey.tr(),
+                    style: TextStyle(color: palette.textPrimary, fontSize: 13),
+                  ),
+                );
+              }).toList(),
+              onChanged: _changeLanguage,
+            ),
           ),
         ),
       ],
@@ -299,13 +341,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           decoration: InputDecoration(
             hintText: 'http://localhost:5090',
             hintStyle: TextStyle(color: palette.textTertiary),
-            prefixIcon: Icon(Icons.computer_outlined, color: palette.textSecondary, size: 18),
+            prefixIcon: Icon(Icons.computer_outlined,
+                color: palette.textSecondary, size: 18),
           ),
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Please enter a server address';
             }
-            final valid = ref.read(authProvider.notifier).isValidServerUrl(value.trim());
+            final valid =
+                ref.read(authProvider.notifier).isValidServerUrl(value.trim());
             if (!valid) return 'login.error.invalid_server'.tr();
             return null;
           },
@@ -334,7 +378,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           decoration: InputDecoration(
             hintText: 'login.username_placeholder'.tr(),
             hintStyle: TextStyle(color: palette.textTertiary),
-            prefixIcon: Icon(Icons.person_outline, color: palette.textSecondary, size: 18),
+            prefixIcon: Icon(Icons.person_outline,
+                color: palette.textSecondary, size: 18),
           ),
           validator: (value) {
             if (value == null || value.isEmpty) {
@@ -368,12 +413,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           decoration: InputDecoration(
             hintText: 'login.password_placeholder'.tr(),
             hintStyle: TextStyle(color: palette.textTertiary),
-            prefixIcon: Icon(Icons.lock_outline, color: palette.textSecondary, size: 18),
+            prefixIcon: Icon(Icons.lock_outline,
+                color: palette.textSecondary, size: 18),
             suffixIcon: TextButton(
-              onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
-              style: TextButton.styleFrom(minimumSize: Size.zero, padding: const EdgeInsets.symmetric(horizontal: 12)),
+              onPressed: () =>
+                  setState(() => _isPasswordVisible = !_isPasswordVisible),
+              style: TextButton.styleFrom(
+                  minimumSize: Size.zero,
+                  padding: const EdgeInsets.symmetric(horizontal: 12)),
               child: Text(
-                _isPasswordVisible ? 'login.password_hide'.tr() : 'login.password_show'.tr(),
+                _isPasswordVisible
+                    ? 'login.password_hide'.tr()
+                    : 'login.password_show'.tr(),
                 style: TextStyle(fontSize: 12, color: palette.accent),
               ),
             ),
@@ -408,7 +459,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             Expanded(
               child: Text(
                 _errorMessage!,
-                style: TextStyle(color: palette.danger, fontSize: 12, height: 1.4),
+                style:
+                    TextStyle(color: palette.danger, fontSize: 12, height: 1.4),
               ),
             ),
           ],
@@ -429,12 +481,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            _showOptions ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+            _showOptions
+                ? Icons.keyboard_arrow_up_rounded
+                : Icons.keyboard_arrow_down_rounded,
             size: 18,
           ),
           const SizedBox(width: 2),
           Text(
-            _showOptions ? 'login.options_hide'.tr() : 'login.options_show'.tr(),
+            _showOptions
+                ? 'login.options_hide'.tr()
+                : 'login.options_show'.tr(),
             style: const TextStyle(fontSize: 12),
           ),
         ],
@@ -465,7 +521,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           const SizedBox(height: 4),
           Text(
             'login.connection_settings_description'.tr(),
-            style: TextStyle(color: palette.textSecondary, fontSize: 12, height: 1.4),
+            style: TextStyle(
+                color: palette.textSecondary, fontSize: 12, height: 1.4),
           ),
           const SizedBox(height: 16),
           _buildCheckboxRow(
@@ -484,7 +541,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           const SizedBox(height: 12),
           Text(
             'login.identity_notice'.tr(),
-            style: TextStyle(color: palette.textTertiary, fontSize: 11, height: 1.4),
+            style: TextStyle(
+                color: palette.textTertiary, fontSize: 11, height: 1.4),
           ),
         ],
       ),
@@ -518,7 +576,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             Expanded(
               child: Text(
                 label,
-                style: TextStyle(color: palette.textPrimary, fontSize: 12, height: 1.4),
+                style: TextStyle(
+                    color: palette.textPrimary, fontSize: 12, height: 1.4),
               ),
             ),
           ],

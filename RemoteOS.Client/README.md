@@ -1,17 +1,58 @@
-# remoteos_client
+# RemoteOS Client
 
-A new Flutter project.
+RemoteOS 的 Flutter 桌面客户端，当前支持 Windows 与 Linux。
 
-## Getting Started
+## 调试运行
 
-This project is a starting point for a Flutter application.
+先进入客户端目录并获取依赖：
 
-A few resources to get you started if this is your first Flutter project:
+```bash
+cd RemoteOS.Client
+flutter pub get
+```
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+### Windows
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+安装 [Flutter 的 Windows 桌面开发依赖](https://docs.flutter.dev/platform-integration/windows/building)，包括 Visual Studio 的 **Desktop development with C++** 工作负载。确认 `flutter doctor` 中的 Windows 工具链状态正常后，运行：
+
+```powershell
+flutter run -d windows
+```
+
+构建调试包：
+
+```powershell
+flutter build windows --debug
+```
+
+生成的可执行文件位于 `build\windows\x64\runner\Debug\remoteos_client.exe`。
+
+### Linux（Ubuntu / Debian）
+
+安装 Linux 桌面构建依赖：
+
+```bash
+sudo apt update
+sudo apt install -y clang cmake ninja-build pkg-config libgtk-3-dev
+```
+
+确认 `flutter doctor` 中的 Linux 工具链状态正常后，运行：
+
+```bash
+flutter run -d linux
+```
+
+构建调试包：
+
+```bash
+flutter build linux --debug
+```
+
+生成的应用目录位于 `build/linux/x64/debug/bundle/`。
+
+## 常用检查
+
+```bash
+flutter analyze
+flutter test
+```

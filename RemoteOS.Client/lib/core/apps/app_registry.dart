@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:easy_localization/easy_localization.dart';
-import 'package:uuid/uuid.dart';
 import '../../apps/settings/settings_app.dart';
 import '../../apps/welcome/welcome_app.dart';
 import '../../apps/terminal/terminal_app.dart';
 import '../../apps/notepad/notepad_app.dart';
-import '../theme/theme_service.dart';
+import '../../apps/browser/browser_app.dart';
+import '../../apps/code_editor/code_editor_app.dart';
+import '../../apps/explorer/explorer_app.dart';
+import '../../apps/image_viewer/image_viewer_app.dart';
+import '../../apps/server_admin/server_admin_apps.dart';
 
 /// Registry of available RemoteOS applications.
 class AppRegistryEntry {
@@ -55,7 +57,8 @@ final appRegistryProvider = Provider<AppRegistry>((ref) {
   return registry;
 });
 
-/// Catalog of built-in apps (placeholder implementations).
+/// Catalog of built-in apps.  Complex server applications use the same
+/// split-pane, multi-page pattern as the original Avalonia workspaces.
 class BuiltinApps {
   static String key(String name) => 'app.$name';
 
@@ -84,7 +87,7 @@ class BuiltinApps {
       defaultSize: const Size(1000, 680),
       minimumSize: const Size(480, 360),
       allowMultipleInstances: true,
-      windowBuilder: (_) => const _PlaceholderApp(id: 'code_editor'),
+      windowBuilder: (_) => const CodeEditorApp(),
     ),
     AppRegistryEntry(
       id: 'image_viewer',
@@ -93,7 +96,7 @@ class BuiltinApps {
       defaultSize: const Size(800, 600),
       minimumSize: const Size(400, 300),
       allowMultipleInstances: true,
-      windowBuilder: (_) => const _PlaceholderApp(id: 'image_viewer'),
+      windowBuilder: (_) => const ImageViewerApp(),
     ),
     AppRegistryEntry(
       id: 'settings',
@@ -119,7 +122,7 @@ class BuiltinApps {
       defaultSize: const Size(920, 620),
       minimumSize: const Size(480, 360),
       allowMultipleInstances: true,
-      windowBuilder: (_) => const _PlaceholderApp(id: 'explorer'),
+      windowBuilder: (_) => const ExplorerApp(),
     ),
     AppRegistryEntry(
       id: 'browser',
@@ -128,7 +131,7 @@ class BuiltinApps {
       defaultSize: const Size(1080, 720),
       minimumSize: const Size(480, 360),
       allowMultipleInstances: true,
-      windowBuilder: (_) => const _PlaceholderApp(id: 'browser'),
+      windowBuilder: (_) => const BrowserApp(),
     ),
     AppRegistryEntry(
       id: 'task_manager',
@@ -136,7 +139,8 @@ class BuiltinApps {
       icon: Icons.monitor_heart_outlined,
       defaultSize: const Size(820, 580),
       minimumSize: const Size(480, 360),
-      windowBuilder: (_) => const _PlaceholderApp(id: 'task_manager'),
+      windowBuilder: (_) =>
+          const ServerAdminApp(kind: ServerAdminKind.taskManager),
     ),
     AppRegistryEntry(
       id: 'docker_manager',
@@ -144,7 +148,7 @@ class BuiltinApps {
       icon: Icons.integration_instructions_outlined,
       defaultSize: const Size(1020, 680),
       minimumSize: const Size(600, 440),
-      windowBuilder: (_) => const _PlaceholderApp(id: 'docker_manager'),
+      windowBuilder: (_) => const ServerAdminApp(kind: ServerAdminKind.docker),
     ),
     AppRegistryEntry(
       id: 'firewall',
@@ -152,7 +156,8 @@ class BuiltinApps {
       icon: Icons.shield_outlined,
       defaultSize: const Size(820, 580),
       minimumSize: const Size(520, 400),
-      windowBuilder: (_) => const _PlaceholderApp(id: 'firewall'),
+      windowBuilder: (_) =>
+          const ServerAdminApp(kind: ServerAdminKind.firewall),
     ),
     AppRegistryEntry(
       id: 'certificates',
@@ -160,7 +165,8 @@ class BuiltinApps {
       icon: Icons.verified_user_outlined,
       defaultSize: const Size(880, 580),
       minimumSize: const Size(560, 420),
-      windowBuilder: (_) => const _PlaceholderApp(id: 'certificates'),
+      windowBuilder: (_) =>
+          const ServerAdminApp(kind: ServerAdminKind.certificates),
     ),
     AppRegistryEntry(
       id: 'web_servers',
@@ -168,7 +174,8 @@ class BuiltinApps {
       icon: Icons.http_outlined,
       defaultSize: const Size(980, 640),
       minimumSize: const Size(560, 420),
-      windowBuilder: (_) => const _PlaceholderApp(id: 'web_servers'),
+      windowBuilder: (_) =>
+          const ServerAdminApp(kind: ServerAdminKind.webServers),
     ),
     AppRegistryEntry(
       id: 'tunnels',
@@ -176,7 +183,7 @@ class BuiltinApps {
       icon: Icons.route_outlined,
       defaultSize: const Size(920, 620),
       minimumSize: const Size(560, 400),
-      windowBuilder: (_) => const _PlaceholderApp(id: 'tunnels'),
+      windowBuilder: (_) => const ServerAdminApp(kind: ServerAdminKind.tunnels),
     ),
     AppRegistryEntry(
       id: 'git_client',
@@ -184,7 +191,7 @@ class BuiltinApps {
       icon: Icons.source_outlined,
       defaultSize: const Size(980, 640),
       minimumSize: const Size(560, 400),
-      windowBuilder: (_) => const _PlaceholderApp(id: 'git_client'),
+      windowBuilder: (_) => const ServerAdminApp(kind: ServerAdminKind.git),
     ),
     AppRegistryEntry(
       id: 'port_forwarding',
@@ -192,7 +199,8 @@ class BuiltinApps {
       icon: Icons.alt_route_outlined,
       defaultSize: const Size(800, 560),
       minimumSize: const Size(480, 360),
-      windowBuilder: (_) => const _PlaceholderApp(id: 'port_forwarding'),
+      windowBuilder: (_) =>
+          const ServerAdminApp(kind: ServerAdminKind.portForwarding),
     ),
     AppRegistryEntry(
       id: 'process_guardian',
@@ -200,7 +208,8 @@ class BuiltinApps {
       icon: Icons.health_and_safety_outlined,
       defaultSize: const Size(860, 580),
       minimumSize: const Size(560, 400),
-      windowBuilder: (_) => const _PlaceholderApp(id: 'process_guardian'),
+      windowBuilder: (_) =>
+          const ServerAdminApp(kind: ServerAdminKind.guardian),
     ),
     AppRegistryEntry(
       id: 'app_installer',
@@ -208,46 +217,8 @@ class BuiltinApps {
       icon: Icons.get_app_outlined,
       defaultSize: const Size(820, 580),
       minimumSize: const Size(520, 400),
-      windowBuilder: (_) => const _PlaceholderApp(id: 'app_installer'),
+      windowBuilder: (_) =>
+          const ServerAdminApp(kind: ServerAdminKind.installer),
     ),
   ];
-}
-
-/// A generic placeholder window body for apps not yet fully ported.
-class _PlaceholderApp extends StatelessWidget {
-  final String id;
-  const _PlaceholderApp({required this.id});
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = context.palette;
-    final registry = ProviderScope.containerOf(context, listen: false).read(appRegistryProvider);
-    final entry = registry.get(id);
-    return Container(
-      color: palette.appBackground,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(entry?.icon ?? Icons.widgets_outlined, size: 72, color: palette.textTertiary),
-            const SizedBox(height: 16),
-            Text(
-              (entry?.nameKey ?? 'app.$id').tr(),
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: palette.textPrimary),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Application UI is a work-in-progress port from Avalonia.',
-              style: TextStyle(color: palette.textSecondary, fontSize: 13),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'App ID: $id',
-              style: TextStyle(color: palette.textTertiary, fontSize: 12, fontFamily: 'monospace'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
