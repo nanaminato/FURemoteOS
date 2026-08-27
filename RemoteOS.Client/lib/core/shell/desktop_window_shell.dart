@@ -24,6 +24,7 @@ class _DesktopWindowShellState extends State<DesktopWindowShell>
 
   bool _isMaximized = false;
   bool _isFullScreen = false;
+  bool _isTogglingFullScreen = false;
 
   @override
   void initState() {
@@ -79,8 +80,22 @@ class _DesktopWindowShellState extends State<DesktopWindowShell>
     }
   }
 
-  Future<void> _toggleFullScreen() =>
-      windowManager.setFullScreen(!_isFullScreen);
+  Future<void> _toggleFullScreen() async {
+    if (_isTogglingFullScreen) return;
+
+    setState(() => _isTogglingFullScreen = true);
+    try {
+      // Do not rely only on the native enter/leave callbacks here.  On
+      // Windows they are not consistently delivered after leaving fullscreen,
+      // which left the Flutter title bar permanently hidden.
+      final enteringFullScreen = !await windowManager.isFullScreen();
+      await windowManager.setFullScreen(enteringFullScreen);
+      final isFullScreen = await windowManager.isFullScreen();
+      if (mounted) setState(() => _isFullScreen = isFullScreen);
+    } finally {
+      if (mounted) setState(() => _isTogglingFullScreen = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

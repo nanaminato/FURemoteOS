@@ -143,38 +143,57 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
   }
 
   /// Move a window to a new position.
-  void move(String windowId, Offset delta, Rect constraints) {
+  void move(
+    String windowId,
+    Offset delta,
+    Rect constraints, {
+    Rect? startBounds,
+  }) {
     state = [
       for (final w in state)
         if (w.id == windowId)
-          w
-            ..bounds = Rect.fromPoints(
-              Offset(
-                (w.bounds.left + delta.dx)
-                    .clamp(0.0, constraints.width - w.bounds.width),
-                (w.bounds.top + delta.dy)
-                    .clamp(0.0, constraints.height - w.bounds.height),
-              ),
-              Offset(
-                (w.bounds.right + delta.dx)
-                    .clamp(w.minimumSize.width, constraints.width),
-                (w.bounds.bottom + delta.dy)
-                    .clamp(w.minimumSize.height, constraints.height),
-              ),
-            )
+          () {
+            final bounds = startBounds ?? w.bounds;
+            return w
+              ..bounds = Rect.fromPoints(
+                Offset(
+                  (bounds.left + delta.dx)
+                      .clamp(0.0, constraints.width - bounds.width),
+                  (bounds.top + delta.dy)
+                      .clamp(0.0, constraints.height - bounds.height),
+                ),
+                Offset(
+                  (bounds.right + delta.dx)
+                      .clamp(w.minimumSize.width, constraints.width),
+                  (bounds.bottom + delta.dy)
+                      .clamp(w.minimumSize.height, constraints.height),
+                ),
+              );
+          }()
         else
           w,
     ];
   }
 
   /// Resize a window from an edge.
-  void resize(String windowId, String edge, Offset delta, Rect constraints) {
+  void resize(
+    String windowId,
+    String edge,
+    Offset delta,
+    Rect constraints, {
+    Rect? startBounds,
+  }) {
     state = [
       for (final w in state)
         if (w.id == windowId)
           w
-            ..bounds =
-                _applyResize(w.bounds, w.minimumSize, edge, delta, constraints)
+            ..bounds = _applyResize(
+              startBounds ?? w.bounds,
+              w.minimumSize,
+              edge,
+              delta,
+              constraints,
+            )
         else
           w,
     ];
@@ -271,9 +290,10 @@ class _RemoteWindowChromeState extends ConsumerState<RemoteWindowChrome> {
         hitTestBehavior: HitTestBehavior.translucent,
         child: GestureDetector(
           onTap: () => wm.focus(win.id),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
-            curve: Curves.easeOut,
+          // Bounds are updated for every drag/resize pointer event.  An
+          // AnimatedContainer restarts its animation on each update, which is
+          // especially noticeable as flickering on Linux desktop compositors.
+          child: Container(
             decoration: BoxDecoration(
               color: palette.windowFrameBackground,
               borderRadius: BorderRadius.circular(isMaximized ? 0 : 8),
@@ -287,11 +307,20 @@ class _RemoteWindowChromeState extends ConsumerState<RemoteWindowChrome> {
               ],
             ),
             clipBehavior: Clip.antiAlias,
-            child: Column(
+            child: Stack(
+              fit: StackFit.expand,
               children: [
-                _buildTitleBar(palette, wm, win, isMaximized),
-                Divider(height: 1, color: palette.borderSubtle, thickness: 1),
-                Expanded(child: win.child),
+                Column(
+                  children: [
+                    _buildTitleBar(palette, wm, win, isMaximized),
+                    Divider(
+                      height: 1,
+                      color: palette.borderSubtle,
+                      thickness: 1,
+                    ),
+                    Expanded(child: win.child),
+                  ],
+                ),
                 if (!isMaximized) _buildResizeHandles(palette, wm, win),
               ],
             ),
@@ -315,7 +344,12 @@ class _RemoteWindowChromeState extends ConsumerState<RemoteWindowChrome> {
       onPanUpdate: (details) {
         if (isMaximized) return;
         final delta = details.globalPosition - _dragStart;
-        wm.move(win.id, delta, widget.workArea);
+        wm.move(
+          win.id,
+          delta,
+          widget.workArea,
+          startBounds: _startBounds,
+        );
       },
       onDoubleTap: () => wm.toggleMaximize(win.id, widget.workArea),
       child: Container(
@@ -374,17 +408,23 @@ class _RemoteWindowChromeState extends ConsumerState<RemoteWindowChrome> {
     RemoteWindow win,
   ) {
     const size = 8.0;
-    Widget handle(String edge, MouseCursor cursor) => Positioned(
-          left: edge.contains('left') ? 0 : null,
-          right: edge.contains('right') ? 0 : null,
-          top: edge.contains('top') &&
-                  edge != 'bottomRight' &&
-                  edge != 'bottomLeft'
-              ? 0
-              : null,
-          bottom: edge.contains('bottom') ? 0 : null,
-          width: edge == 'left' || edge == 'right' ? size : null,
-          height: edge == 'top' || edge == 'bottom' ? size : null,
+    Widget handle({
+      required String edge,
+      required MouseCursor cursor,
+      double? left,
+      double? top,
+      double? right,
+      double? bottom,
+      double? width,
+      double? height,
+    }) =>
+        Positioned(
+          left: left,
+          top: top,
+          right: right,
+          bottom: bottom,
+          width: width,
+          height: height,
           child: MouseRegion(
             cursor: cursor,
             child: GestureDetector(
@@ -395,28 +435,85 @@ class _RemoteWindowChromeState extends ConsumerState<RemoteWindowChrome> {
               },
               onPanUpdate: (details) {
                 final delta = details.globalPosition - _dragStart;
-                wm.resize(win.id, edge, delta, widget.workArea);
+                wm.resize(
+                  win.id,
+                  edge,
+                  delta,
+                  widget.workArea,
+                  startBounds: _startBounds,
+                );
               },
               child: const SizedBox.expand(),
             ),
           ),
         );
     return Stack(
+      fit: StackFit.expand,
       children: [
-        Positioned.fill(
-          child: Container(
-            height: 0,
-            color: Colors.transparent,
-          ),
+        handle(
+          edge: 'top',
+          cursor: SystemMouseCursors.resizeUpDown,
+          left: size,
+          right: size,
+          top: 0,
+          height: size,
         ),
-        handle('top', SystemMouseCursors.resizeUpDown),
-        handle('bottom', SystemMouseCursors.resizeUpDown),
-        handle('left', SystemMouseCursors.resizeLeftRight),
-        handle('right', SystemMouseCursors.resizeLeftRight),
-        handle('topLeft', SystemMouseCursors.resizeUpLeftDownRight),
-        handle('topRight', SystemMouseCursors.resizeUpRightDownLeft),
-        handle('bottomLeft', SystemMouseCursors.resizeUpRightDownLeft),
-        handle('bottomRight', SystemMouseCursors.resizeUpLeftDownRight),
+        handle(
+          edge: 'bottom',
+          cursor: SystemMouseCursors.resizeUpDown,
+          left: size,
+          right: size,
+          bottom: 0,
+          height: size,
+        ),
+        handle(
+          edge: 'left',
+          cursor: SystemMouseCursors.resizeLeftRight,
+          left: 0,
+          top: size,
+          bottom: size,
+          width: size,
+        ),
+        handle(
+          edge: 'right',
+          cursor: SystemMouseCursors.resizeLeftRight,
+          right: 0,
+          top: size,
+          bottom: size,
+          width: size,
+        ),
+        handle(
+          edge: 'topLeft',
+          cursor: SystemMouseCursors.resizeUpLeftDownRight,
+          left: 0,
+          top: 0,
+          width: size,
+          height: size,
+        ),
+        handle(
+          edge: 'topRight',
+          cursor: SystemMouseCursors.resizeUpRightDownLeft,
+          right: 0,
+          top: 0,
+          width: size,
+          height: size,
+        ),
+        handle(
+          edge: 'bottomLeft',
+          cursor: SystemMouseCursors.resizeUpRightDownLeft,
+          left: 0,
+          bottom: 0,
+          width: size,
+          height: size,
+        ),
+        handle(
+          edge: 'bottomRight',
+          cursor: SystemMouseCursors.resizeUpLeftDownRight,
+          right: 0,
+          bottom: 0,
+          width: size,
+          height: size,
+        ),
       ],
     );
   }
