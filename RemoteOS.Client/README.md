@@ -79,3 +79,12 @@ flutter build linux --debug
 flutter analyze
 flutter test
 ```
+
+## 启动日志与故障恢复
+
+客户端在启动时建立用户级日志：Linux 为
+`$XDG_STATE_HOME/RemoteOS/logs/remoteos.log`（默认
+`~/.local/state/RemoteOS/logs/remoteos.log`），Windows 为
+`%LOCALAPPDATA%\RemoteOS\logs\remoteos.log`。初始化目录失败时，日志会输出到
+stderr。早期启动失败会显示可复制错误的恢复页面，便于附上日志提交问题报告。
+需要把日志写到特定目录时，可在进程环境中设置 `REMOTEOS_LOG_DIR`。
