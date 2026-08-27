@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../common/workspace_scaffold.dart';
+import 'remote_admin_page.dart';
 
 /// Configurations for the Avalonia applications whose interaction model is a
 /// server-backed, multi-page administration workspace.  Each page is a real
@@ -31,14 +32,13 @@ class ServerAdminApp extends StatelessWidget {
             id: page.title.toLowerCase().replaceAll(' ', '-'),
             title: page.title,
             icon: page.icon,
-            builder: (_) => WorkspaceOverview(
+            builder: (_) => RemoteAdminPage(
+              application: kind.name,
               title: page.title,
               description: page.description,
               metrics: page.metrics,
               columns: page.columns,
-              rows: page.rows,
               primaryAction: page.primaryAction,
-              onPrimaryAction: () {},
               emptyMessage: page.emptyMessage,
             ),
           ),

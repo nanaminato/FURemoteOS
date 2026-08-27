@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/theme_service.dart';
+import '../../core/network/remoteos_api.dart';
+import '../../features/files/data/remote_file_api.dart';
 
 /// File Explorer migration.  Its panes mirror the Avalonia explorer: location
 /// tree, command bar, editable breadcrumb and detail list.  The view is kept
@@ -19,19 +21,15 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
   final _search = TextEditingController();
   final _address = TextEditingController(text: '/home/user');
   bool _detailsView = true;
+  List<_FileEntry> _entries = const [];
+  bool _loading = false;
+  String? _loadError;
 
-  static const _entries = [
-    _FileEntry(
-        'Documents', 'Folder', '—', 'Today, 10:42', Icons.folder_rounded),
-    _FileEntry(
-        'Downloads', 'Folder', '—', 'Yesterday, 18:10', Icons.folder_rounded),
-    _FileEntry(
-        'Pictures', 'Folder', '—', 'Monday, 09:20', Icons.folder_rounded),
-    _FileEntry(
-        'Projects', 'Folder', '—', 'Sunday, 15:37', Icons.folder_rounded),
-    _FileEntry('welcome.txt', 'Text document', '2 KB', 'Today, 09:12',
-        Icons.description_outlined),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadInitial());
+  }
 
   @override
   void dispose() {
@@ -46,6 +44,50 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
       _path = path;
       _address.text = path;
     });
+    _load(path);
+  }
+
+  Future<void> _load(String path) async {
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
+    try {
+      final result =
+          await RemoteFileApi(ref.read(remoteOsApiProvider)).list(path);
+      if (!mounted || path != _path) return;
+      setState(() {
+        _entries = result.map(_FileEntry.fromRemote).toList();
+        _loading = false;
+      });
+    } catch (error) {
+      if (!mounted || path != _path) return;
+      setState(() {
+        _loading = false;
+        _loadError = error.toString();
+      });
+    }
+  }
+
+  Future<void> _loadInitial() async {
+    try {
+      final api = RemoteFileApi(ref.read(remoteOsApiProvider));
+      final locations = await api.specialLocations();
+      final home = locations
+          .where((location) => location.name.toLowerCase() == 'home')
+          .firstOrNull;
+      if (home != null && mounted) {
+        setState(() {
+          _location = home.name;
+          _path = home.path;
+          _address.text = home.path;
+        });
+      }
+    } catch (_) {
+      // Older servers may not expose SpecialLocations; list still preserves
+      // compatibility with their file endpoint.
+    }
+    if (mounted) _load(_path);
   }
 
   @override
@@ -78,13 +120,19 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
         child: Row(children: [
           _toolButton(palette, Icons.arrow_back_rounded, 'Back'),
           _toolButton(palette, Icons.arrow_forward_rounded, 'Forward'),
-          _toolButton(palette, Icons.arrow_upward_rounded, 'Up'),
+          _toolButton(palette, Icons.arrow_upward_rounded, 'Up', onPressed: () {
+            final slash = _path.lastIndexOf('/');
+            if (slash > 0)
+              _navigate(_path.substring(0, slash).split('/').last,
+                  _path.substring(0, slash));
+          }),
           Container(
               width: 1,
               height: 22,
               color: palette.borderSubtle,
               margin: const EdgeInsets.symmetric(horizontal: 6)),
-          _toolButton(palette, Icons.add_rounded, 'New'),
+          _toolButton(palette, Icons.refresh_rounded, 'Refresh',
+              onPressed: () => _load(_path)),
           _toolButton(palette, Icons.content_copy_outlined, 'Copy'),
           _toolButton(palette, Icons.content_cut_outlined, 'Cut'),
           _toolButton(palette, Icons.paste_outlined, 'Paste'),
@@ -101,9 +149,10 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
         ]),
       );
 
-  Widget _toolButton(ThemePalette palette, IconData icon, String label) =>
+  Widget _toolButton(ThemePalette palette, IconData icon, String label,
+          {VoidCallback? onPressed}) =>
       TextButton.icon(
-        onPressed: () {},
+        onPressed: onPressed,
         icon: Icon(icon, size: 18),
         label: Text(label),
         style: TextButton.styleFrom(
@@ -238,9 +287,18 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
                   style: TextStyle(fontSize: 12, color: palette.textSecondary)),
             ])),
         Expanded(
-            child: _detailsView
-                ? _details(palette, entries)
-                : _iconGrid(palette, entries)),
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _loadError != null
+                    ? Center(
+                        child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Text(
+                                'Unable to load this directory.\n$_loadError',
+                                textAlign: TextAlign.center)))
+                    : _detailsView
+                        ? _details(palette, entries)
+                        : _iconGrid(palette, entries)),
       ]),
     );
   }
@@ -272,7 +330,7 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
       color: Colors.transparent,
       child: InkWell(
         onDoubleTap: entry.type == 'Folder'
-            ? () => _navigate(entry.name, '$_path/${entry.name}')
+            ? () => _navigate(entry.name, entry.path)
             : null,
         child: Container(
             height: 42,
@@ -312,7 +370,7 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
           final entry = entries[index];
           return InkWell(
               onDoubleTap: entry.type == 'Folder'
-                  ? () => _navigate(entry.name, '$_path/${entry.name}')
+                  ? () => _navigate(entry.name, entry.path)
                   : null,
               borderRadius: BorderRadius.circular(6),
               child: Column(
@@ -342,19 +400,41 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
           border: Border(top: BorderSide(color: palette.borderSubtle))),
       child: Align(
           alignment: Alignment.centerLeft,
-          child: Text('${_entries.length} items',
+          child: Text(
+              '${_entries.length} items${_loading ? ' · Loading…' : ''}',
               style: TextStyle(fontSize: 11, color: palette.textTertiary))));
 }
 
 class _FileEntry {
-  const _FileEntry(this.name, this.type, this.size, this.modified, this.icon);
+  const _FileEntry(
+      this.name, this.path, this.type, this.size, this.modified, this.icon);
   final String name;
+  final String path;
   final String type;
   final String size;
   final String modified;
   final IconData icon;
+
+  factory _FileEntry.fromRemote(RemoteFileEntry entry) => _FileEntry(
+        entry.name,
+        entry.path,
+        entry.isDirectory ? 'Folder' : 'File',
+        entry.size == null ? '—' : _formatBytes(entry.size!),
+        entry.lastWriteTime?.toLocal().toString().split('.').first ?? '—',
+        entry.isDirectory ? Icons.folder_rounded : Icons.description_outlined,
+      );
+
+  static String _formatBytes(int value) {
+    if (value < 1024) return '$value B';
+    if (value < 1024 * 1024) return '${(value / 1024).toStringAsFixed(1)} KB';
+    return '${(value / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
 }
 
 extension on List<String> {
   String? get lastOrNull => isEmpty ? null : last;
+}
+
+extension on Iterable<RemoteSpecialLocation> {
+  RemoteSpecialLocation? get firstOrNull => isEmpty ? null : first;
 }
