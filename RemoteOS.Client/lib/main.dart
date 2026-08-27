@@ -27,7 +27,7 @@ void main() async {
     title: 'RemoteOS',
   );
 
-  await windowManager.waitUntilReadyToShow(windowOptions, () async {
+  windowManager.waitUntilReadyToShow(windowOptions, () async {
     await windowManager.setResizable(true);
     await windowManager.show();
     await windowManager.focus();

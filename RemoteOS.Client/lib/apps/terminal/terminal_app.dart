@@ -55,7 +55,7 @@ class _TerminalAppState extends ConsumerState<TerminalApp> {
   void _writeln(String text, {Color? color, bool bold = false}) {
     _buffer.add(_TerminalLine(text: text, color: color, bold: bold));
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
+      if (mounted && _scrollController.hasClients) {
         _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
       }
     });
@@ -157,26 +157,32 @@ class _TerminalAppState extends ConsumerState<TerminalApp> {
     }
   }
 
-  void _onKey(KeyEvent e) {
-    if (e is KeyDownEvent) {
-      if (e.logicalKey == LogicalKeyboardKey.arrowUp) {
-        if (_history.isNotEmpty && _historyIndex > 0) {
-          _historyIndex--;
-          _inputController.text = _history[_historyIndex];
-          _inputController.selection = TextSelection.fromPosition(
-            TextPosition(offset: _inputController.text.length),
-          );
-        }
-      } else if (e.logicalKey == LogicalKeyboardKey.arrowDown) {
-        if (_historyIndex < _history.length - 1) {
-          _historyIndex++;
-          _inputController.text = _history[_historyIndex];
-        } else {
-          _historyIndex = _history.length;
-          _inputController.clear();
-        }
+  KeyEventResult _onKey(FocusNode node, RawKeyEvent event) {
+    if (event is! RawKeyDownEvent) return KeyEventResult.ignored;
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      if (_history.isNotEmpty && _historyIndex > 0) {
+        _historyIndex--;
+        _inputController.text = _history[_historyIndex];
+        _inputController.selection = TextSelection.fromPosition(
+          TextPosition(offset: _inputController.text.length),
+        );
       }
+      return KeyEventResult.handled;
     }
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      if (_historyIndex < _history.length - 1) {
+        _historyIndex++;
+        _inputController.text = _history[_historyIndex];
+      } else {
+        _historyIndex = _history.length;
+        _inputController.clear();
+      }
+      return KeyEventResult.handled;
+    }
+
+    return KeyEventResult.ignored;
   }
 
   @override
@@ -188,9 +194,8 @@ class _TerminalAppState extends ConsumerState<TerminalApp> {
     return Container(
       color: bg,
       padding: const EdgeInsets.all(12),
-      child: KeyboardListener(
-        focusNode: FocusNode(),
-        onKeyEvent: _onKey,
+      child: Focus(
+        onKey: _onKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

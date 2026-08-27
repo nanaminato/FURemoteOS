@@ -15,6 +15,21 @@ flutter pub get
 ```bash
 flutter pub upgrade
 
+升级包
+# 1. 先查看哪些包被什么约束卡住
+flutter pub outdated
+
+# 2. 预览一次“大版本升级”会改什么，不落盘
+flutter pub upgrade --major-versions --dry-run
+
+# 3. 确认后执行；它会更新 pubspec.yaml 和 pubspec.lock
+flutter pub upgrade --major-versions
+
+# 4. 格式化、生成代码并验证
+dart format .
+dart run build_runner build --delete-conflicting-outputs
+flutter analyze
+flutter test
 ```
 
 ### Windows
@@ -22,6 +37,8 @@ flutter pub upgrade
 安装 [Flutter 的 Windows 桌面开发依赖](https://docs.flutter.dev/platform-integration/windows/building)，包括 Visual Studio 的 **Desktop development with C++** 工作负载。确认 `flutter doctor` 中的 Windows 工具链状态正常后，运行：
 
 ```powershell
+flutter clean
+flutter pub get
 flutter run -d windows
 ```
 
