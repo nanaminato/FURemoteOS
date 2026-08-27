@@ -44,9 +44,17 @@ class _StartMenuState extends ConsumerState<StartMenu> {
         .toList()
       ..sort((a, b) => a.nameKey.tr().compareTo(b.nameKey.tr()));
 
-    const pinnedIds = ['explorer', 'browser', 'terminal', 'settings', 'code_editor', 'notepad'];
+    const pinnedIds = [
+      'explorer',
+      'browser',
+      'terminal',
+      'settings',
+      'code_editor',
+      'notepad'
+    ];
     final pinned = registry.all.where((e) => pinnedIds.contains(e.id)).toList()
-      ..sort((a, b) => pinnedIds.indexOf(a.id).compareTo(pinnedIds.indexOf(b.id)));
+      ..sort(
+          (a, b) => pinnedIds.indexOf(a.id).compareTo(pinnedIds.indexOf(b.id)));
 
     return Material(
       color: Colors.transparent,
@@ -100,7 +108,8 @@ class _StartMenuState extends ConsumerState<StartMenu> {
               ),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(Icons.window_rounded, color: palette.textOnAccent, size: 22),
+            child: Icon(Icons.window_rounded,
+                color: palette.textOnAccent, size: 22),
           ),
           const SizedBox(width: 12),
           Column(
@@ -109,7 +118,10 @@ class _StartMenuState extends ConsumerState<StartMenu> {
             children: [
               Text(
                 'RemoteOS',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: palette.textPrimary),
+                style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: palette.textPrimary),
               ),
               Text(
                 'Start',
@@ -141,8 +153,10 @@ class _StartMenuState extends ConsumerState<StartMenu> {
           decoration: InputDecoration(
             hintText: 'shell.taskbar.search'.tr(),
             hintStyle: TextStyle(color: palette.textTertiary, fontSize: 13),
-            prefixIcon: Icon(Icons.search_rounded, size: 18, color: palette.textSecondary),
-            prefixIconConstraints: const BoxConstraints(minWidth: 30, minHeight: 36),
+            prefixIcon: Icon(Icons.search_rounded,
+                size: 18, color: palette.textSecondary),
+            prefixIconConstraints:
+                const BoxConstraints(minWidth: 30, minHeight: 36),
             border: InputBorder.none,
             isDense: true,
             contentPadding: EdgeInsets.zero,
@@ -178,7 +192,10 @@ class _StartMenuState extends ConsumerState<StartMenu> {
         children: [
           Text(
             'Pinned',
-            style: TextStyle(fontSize: 11, color: palette.textTertiary, fontWeight: FontWeight.w600),
+            style: TextStyle(
+                fontSize: 11,
+                color: palette.textTertiary,
+                fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 8),
           _buildGrid(palette, pinned),
@@ -189,7 +206,10 @@ class _StartMenuState extends ConsumerState<StartMenu> {
             children: [
               Text(
                 'All applications',
-                style: TextStyle(fontSize: 11, color: palette.textTertiary, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                    fontSize: 11,
+                    color: palette.textTertiary,
+                    fontWeight: FontWeight.w600),
               ),
               const Spacer(),
               Text(
@@ -205,15 +225,18 @@ class _StartMenuState extends ConsumerState<StartMenu> {
     );
   }
 
-  Widget _buildSearchResults(ThemePalette palette, List<AppRegistryEntry> apps) {
+  Widget _buildSearchResults(
+      ThemePalette palette, List<AppRegistryEntry> apps) {
     if (apps.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.search_off_rounded, size: 48, color: palette.textTertiary),
+            Icon(Icons.search_off_rounded,
+                size: 48, color: palette.textTertiary),
             const SizedBox(height: 8),
-            Text('No results for "$_filter"', style: TextStyle(color: palette.textSecondary, fontSize: 13)),
+            Text('No results for "$_filter"',
+                style: TextStyle(color: palette.textSecondary, fontSize: 13)),
           ],
         ),
       );
@@ -261,7 +284,8 @@ class _StartMenuState extends ConsumerState<StartMenu> {
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 11, color: palette.textPrimary, height: 1.15),
+                style: TextStyle(
+                    fontSize: 11, color: palette.textPrimary, height: 1.15),
               ),
             ],
           ),
@@ -294,7 +318,8 @@ class _StartMenuState extends ConsumerState<StartMenu> {
     );
   }
 
-  Widget _footerItem(ThemePalette palette, IconData icon, String label, {VoidCallback? onTap}) {
+  Widget _footerItem(ThemePalette palette, IconData icon, String label,
+      {VoidCallback? onTap}) {
     return InkWell(
       borderRadius: BorderRadius.circular(4),
       onTap: onTap,
@@ -305,7 +330,8 @@ class _StartMenuState extends ConsumerState<StartMenu> {
           children: [
             Icon(icon, size: 16, color: palette.textSecondary),
             const SizedBox(width: 6),
-            Text(label, style: TextStyle(fontSize: 12, color: palette.textPrimary)),
+            Text(label,
+                style: TextStyle(fontSize: 12, color: palette.textPrimary)),
           ],
         ),
       ),
@@ -321,22 +347,27 @@ class _StartMenuState extends ConsumerState<StartMenu> {
       offset: const Offset(0, -8),
       itemBuilder: (_) => [
         PopupMenuItem(
-          onTap: () => Future.delayed(const Duration(milliseconds: 100), widget.onLogout),
+          onTap: () => Future.delayed(
+              const Duration(milliseconds: 100), widget.onLogout),
           child: Row(
             children: [
               Icon(Icons.logout_rounded, size: 18, color: palette.textPrimary),
               const SizedBox(width: 10),
-              Text('shell.connection.close'.tr(), style: TextStyle(fontSize: 13, color: palette.textPrimary)),
+              Text('shell.connection.close'.tr(),
+                  style: TextStyle(fontSize: 13, color: palette.textPrimary)),
             ],
           ),
         ),
         PopupMenuItem(
-          onTap: () => Future.delayed(const Duration(milliseconds: 100), widget.onShutdown),
+          onTap: () => Future.delayed(
+              const Duration(milliseconds: 100), widget.onShutdown),
           child: Row(
             children: [
-              Icon(Icons.power_settings_new_rounded, size: 18, color: palette.danger),
+              Icon(Icons.power_settings_new_rounded,
+                  size: 18, color: palette.danger),
               const SizedBox(width: 10),
-              Text('shell.shutdown'.tr(), style: TextStyle(fontSize: 13, color: palette.danger)),
+              Text('shell.shutdown'.tr(),
+                  style: TextStyle(fontSize: 13, color: palette.danger)),
             ],
           ),
         ),
@@ -346,7 +377,8 @@ class _StartMenuState extends ConsumerState<StartMenu> {
         onTap: null,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          child: Icon(Icons.power_settings_new_rounded, size: 18, color: palette.textPrimary),
+          child: Icon(Icons.power_settings_new_rounded,
+              size: 18, color: palette.textPrimary),
         ),
       ),
     );

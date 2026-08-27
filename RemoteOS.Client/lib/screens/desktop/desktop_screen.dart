@@ -98,7 +98,8 @@ class _DesktopScreenState extends ConsumerState<DesktopScreen> {
                           wm.openApp(
                             entry: entry,
                             child: entry.windowBuilder(context),
-                            screenSize: Size(constraints.maxWidth, workArea.height),
+                            screenSize:
+                                Size(constraints.maxWidth, workArea.height),
                           );
                           _closeStartMenu();
                         },
@@ -127,7 +128,8 @@ class _DesktopScreenState extends ConsumerState<DesktopScreen> {
     );
   }
 
-  Widget _buildDesktopBackground(ThemePalette palette, BoxConstraints constraints) {
+  Widget _buildDesktopBackground(
+      ThemePalette palette, BoxConstraints constraints) {
     return Positioned.fill(
       child: DecoratedBox(
         decoration: BoxDecoration(
@@ -161,7 +163,8 @@ class _DesktopScreenState extends ConsumerState<DesktopScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: apps.map((pair) {
-          final registry = ProviderScope.containerOf(context, listen: false).read(appRegistryProvider);
+          final registry = ProviderScope.containerOf(context, listen: false)
+              .read(appRegistryProvider);
           final entry = registry.get(pair.$1);
           if (entry == null) return const SizedBox.shrink();
           return _DesktopIcon(
@@ -256,10 +259,14 @@ class _DesktopIconState extends State<_DesktopIcon> {
         width: 88,
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
         decoration: BoxDecoration(
-          color: _selected ? widget.palette.desktopIconSelected : Colors.transparent,
+          color: _selected
+              ? widget.palette.desktopIconSelected
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
-            color: _selected ? widget.palette.accent.withOpacity(0.4) : Colors.transparent,
+            color: _selected
+                ? widget.palette.accent.withOpacity(0.4)
+                : Colors.transparent,
           ),
         ),
         child: Column(
@@ -267,7 +274,8 @@ class _DesktopIconState extends State<_DesktopIcon> {
           children: [
             MouseRegion(
               cursor: SystemMouseCursors.click,
-              child: Icon(widget.entry.icon, size: 36, color: widget.palette.textPrimary),
+              child: Icon(widget.entry.icon,
+                  size: 36, color: widget.palette.textPrimary),
             ),
             const SizedBox(height: 4),
             Text(

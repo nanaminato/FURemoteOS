@@ -38,6 +38,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(SingleChildScrollView), findsOneWidget);
+    final scrollbar = tester.widget<Scrollbar>(find.byType(Scrollbar));
+    final scrollView = tester
+        .widget<SingleChildScrollView>(find.byType(SingleChildScrollView));
+    expect(scrollbar.controller, same(scrollView.controller));
     expect(tester.takeException(), isNull);
   });
 }

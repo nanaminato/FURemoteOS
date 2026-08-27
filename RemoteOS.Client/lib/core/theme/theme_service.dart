@@ -53,7 +53,8 @@ class ThemePalette {
   Color get windowFrameBackground => colors['WindowFrameBackground']!;
   Color get windowTitleBarBackground => colors['WindowTitleBarBackground']!;
   Color get windowTitleForeground => colors['WindowTitleForeground']!;
-  Color get windowInactiveTitleForeground => colors['WindowInactiveTitleForeground']!;
+  Color get windowInactiveTitleForeground =>
+      colors['WindowInactiveTitleForeground']!;
   Color get shadow => colors['Shadow']!;
   Color get desktopIconHover => colors['DesktopIconHover']!;
   Color get desktopIconSelected => colors['DesktopIconSelected']!;
@@ -208,8 +209,10 @@ ThemeData buildThemeData(ThemePalette palette, Brightness brightness) {
       ).copyWith(
         backgroundColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.hovered)) return palette.accentHover;
-          if (states.contains(WidgetState.pressed)) return palette.accentPressed;
-          if (states.contains(WidgetState.disabled)) return palette.textDisabled;
+          if (states.contains(WidgetState.pressed))
+            return palette.accentPressed;
+          if (states.contains(WidgetState.disabled))
+            return palette.textDisabled;
           return palette.accent;
         }),
       ),
@@ -330,21 +333,40 @@ ThemeData buildThemeData(ThemePalette palette, Brightness brightness) {
 
 TextTheme _buildTextTheme(ThemePalette palette, bool isDark) {
   return TextTheme(
-    displayLarge: TextStyle(color: palette.textPrimary, fontSize: 57, fontWeight: FontWeight.w400),
-    displayMedium: TextStyle(color: palette.textPrimary, fontSize: 45, fontWeight: FontWeight.w400),
-    displaySmall: TextStyle(color: palette.textPrimary, fontSize: 36, fontWeight: FontWeight.w400),
-    headlineLarge: TextStyle(color: palette.textPrimary, fontSize: 32, fontWeight: FontWeight.w600),
-    headlineMedium: TextStyle(color: palette.textPrimary, fontSize: 28, fontWeight: FontWeight.w600),
-    headlineSmall: TextStyle(color: palette.textPrimary, fontSize: 24, fontWeight: FontWeight.w600),
-    titleLarge: TextStyle(color: palette.textPrimary, fontSize: 22, fontWeight: FontWeight.w600),
-    titleMedium: TextStyle(color: palette.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
-    titleSmall: TextStyle(color: palette.textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
-    bodyLarge: TextStyle(color: palette.textPrimary, fontSize: 16, fontWeight: FontWeight.w400),
-    bodyMedium: TextStyle(color: palette.textPrimary, fontSize: 14, fontWeight: FontWeight.w400),
-    bodySmall: TextStyle(color: palette.textSecondary, fontSize: 12, fontWeight: FontWeight.w400),
-    labelLarge: TextStyle(color: palette.textPrimary, fontSize: 14, fontWeight: FontWeight.w500),
-    labelMedium: TextStyle(color: palette.textSecondary, fontSize: 12, fontWeight: FontWeight.w500),
-    labelSmall: TextStyle(color: palette.textTertiary, fontSize: 11, fontWeight: FontWeight.w500),
+    displayLarge: TextStyle(
+        color: palette.textPrimary, fontSize: 57, fontWeight: FontWeight.w400),
+    displayMedium: TextStyle(
+        color: palette.textPrimary, fontSize: 45, fontWeight: FontWeight.w400),
+    displaySmall: TextStyle(
+        color: palette.textPrimary, fontSize: 36, fontWeight: FontWeight.w400),
+    headlineLarge: TextStyle(
+        color: palette.textPrimary, fontSize: 32, fontWeight: FontWeight.w600),
+    headlineMedium: TextStyle(
+        color: palette.textPrimary, fontSize: 28, fontWeight: FontWeight.w600),
+    headlineSmall: TextStyle(
+        color: palette.textPrimary, fontSize: 24, fontWeight: FontWeight.w600),
+    titleLarge: TextStyle(
+        color: palette.textPrimary, fontSize: 22, fontWeight: FontWeight.w600),
+    titleMedium: TextStyle(
+        color: palette.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
+    titleSmall: TextStyle(
+        color: palette.textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
+    bodyLarge: TextStyle(
+        color: palette.textPrimary, fontSize: 16, fontWeight: FontWeight.w400),
+    bodyMedium: TextStyle(
+        color: palette.textPrimary, fontSize: 14, fontWeight: FontWeight.w400),
+    bodySmall: TextStyle(
+        color: palette.textSecondary,
+        fontSize: 12,
+        fontWeight: FontWeight.w400),
+    labelLarge: TextStyle(
+        color: palette.textPrimary, fontSize: 14, fontWeight: FontWeight.w500),
+    labelMedium: TextStyle(
+        color: palette.textSecondary,
+        fontSize: 12,
+        fontWeight: FontWeight.w500),
+    labelSmall: TextStyle(
+        color: palette.textTertiary, fontSize: 11, fontWeight: FontWeight.w500),
   );
 }
 

@@ -18,6 +18,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _serverController = TextEditingController();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _formScrollController = ScrollController();
 
   // A remembered password means the compact connection form is sufficient on
   // the next launch.  Keep the detailed fields available, but do not let the
@@ -40,6 +41,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     _serverController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
+    _formScrollController.dispose();
     super.dispose();
   }
 
@@ -132,7 +134,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   _buildHeader(palette),
                   Expanded(
                     child: Scrollbar(
+                      controller: _formScrollController,
                       child: SingleChildScrollView(
+                        controller: _formScrollController,
                         padding: const EdgeInsets.all(32),
                         child: Form(
                           key: _formKey,

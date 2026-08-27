@@ -112,7 +112,8 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
           w
             ..state = RemoteWindowState.normal
             ..zOrder = _zCounter++
-        else w,
+        else
+          w,
     ];
   }
 
@@ -128,7 +129,8 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
               ..zOrder = _zCounter++
           else
             _maximize(w, screenWorkArea)
-        else w,
+        else
+          w,
     ];
   }
 
@@ -148,15 +150,20 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
           w
             ..bounds = Rect.fromPoints(
               Offset(
-                (w.bounds.left + delta.dx).clamp(0.0, constraints.width - w.bounds.width),
-                (w.bounds.top + delta.dy).clamp(0.0, constraints.height - w.bounds.height),
+                (w.bounds.left + delta.dx)
+                    .clamp(0.0, constraints.width - w.bounds.width),
+                (w.bounds.top + delta.dy)
+                    .clamp(0.0, constraints.height - w.bounds.height),
               ),
               Offset(
-                (w.bounds.right + delta.dx).clamp(w.minimumSize.width, constraints.width),
-                (w.bounds.bottom + delta.dy).clamp(w.minimumSize.height, constraints.height),
+                (w.bounds.right + delta.dx)
+                    .clamp(w.minimumSize.width, constraints.width),
+                (w.bounds.bottom + delta.dy)
+                    .clamp(w.minimumSize.height, constraints.height),
               ),
             )
-        else w,
+        else
+          w,
     ];
   }
 
@@ -166,8 +173,10 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
       for (final w in state)
         if (w.id == windowId)
           w
-            ..bounds = _applyResize(w.bounds, w.minimumSize, edge, delta, constraints)
-        else w,
+            ..bounds =
+                _applyResize(w.bounds, w.minimumSize, edge, delta, constraints)
+        else
+          w,
     ];
   }
 
@@ -178,35 +187,44 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
     Offset delta,
     Rect constraints,
   ) {
-    double left = rect.left, top = rect.top, right = rect.right, bottom = rect.bottom;
+    double left = rect.left,
+        top = rect.top,
+        right = rect.right,
+        bottom = rect.bottom;
     switch (edge) {
       case 'left':
         left = (left + delta.dx).clamp(0.0, right - minSize.width);
         break;
       case 'right':
-        right = (right + delta.dx).clamp(left + minSize.width, constraints.width);
+        right =
+            (right + delta.dx).clamp(left + minSize.width, constraints.width);
         break;
       case 'top':
         top = (top + delta.dy).clamp(0.0, bottom - minSize.height);
         break;
       case 'bottom':
-        bottom = (bottom + delta.dy).clamp(top + minSize.height, constraints.height);
+        bottom =
+            (bottom + delta.dy).clamp(top + minSize.height, constraints.height);
         break;
       case 'topLeft':
         left = (left + delta.dx).clamp(0.0, right - minSize.width);
         top = (top + delta.dy).clamp(0.0, bottom - minSize.height);
         break;
       case 'topRight':
-        right = (right + delta.dx).clamp(left + minSize.width, constraints.width);
+        right =
+            (right + delta.dx).clamp(left + minSize.width, constraints.width);
         top = (top + delta.dy).clamp(0.0, bottom - minSize.height);
         break;
       case 'bottomLeft':
         left = (left + delta.dx).clamp(0.0, right - minSize.width);
-        bottom = (bottom + delta.dy).clamp(top + minSize.height, constraints.height);
+        bottom =
+            (bottom + delta.dy).clamp(top + minSize.height, constraints.height);
         break;
       case 'bottomRight':
-        right = (right + delta.dx).clamp(left + minSize.width, constraints.width);
-        bottom = (bottom + delta.dy).clamp(top + minSize.height, constraints.height);
+        right =
+            (right + delta.dx).clamp(left + minSize.width, constraints.width);
+        bottom =
+            (bottom + delta.dy).clamp(top + minSize.height, constraints.height);
         break;
     }
     return Rect.fromLTRB(left, top, right, bottom);
@@ -327,11 +345,14 @@ class _RemoteWindowChromeState extends ConsumerState<RemoteWindowChrome> {
               tooltip: 'common.minimize'.tr(),
             ),
             _WindowButton(
-              icon: isMaximized ? Icons.filter_none_rounded : Icons.crop_square_rounded,
+              icon: isMaximized
+                  ? Icons.filter_none_rounded
+                  : Icons.crop_square_rounded,
               palette: palette,
               hoverColor: palette.surfaceHover,
               onPressed: () => wm.toggleMaximize(win.id, widget.workArea),
-              tooltip: isMaximized ? 'common.restore'.tr() : 'common.maximize'.tr(),
+              tooltip:
+                  isMaximized ? 'common.restore'.tr() : 'common.maximize'.tr(),
             ),
             _WindowButton(
               icon: Icons.close_rounded,
@@ -356,7 +377,11 @@ class _RemoteWindowChromeState extends ConsumerState<RemoteWindowChrome> {
     Widget handle(String edge, MouseCursor cursor) => Positioned(
           left: edge.contains('left') ? 0 : null,
           right: edge.contains('right') ? 0 : null,
-          top: edge.contains('top') && edge != 'bottomRight' && edge != 'bottomLeft' ? 0 : null,
+          top: edge.contains('top') &&
+                  edge != 'bottomRight' &&
+                  edge != 'bottomLeft'
+              ? 0
+              : null,
           bottom: edge.contains('bottom') ? 0 : null,
           width: edge == 'left' || edge == 'right' ? size : null,
           height: edge == 'top' || edge == 'bottom' ? size : null,

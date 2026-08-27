@@ -63,7 +63,8 @@ class _NotepadAppState extends ConsumerState<NotepadApp> {
                 fillColor: palette.surface,
                 contentPadding: const EdgeInsets.all(14),
                 hintText: 'Start typing...',
-                hintStyle: TextStyle(color: palette.textTertiary, fontSize: _fontSize),
+                hintStyle:
+                    TextStyle(color: palette.textTertiary, fontSize: _fontSize),
                 isCollapsed: true,
                 isDense: false,
               ),
@@ -89,23 +90,27 @@ class _NotepadAppState extends ConsumerState<NotepadApp> {
             MenuItemButton(
               onPressed: _newDoc,
               leadingIcon: const Icon(Icons.note_add_outlined, size: 16),
-              child: Text('${'common.new'.tr()}    Ctrl+N', style: const TextStyle(fontSize: 13)),
+              child: Text('${'common.new'.tr()}    Ctrl+N',
+                  style: const TextStyle(fontSize: 13)),
             ),
             MenuItemButton(
               onPressed: () {},
               leadingIcon: const Icon(Icons.folder_open_outlined, size: 16),
-              child: Text('${'common.open_ellipsis'.tr()}    Ctrl+O', style: const TextStyle(fontSize: 13)),
+              child: Text('${'common.open_ellipsis'.tr()}    Ctrl+O',
+                  style: const TextStyle(fontSize: 13)),
             ),
             MenuItemButton(
               onPressed: () {},
               leadingIcon: const Icon(Icons.save_outlined, size: 16),
-              child: Text('${'common.save'.tr()}    Ctrl+S', style: const TextStyle(fontSize: 13)),
+              child: Text('${'common.save'.tr()}    Ctrl+S',
+                  style: const TextStyle(fontSize: 13)),
             ),
             const MenuItemButton(child: Divider(height: 1)),
             MenuItemButton(
               onPressed: () {},
               leadingIcon: const Icon(Icons.save_as_outlined, size: 16),
-              child: Text('${'common.save_as_ellipsis'.tr()}', style: const TextStyle(fontSize: 13)),
+              child: Text('${'common.save_as_ellipsis'.tr()}',
+                  style: const TextStyle(fontSize: 13)),
             ),
           ]),
           _menuButton(palette, Icons.edit_outlined, 'Edit', [
@@ -123,26 +128,46 @@ class _NotepadAppState extends ConsumerState<NotepadApp> {
                 }
               },
               leadingIcon: const Icon(Icons.content_copy, size: 16),
-              child: const Text('Copy    Ctrl+C', style: TextStyle(fontSize: 13)),
+              child:
+                  const Text('Copy    Ctrl+C', style: TextStyle(fontSize: 13)),
             ),
           ]),
           _menuButton(palette, Icons.view_quilt_outlined, 'View', [
             MenuItemButton(
-              leadingIcon: Icon(_wordWrap ? Icons.check_box : Icons.check_box_outline_blank, size: 16),
+              leadingIcon: Icon(
+                  _wordWrap ? Icons.check_box : Icons.check_box_outline_blank,
+                  size: 16),
               onPressed: () => setState(() => _wordWrap = !_wordWrap),
               child: const Text('Word wrap', style: TextStyle(fontSize: 13)),
             ),
             MenuItemButton(
-              leadingIcon: Icon(_showStatusBar ? Icons.check_box : Icons.check_box_outline_blank, size: 16),
+              leadingIcon: Icon(
+                  _showStatusBar
+                      ? Icons.check_box
+                      : Icons.check_box_outline_blank,
+                  size: 16),
               onPressed: () => setState(() => _showStatusBar = !_showStatusBar),
               child: const Text('Status bar', style: TextStyle(fontSize: 13)),
             ),
             SubmenuButton(
               menuChildren: [
-                for (final sz in [10.0, 11.0, 12.0, 14.0, 16.0, 18.0, 20.0, 24.0])
+                for (final sz in [
+                  10.0,
+                  11.0,
+                  12.0,
+                  14.0,
+                  16.0,
+                  18.0,
+                  20.0,
+                  24.0
+                ])
                   MenuItemButton(
                     onPressed: () => setState(() => _fontSize = sz),
-                    child: Text('${sz.toInt()} pt', style: TextStyle(fontSize: 13, fontWeight: sz == _fontSize ? FontWeight.w700 : null)),
+                    child: Text('${sz.toInt()} pt',
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight:
+                                sz == _fontSize ? FontWeight.w700 : null)),
                   ),
               ],
               leadingIcon: const Icon(Icons.text_fields, size: 16),
@@ -151,16 +176,21 @@ class _NotepadAppState extends ConsumerState<NotepadApp> {
             SubmenuButton(
               menuChildren: [
                 MenuItemButton(
-                  onPressed: () => setState(() => _fontSize = (_fontSize - 1).clamp(8.0, 36.0)),
-                  child: const Text('Zoom out   Ctrl+-', style: TextStyle(fontSize: 13)),
+                  onPressed: () => setState(
+                      () => _fontSize = (_fontSize - 1).clamp(8.0, 36.0)),
+                  child: const Text('Zoom out   Ctrl+-',
+                      style: TextStyle(fontSize: 13)),
                 ),
                 MenuItemButton(
-                  onPressed: () => setState(() => _fontSize = (_fontSize + 1).clamp(8.0, 36.0)),
-                  child: const Text('Zoom in   Ctrl++', style: TextStyle(fontSize: 13)),
+                  onPressed: () => setState(
+                      () => _fontSize = (_fontSize + 1).clamp(8.0, 36.0)),
+                  child: const Text('Zoom in   Ctrl++',
+                      style: TextStyle(fontSize: 13)),
                 ),
                 MenuItemButton(
                   onPressed: () => setState(() => _fontSize = 14),
-                  child: const Text('Restore default zoom', style: TextStyle(fontSize: 13)),
+                  child: const Text('Restore default zoom',
+                      style: TextStyle(fontSize: 13)),
                 ),
               ],
               leadingIcon: const Icon(Icons.zoom_out_map_outlined, size: 16),
@@ -168,7 +198,9 @@ class _NotepadAppState extends ConsumerState<NotepadApp> {
             ),
           ]),
           const Spacer(),
-          _toolIcon(palette, Icons.text_decrease, onTap: () => setState(() => _fontSize = (_fontSize - 1).clamp(8.0, 36.0))),
+          _toolIcon(palette, Icons.text_decrease,
+              onTap: () =>
+                  setState(() => _fontSize = (_fontSize - 1).clamp(8.0, 36.0))),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Text(
@@ -176,14 +208,17 @@ class _NotepadAppState extends ConsumerState<NotepadApp> {
               style: TextStyle(color: palette.textSecondary, fontSize: 11),
             ),
           ),
-          _toolIcon(palette, Icons.text_increase, onTap: () => setState(() => _fontSize = (_fontSize + 1).clamp(8.0, 36.0))),
+          _toolIcon(palette, Icons.text_increase,
+              onTap: () =>
+                  setState(() => _fontSize = (_fontSize + 1).clamp(8.0, 36.0))),
           const SizedBox(width: 4),
         ],
       ),
     );
   }
 
-  Widget _menuButton(ThemePalette palette, IconData icon, String label, List<Widget> children) {
+  Widget _menuButton(ThemePalette palette, IconData icon, String label,
+      List<Widget> children) {
     return MenuAnchor(
       builder: (context, controller, _) => InkWell(
         onTap: () => controller.isOpen ? controller.close() : controller.open(),
@@ -195,7 +230,9 @@ class _NotepadAppState extends ConsumerState<NotepadApp> {
             children: [
               Icon(icon, size: 14, color: palette.textSecondary),
               const SizedBox(width: 6),
-              Text(label, style: TextStyle(fontSize: 12, color: palette.windowTitleForeground)),
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 12, color: palette.windowTitleForeground)),
             ],
           ),
         ),
@@ -204,7 +241,9 @@ class _NotepadAppState extends ConsumerState<NotepadApp> {
         backgroundColor: WidgetStatePropertyAll(palette.surface),
         surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
         shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: palette.borderSubtle)),
+          RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+              side: BorderSide(color: palette.borderSubtle)),
         ),
       ),
       menuChildren: children,
@@ -238,9 +277,11 @@ class _NotepadAppState extends ConsumerState<NotepadApp> {
           Text('common.character_count_format'.tr(args: ['$_charCount']),
               style: TextStyle(color: palette.textTertiary, fontSize: 11)),
           const Spacer(),
-          Text('UTF-8', style: TextStyle(color: palette.textTertiary, fontSize: 11)),
+          Text('UTF-8',
+              style: TextStyle(color: palette.textTertiary, fontSize: 11)),
           const SizedBox(width: 16),
-          Text('LF', style: TextStyle(color: palette.textTertiary, fontSize: 11)),
+          Text('LF',
+              style: TextStyle(color: palette.textTertiary, fontSize: 11)),
           const SizedBox(width: 16),
           Text('${(_wordWrap ? 'Wrap' : 'No wrap')}',
               style: TextStyle(color: palette.textTertiary, fontSize: 11)),
@@ -257,7 +298,9 @@ class _NotepadAppState extends ConsumerState<NotepadApp> {
           title: const Text('Create new document'),
           content: const Text('Unsaved changes will be lost. Continue?'),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: Text('common.cancel'.tr())),
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('common.cancel'.tr())),
             FilledButton(
               onPressed: () {
                 Navigator.pop(context);

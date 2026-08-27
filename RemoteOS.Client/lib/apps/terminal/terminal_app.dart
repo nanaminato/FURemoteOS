@@ -32,7 +32,8 @@ class _TerminalAppState extends ConsumerState<TerminalApp> {
   void initState() {
     super.initState();
     _writeBanner();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _inputFocus.requestFocus());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _inputFocus.requestFocus());
   }
 
   @override
@@ -44,8 +45,10 @@ class _TerminalAppState extends ConsumerState<TerminalApp> {
   }
 
   void _writeBanner() {
-    _writeln('RemoteOS Terminal v1.0.0 (Flutter)', color: const Color(0xFF4CC2FF), bold: true);
-    _writeln('Type "help" for available commands.', color: const Color(0xFFA8A8A8));
+    _writeln('RemoteOS Terminal v1.0.0 (Flutter)',
+        color: const Color(0xFF4CC2FF), bold: true);
+    _writeln('Type "help" for available commands.',
+        color: const Color(0xFFA8A8A8));
     _writeln('');
   }
 
@@ -95,7 +98,8 @@ class _TerminalAppState extends ConsumerState<TerminalApp> {
         _writeln('/home/user');
         break;
       case 'ls':
-        _writeln('Documents  Downloads  Pictures  Projects  Desktop  .bashrc', color: const Color(0xFF88C0D0));
+        _writeln('Documents  Downloads  Pictures  Projects  Desktop  .bashrc',
+            color: const Color(0xFF88C0D0));
         break;
       case 'theme':
         if (args.isEmpty) {
@@ -107,18 +111,22 @@ class _TerminalAppState extends ConsumerState<TerminalApp> {
           switch (args[0]) {
             case 'light':
               notifier.setThemeKind(ThemeKind.light);
-              _writeln('Switched to light mode.', color: const Color(0xFF6CCB5F));
+              _writeln('Switched to light mode.',
+                  color: const Color(0xFF6CCB5F));
               break;
             case 'dark':
               notifier.setThemeKind(ThemeKind.dark);
-              _writeln('Switched to dark mode.', color: const Color(0xFF6CCB5F));
+              _writeln('Switched to dark mode.',
+                  color: const Color(0xFF6CCB5F));
               break;
             case 'system':
               notifier.setThemeKind(ThemeKind.system);
-              _writeln('Switched to system default.', color: const Color(0xFF6CCB5F));
+              _writeln('Switched to system default.',
+                  color: const Color(0xFF6CCB5F));
               break;
             default:
-              _writeln('Usage: theme [light|dark|system]', color: const Color(0xFFFF7262));
+              _writeln('Usage: theme [light|dark|system]',
+                  color: const Color(0xFFFF7262));
           }
         }
         break;
@@ -126,7 +134,8 @@ class _TerminalAppState extends ConsumerState<TerminalApp> {
         Navigator.of(context, rootNavigator: true).maybePop();
         break;
       default:
-        _writeln('Command not found: $cmd. Try "help".', color: const Color(0xFFFF7262));
+        _writeln('Command not found: $cmd. Try "help".',
+            color: const Color(0xFFFF7262));
     }
     _writeln('');
   }
@@ -193,7 +202,11 @@ class _TerminalAppState extends ConsumerState<TerminalApp> {
                     text: TextSpan(
                       style: const TextStyle(
                         fontFamily: 'JetBrains Mono',
-                        fontFamilyFallback: ['Consolas', 'Courier New', 'monospace'],
+                        fontFamilyFallback: [
+                          'Consolas',
+                          'Courier New',
+                          'monospace'
+                        ],
                         fontSize: 13,
                         height: 1.45,
                         color: fg,
@@ -204,10 +217,13 @@ class _TerminalAppState extends ConsumerState<TerminalApp> {
                             text: _buffer[i].text,
                             style: TextStyle(
                               color: _buffer[i].color ?? fg,
-                              fontWeight: _buffer[i].bold ? FontWeight.w700 : FontWeight.w400,
+                              fontWeight: _buffer[i].bold
+                                  ? FontWeight.w700
+                                  : FontWeight.w400,
                             ),
                           ),
-                          if (i < _buffer.length - 1) const TextSpan(text: '\n'),
+                          if (i < _buffer.length - 1)
+                            const TextSpan(text: '\n'),
                         ],
                       ],
                     ),

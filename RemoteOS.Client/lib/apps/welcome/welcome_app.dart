@@ -63,7 +63,8 @@ class WelcomeApp extends ConsumerWidget {
                       ),
                     ],
                   ),
-                  child: Icon(Icons.window_rounded, size: 30, color: palette.textOnAccent),
+                  child: Icon(Icons.window_rounded,
+                      size: 30, color: palette.textOnAccent),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -72,12 +73,19 @@ class WelcomeApp extends ConsumerWidget {
                     children: [
                       Text(
                         'shell.desktop_display.welcome_heading'.tr(),
-                        style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: palette.textPrimary, height: 1.15),
+                        style: TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w800,
+                            color: palette.textPrimary,
+                            height: 1.15),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'shell.desktop_display.welcome_description'.tr(),
-                        style: TextStyle(fontSize: 13, color: palette.textSecondary, height: 1.4),
+                        style: TextStyle(
+                            fontSize: 13,
+                            color: palette.textSecondary,
+                            height: 1.4),
                       ),
                     ],
                   ),
@@ -97,7 +105,8 @@ class WelcomeApp extends ConsumerWidget {
                 children: [
                   _stepRow(palette, 1, 'Sign in and connect to your workspace'),
                   _stepRow(palette, 2, 'Personalize your theme and language'),
-                  _stepRow(palette, 3, 'Launch apps from the Start menu or desktop'),
+                  _stepRow(
+                      palette, 3, 'Launch apps from the Start menu or desktop'),
                 ],
               ),
               footer: Row(
@@ -107,11 +116,15 @@ class WelcomeApp extends ConsumerWidget {
                       onPressed: () {
                         final settings = registry.get('settings');
                         if (settings != null) {
-                          wm.openApp(entry: settings, child: settings.windowBuilder(context), screenSize: screen);
+                          wm.openApp(
+                              entry: settings,
+                              child: settings.windowBuilder(context),
+                              screenSize: screen);
                         }
                       },
                       icon: const Icon(Icons.palette_rounded, size: 16),
-                      label: Text('shell.desktop_display.configure_ellipsis'.tr()),
+                      label:
+                          Text('shell.desktop_display.configure_ellipsis'.tr()),
                     ),
                   ),
                 ],
@@ -120,7 +133,10 @@ class WelcomeApp extends ConsumerWidget {
             const SizedBox(height: 16),
             Text(
               'Popular apps',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: palette.textSecondary),
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: palette.textSecondary),
             ),
             const SizedBox(height: 10),
             GridView.count(
@@ -138,7 +154,10 @@ class WelcomeApp extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(10),
                     onTap: () {
                       if (entry != null) {
-                        wm.openApp(entry: entry, child: entry.windowBuilder(context), screenSize: screen);
+                        wm.openApp(
+                            entry: entry,
+                            child: entry.windowBuilder(context),
+                            screenSize: screen);
                       }
                     },
                     child: Container(
@@ -164,7 +183,10 @@ class WelcomeApp extends ConsumerWidget {
                           Text(
                             entry?.nameKey.tr() ?? a.$1,
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: palette.textPrimary),
+                            style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: palette.textPrimary),
                           ),
                         ],
                       ),
@@ -196,7 +218,10 @@ class WelcomeApp extends ConsumerWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: palette.borderSubtle),
         boxShadow: [
-          BoxShadow(color: palette.shadow.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 3)),
+          BoxShadow(
+              color: palette.shadow.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 3)),
         ],
       ),
       child: Column(
@@ -218,9 +243,15 @@ class WelcomeApp extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: palette.textPrimary)),
+                    Text(title,
+                        style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: palette.textPrimary)),
                     const SizedBox(height: 2),
-                    Text(subtitle, style: TextStyle(fontSize: 12, color: palette.textSecondary)),
+                    Text(subtitle,
+                        style: TextStyle(
+                            fontSize: 12, color: palette.textSecondary)),
                   ],
                 ),
               ),
@@ -252,7 +283,10 @@ class WelcomeApp extends ConsumerWidget {
             child: Center(
               child: Text(
                 '$step',
-                style: TextStyle(color: palette.textOnAccent, fontSize: 12, fontWeight: FontWeight.w700),
+                style: TextStyle(
+                    color: palette.textOnAccent,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700),
               ),
             ),
           ),
@@ -260,7 +294,8 @@ class WelcomeApp extends ConsumerWidget {
           Expanded(
             child: Text(
               text,
-              style: TextStyle(fontSize: 13, color: palette.textPrimary, height: 1.3),
+              style: TextStyle(
+                  fontSize: 13, color: palette.textPrimary, height: 1.3),
             ),
           ),
         ],

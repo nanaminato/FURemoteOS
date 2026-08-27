@@ -44,11 +44,21 @@ class Taskbar extends ConsumerWidget {
           const SizedBox(width: 4),
           _buildSearchBox(palette),
           const SizedBox(width: 4),
-          VerticalDivider(width: 1, color: palette.borderSubtle, thickness: 1, indent: 10, endIndent: 10),
+          VerticalDivider(
+              width: 1,
+              color: palette.borderSubtle,
+              thickness: 1,
+              indent: 10,
+              endIndent: 10),
           const SizedBox(width: 4),
           Expanded(child: _buildAppIcons(palette, windows, wm)),
           const SizedBox(width: 4),
-          VerticalDivider(width: 1, color: palette.borderSubtle, thickness: 1, indent: 10, endIndent: 10),
+          VerticalDivider(
+              width: 1,
+              color: palette.borderSubtle,
+              thickness: 1,
+              indent: 10,
+              endIndent: 10),
           const SizedBox(width: 8),
           _buildTrayIcons(palette),
           const SizedBox(width: 8),
@@ -127,7 +137,8 @@ class Taskbar extends ConsumerWidget {
     );
   }
 
-  Widget _buildAppIcons(ThemePalette palette, List<RemoteWindow> windows, WindowManagerNotifier wm) {
+  Widget _buildAppIcons(ThemePalette palette, List<RemoteWindow> windows,
+      WindowManagerNotifier wm) {
     final grouped = <String, List<RemoteWindow>>{};
     for (final w in windows) {
       grouped.putIfAbsent(w.appId, () => []).add(w);
@@ -140,7 +151,8 @@ class Taskbar extends ConsumerWidget {
         final e = grouped.entries.elementAt(index);
         final list = e.value;
         final first = list.first;
-        final hasActive = list.any((w) => w.state != RemoteWindowState.minimized);
+        final hasActive =
+            list.any((w) => w.state != RemoteWindowState.minimized);
         return InkWell(
           borderRadius: BorderRadius.circular(4),
           onTap: () {
@@ -159,7 +171,9 @@ class Taskbar extends ConsumerWidget {
             height: double.infinity,
             margin: const EdgeInsets.symmetric(vertical: 4),
             decoration: BoxDecoration(
-              color: hasActive ? palette.accent.withOpacity(0.12) : Colors.transparent,
+              color: hasActive
+                  ? palette.accent.withOpacity(0.12)
+                  : Colors.transparent,
               borderRadius: BorderRadius.circular(4),
               border: Border(
                 bottom: BorderSide(
@@ -177,14 +191,18 @@ class Taskbar extends ConsumerWidget {
                     right: 4,
                     bottom: 4,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 0.5),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 3, vertical: 0.5),
                       decoration: BoxDecoration(
                         color: palette.accent,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         '${list.length}',
-                        style: TextStyle(color: palette.textOnAccent, fontSize: 8, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            color: palette.textOnAccent,
+                            fontSize: 8,
+                            fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
@@ -228,7 +246,8 @@ class Taskbar extends ConsumerWidget {
 
   Widget _buildClock(ThemePalette palette) {
     return StreamBuilder(
-      stream: Stream.periodic(const Duration(seconds: 30), (_) => DateTime.now()),
+      stream:
+          Stream.periodic(const Duration(seconds: 30), (_) => DateTime.now()),
       initialData: DateTime.now(),
       builder: (context, snapshot) {
         final now = snapshot.data!;
@@ -247,7 +266,8 @@ class Taskbar extends ConsumerWidget {
               children: [
                 Text(
                   '$hours:$minutes',
-                  style: TextStyle(color: palette.taskbarForeground, fontSize: 12),
+                  style:
+                      TextStyle(color: palette.taskbarForeground, fontSize: 12),
                 ),
                 Text(
                   date,
@@ -281,12 +301,18 @@ class Taskbar extends ConsumerWidget {
               children: [
                 Text(
                   'shell.connection.info'.tr(),
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: palette.textPrimary),
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: palette.textPrimary),
                 ),
                 const SizedBox(height: 8),
-                _connectionRow(palette, 'shell.connection.server'.tr(), auth.serverUrl ?? 'shell.connection.not_connected'.tr()),
-                _connectionRow(palette, 'shell.connection.user'.tr(), auth.username ?? 'shell.connection.unknown_user'.tr()),
-                _connectionRow(palette, 'shell.connection.workspace'.tr(), 'shell.connection.default_workspace'.tr()),
+                _connectionRow(palette, 'shell.connection.server'.tr(),
+                    auth.serverUrl ?? 'shell.connection.not_connected'.tr()),
+                _connectionRow(palette, 'shell.connection.user'.tr(),
+                    auth.username ?? 'shell.connection.unknown_user'.tr()),
+                _connectionRow(palette, 'shell.connection.workspace'.tr(),
+                    'shell.connection.default_workspace'.tr()),
               ],
             ),
           ),
@@ -322,11 +348,19 @@ class Taskbar extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  auth.username?.truncate(16) ?? 'shell.connection.not_connected'.tr(),
-                  style: TextStyle(color: palette.taskbarForeground, fontSize: 11, fontWeight: FontWeight.w500),
+                  auth.username?.truncate(16) ??
+                      'shell.connection.not_connected'.tr(),
+                  style: TextStyle(
+                      color: palette.taskbarForeground,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500),
                 ),
                 Text(
-                  auth.serverUrl?.replaceFirst('http://', '').replaceFirst('https://', '').truncate(16) ?? '',
+                  auth.serverUrl
+                          ?.replaceFirst('http://', '')
+                          .replaceFirst('https://', '')
+                          .truncate(16) ??
+                      '',
                   style: TextStyle(color: palette.textTertiary, fontSize: 9),
                 ),
               ],
@@ -353,7 +387,10 @@ class Taskbar extends ConsumerWidget {
           Expanded(
             child: Text(
               value,
-              style: TextStyle(color: palette.textPrimary, fontSize: 12, fontWeight: FontWeight.w500),
+              style: TextStyle(
+                  color: palette.textPrimary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500),
             ),
           ),
         ],
@@ -363,5 +400,6 @@ class Taskbar extends ConsumerWidget {
 }
 
 extension _StringTruncate on String {
-  String truncate(int len) => length <= len ? this : '${substring(0, len - 1)}…';
+  String truncate(int len) =>
+      length <= len ? this : '${substring(0, len - 1)}…';
 }

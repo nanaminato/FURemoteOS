@@ -11,6 +11,12 @@ cd RemoteOS.Client
 flutter pub get
 ```
 
+### 更新flutter软件包版本
+```bash
+flutter pub upgrade
+
+```
+
 ### Windows
 
 安装 [Flutter 的 Windows 桌面开发依赖](https://docs.flutter.dev/platform-integration/windows/building)，包括 Visual Studio 的 **Desktop development with C++** 工作负载。确认 `flutter doctor` 中的 Windows 工具链状态正常后，运行：

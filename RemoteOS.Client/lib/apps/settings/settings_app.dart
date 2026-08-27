@@ -20,7 +20,8 @@ class SettingsApp extends ConsumerStatefulWidget {
   ConsumerState<SettingsApp> createState() => _SettingsAppState();
 }
 
-class _SettingsAppState extends ConsumerState<SettingsApp> with SingleTickerProviderStateMixin {
+class _SettingsAppState extends ConsumerState<SettingsApp>
+    with SingleTickerProviderStateMixin {
   static const _pageIds = [
     'system',
     'time_language',
@@ -76,12 +77,36 @@ class _SettingsAppState extends ConsumerState<SettingsApp> with SingleTickerProv
 
   Widget _buildSidebar(ThemePalette palette) {
     final items = <({String id, IconData icon, String labelKey})>[
-      (id: 'system', icon: Icons.info_outline_rounded, labelKey: 'settings.page.system'),
-      (id: 'time_language', icon: Icons.language_outlined, labelKey: 'settings.page.time_language'),
-      (id: 'personalization', icon: Icons.palette_outlined, labelKey: 'settings.theme'),
-      (id: 'applications', icon: Icons.apps_outlined, labelKey: 'settings.page.applications'),
-      (id: 'network', icon: Icons.network_check_outlined, labelKey: 'settings.page.network'),
-      (id: 'developer', icon: Icons.bug_report_outlined, labelKey: 'settings.page.developer'),
+      (
+        id: 'system',
+        icon: Icons.info_outline_rounded,
+        labelKey: 'settings.page.system'
+      ),
+      (
+        id: 'time_language',
+        icon: Icons.language_outlined,
+        labelKey: 'settings.page.time_language'
+      ),
+      (
+        id: 'personalization',
+        icon: Icons.palette_outlined,
+        labelKey: 'settings.theme'
+      ),
+      (
+        id: 'applications',
+        icon: Icons.apps_outlined,
+        labelKey: 'settings.page.applications'
+      ),
+      (
+        id: 'network',
+        icon: Icons.network_check_outlined,
+        labelKey: 'settings.page.network'
+      ),
+      (
+        id: 'developer',
+        icon: Icons.bug_report_outlined,
+        labelKey: 'settings.page.developer'
+      ),
     ];
 
     return Container(
@@ -95,7 +120,10 @@ class _SettingsAppState extends ConsumerState<SettingsApp> with SingleTickerProv
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
               'settings.title'.tr(),
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: palette.textPrimary),
+              style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: palette.textPrimary),
             ),
           ),
           const SizedBox(height: 16),
@@ -122,12 +150,16 @@ class _SettingsAppState extends ConsumerState<SettingsApp> with SingleTickerProv
               ),
               child: Row(
                 children: [
-                  Icon(Icons.tips_and_updates_outlined, size: 18, color: palette.accent),
+                  Icon(Icons.tips_and_updates_outlined,
+                      size: 18, color: palette.accent),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'All preferences sync to your workspace.',
-                      style: TextStyle(fontSize: 11, color: palette.textPrimary, height: 1.3),
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: palette.textPrimary,
+                          height: 1.3),
                     ),
                   ),
                 ],
@@ -159,7 +191,9 @@ class _SettingsAppState extends ConsumerState<SettingsApp> with SingleTickerProv
               color: selected ? palette.accentMuted : Colors.transparent,
               borderRadius: BorderRadius.circular(6),
               border: Border.all(
-                color: selected ? palette.accent.withOpacity(0.2) : Colors.transparent,
+                color: selected
+                    ? palette.accent.withOpacity(0.2)
+                    : Colors.transparent,
               ),
             ),
             child: Row(
@@ -218,7 +252,8 @@ class _SettingsAppState extends ConsumerState<SettingsApp> with SingleTickerProv
         const SizedBox(height: 20),
         _card(p, [
           _infoRow(p, 'settings.version'.tr(), 'v1.0.0 (Flutter port)'),
-          _infoRow(p, 'settings.connection_status'.tr(), auth.isAuthenticated ? 'Connected' : 'Disconnected',
+          _infoRow(p, 'settings.connection_status'.tr(),
+              auth.isAuthenticated ? 'Connected' : 'Disconnected',
               valueColor: auth.isAuthenticated ? p.success : p.textTertiary),
           _infoRow(p, 'settings.server'.tr(), auth.serverUrl ?? '—'),
           _infoRow(p, 'settings.username'.tr(), auth.username ?? '—'),
@@ -233,7 +268,8 @@ class _SettingsAppState extends ConsumerState<SettingsApp> with SingleTickerProv
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionHeader(p, Icons.translate_rounded, 'settings.page.time_language'.tr(),
+        _sectionHeader(
+            p, Icons.translate_rounded, 'settings.page.time_language'.tr(),
             subtitle: 'settings.language_region.description'.tr()),
         const SizedBox(height: 20),
         _sectionTitle(p, 'settings.display_language'.tr()),
@@ -258,7 +294,9 @@ class _SettingsAppState extends ConsumerState<SettingsApp> with SingleTickerProv
     final selected = current.toLanguageTag() == locale.toLanguageTag();
     final key = 'language.${locale.toLanguageTag().replaceAll('-', '_')}';
     return ChoiceChip(
-      label: Text(key.tr(), style: TextStyle(fontSize: 13, color: selected ? p.textOnAccent : p.textPrimary)),
+      label: Text(key.tr(),
+          style: TextStyle(
+              fontSize: 13, color: selected ? p.textOnAccent : p.textPrimary)),
       selected: selected,
       selectedColor: p.accent,
       backgroundColor: p.surfaceRaised,
@@ -290,15 +328,33 @@ class _SettingsAppState extends ConsumerState<SettingsApp> with SingleTickerProv
           Row(
             children: [
               Expanded(
-                child: _themeModeTile(p, ThemeKind.light, Icons.light_mode_outlined, 'settings.theme_mode.light'.tr(), themeState.kind, themeNotifier),
+                child: _themeModeTile(
+                    p,
+                    ThemeKind.light,
+                    Icons.light_mode_outlined,
+                    'settings.theme_mode.light'.tr(),
+                    themeState.kind,
+                    themeNotifier),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _themeModeTile(p, ThemeKind.dark, Icons.dark_mode_outlined, 'settings.theme_mode.dark'.tr(), themeState.kind, themeNotifier),
+                child: _themeModeTile(
+                    p,
+                    ThemeKind.dark,
+                    Icons.dark_mode_outlined,
+                    'settings.theme_mode.dark'.tr(),
+                    themeState.kind,
+                    themeNotifier),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _themeModeTile(p, ThemeKind.system, Icons.brightness_auto_outlined, 'settings.theme_mode.system'.tr(), themeState.kind, themeNotifier),
+                child: _themeModeTile(
+                    p,
+                    ThemeKind.system,
+                    Icons.brightness_auto_outlined,
+                    'settings.theme_mode.system'.tr(),
+                    themeState.kind,
+                    themeNotifier),
               ),
             ],
           ),
@@ -312,9 +368,20 @@ class _SettingsAppState extends ConsumerState<SettingsApp> with SingleTickerProv
             spacing: 10,
             runSpacing: 10,
             children: [
-              _paletteTile(p, PaletteIds.remoteosBlue, 'settings.palette.remoteos_blue'.tr(), prefs.paletteId, themeNotifier),
-              _paletteTile(p, PaletteIds.nord, 'settings.palette.nord'.tr(), prefs.paletteId, themeNotifier),
-              _paletteTile(p, PaletteIds.catppuccin, 'settings.palette.catppuccin'.tr(), prefs.paletteId, themeNotifier),
+              _paletteTile(
+                  p,
+                  PaletteIds.remoteosBlue,
+                  'settings.palette.remoteos_blue'.tr(),
+                  prefs.paletteId,
+                  themeNotifier),
+              _paletteTile(p, PaletteIds.nord, 'settings.palette.nord'.tr(),
+                  prefs.paletteId, themeNotifier),
+              _paletteTile(
+                  p,
+                  PaletteIds.catppuccin,
+                  'settings.palette.catppuccin'.tr(),
+                  prefs.paletteId,
+                  themeNotifier),
             ],
           ),
         ]),
@@ -336,8 +403,10 @@ class _SettingsAppState extends ConsumerState<SettingsApp> with SingleTickerProv
               const SizedBox(width: 8),
               TextButton.icon(
                 onPressed: () => themeNotifier.setAccentOverride(null),
-                icon: Icon(Icons.refresh_rounded, size: 16, color: p.textSecondary),
-                label: Text('Reset', style: TextStyle(fontSize: 12, color: p.textSecondary)),
+                icon: Icon(Icons.refresh_rounded,
+                    size: 16, color: p.textSecondary),
+                label: Text('Reset',
+                    style: TextStyle(fontSize: 12, color: p.textSecondary)),
               ),
             ],
           ),
@@ -371,7 +440,8 @@ class _SettingsAppState extends ConsumerState<SettingsApp> with SingleTickerProv
           ),
           child: Row(
             children: [
-              Icon(icon, size: 18, color: isSelected ? p.accent : p.textSecondary),
+              Icon(icon,
+                  size: 18, color: isSelected ? p.accent : p.textSecondary),
               const SizedBox(width: 10),
               Text(
                 label,
@@ -421,7 +491,9 @@ class _SettingsAppState extends ConsumerState<SettingsApp> with SingleTickerProv
               Container(
                 height: 44,
                 decoration: BoxDecoration(
-                  color: Color(int.parse(('FF' + sample['ShellBackground']!.replaceFirst('#', '')), radix: 16)),
+                  color: Color(int.parse(
+                      ('FF' + sample['ShellBackground']!.replaceFirst('#', '')),
+                      radix: 16)),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Row(
@@ -431,10 +503,16 @@ class _SettingsAppState extends ConsumerState<SettingsApp> with SingleTickerProv
                       width: 24,
                       height: 24,
                       decoration: BoxDecoration(
-                        color: Color(int.parse(('FF' + sample['Surface']!.replaceFirst('#', '')), radix: 16)),
+                        color: Color(int.parse(
+                            ('FF' + sample['Surface']!.replaceFirst('#', '')),
+                            radix: 16)),
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(
-                          color: Color(int.parse(('FF' + sample['BorderDefault']!.replaceFirst('#', '')), radix: 16)),
+                          color: Color(int.parse(
+                              ('FF' +
+                                  sample['BorderDefault']!
+                                      .replaceFirst('#', '')),
+                              radix: 16)),
                         ),
                       ),
                     ),
@@ -443,7 +521,9 @@ class _SettingsAppState extends ConsumerState<SettingsApp> with SingleTickerProv
                       width: 52,
                       height: 8,
                       decoration: BoxDecoration(
-                        color: Color(int.parse(('FF' + sample['Accent']!.replaceFirst('#', '')), radix: 16)),
+                        color: Color(int.parse(
+                            ('FF' + sample['Accent']!.replaceFirst('#', '')),
+                            radix: 16)),
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -452,7 +532,9 @@ class _SettingsAppState extends ConsumerState<SettingsApp> with SingleTickerProv
                       width: 12,
                       height: 12,
                       decoration: BoxDecoration(
-                        color: Color(int.parse(('FF' + sample['Accent']!.replaceFirst('#', '')), radix: 16)),
+                        color: Color(int.parse(
+                            ('FF' + sample['Accent']!.replaceFirst('#', '')),
+                            radix: 16)),
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -469,7 +551,8 @@ class _SettingsAppState extends ConsumerState<SettingsApp> with SingleTickerProv
                       style: TextStyle(
                         fontSize: 12,
                         color: p.textPrimary,
-                        fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                        fontWeight:
+                            selected ? FontWeight.w600 : FontWeight.w500,
                       ),
                     ),
                   ),
@@ -484,9 +567,12 @@ class _SettingsAppState extends ConsumerState<SettingsApp> with SingleTickerProv
     );
   }
 
-  Widget _accentOption(ThemePalette p, String hex, String? current, ThemeNotifier notifier) {
-    final selected = current != null && current.toUpperCase() == hex.toUpperCase();
-    final color = Color(int.parse(('FF' + hex.replaceFirst('#', '')), radix: 16));
+  Widget _accentOption(
+      ThemePalette p, String hex, String? current, ThemeNotifier notifier) {
+    final selected =
+        current != null && current.toUpperCase() == hex.toUpperCase();
+    final color =
+        Color(int.parse(('FF' + hex.replaceFirst('#', '')), radix: 16));
     return Tooltip(
       message: hex,
       child: GestureDetector(
@@ -510,7 +596,11 @@ class _SettingsAppState extends ConsumerState<SettingsApp> with SingleTickerProv
             ],
           ),
           child: selected
-              ? Icon(Icons.check_rounded, color: ThemePaletteDefaults.bestForeground(hex) == '#FFFFFF' ? Colors.white : Colors.black, size: 20)
+              ? Icon(Icons.check_rounded,
+                  color: ThemePaletteDefaults.bestForeground(hex) == '#FFFFFF'
+                      ? Colors.white
+                      : Colors.black,
+                  size: 20)
               : null,
         ),
       ),
@@ -526,7 +616,15 @@ class _SettingsAppState extends ConsumerState<SettingsApp> with SingleTickerProv
             subtitle: 'Manage installed applications and permissions.'),
         const SizedBox(height: 20),
         _card(p, [
-          for (final id in ['welcome', 'notepad', 'code_editor', 'terminal', 'explorer', 'browser', 'settings'])
+          for (final id in [
+            'welcome',
+            'notepad',
+            'code_editor',
+            'terminal',
+            'explorer',
+            'browser',
+            'settings'
+          ])
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 10),
               child: Row(
@@ -545,9 +643,15 @@ class _SettingsAppState extends ConsumerState<SettingsApp> with SingleTickerProv
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('app.$id'.tr(), style: TextStyle(color: p.textPrimary, fontSize: 14, fontWeight: FontWeight.w600)),
+                        Text('app.$id'.tr(),
+                            style: TextStyle(
+                                color: p.textPrimary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600)),
                         const SizedBox(height: 2),
-                        Text('Built-in RemoteOS application', style: TextStyle(color: p.textSecondary, fontSize: 12)),
+                        Text('Built-in RemoteOS application',
+                            style: TextStyle(
+                                color: p.textSecondary, fontSize: 12)),
                       ],
                     ),
                   ),
@@ -556,7 +660,8 @@ class _SettingsAppState extends ConsumerState<SettingsApp> with SingleTickerProv
                     style: OutlinedButton.styleFrom(
                       foregroundColor: p.textSecondary,
                       minimumSize: const Size(72, 30),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
                     ),
                     child: const Text('Manage'),
                   ),
@@ -584,7 +689,8 @@ class _SettingsAppState extends ConsumerState<SettingsApp> with SingleTickerProv
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionHeader(p, Icons.network_check_rounded, 'settings.page.network'.tr(),
+        _sectionHeader(
+            p, Icons.network_check_rounded, 'settings.page.network'.tr(),
             subtitle: 'Connection quality, mirrors, and diagnostics.'),
         const SizedBox(height: 20),
         _card(p, [
@@ -612,7 +718,8 @@ class _SettingsAppState extends ConsumerState<SettingsApp> with SingleTickerProv
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionHeader(p, Icons.developer_mode_rounded, 'settings.page.developer'.tr(),
+        _sectionHeader(
+            p, Icons.developer_mode_rounded, 'settings.page.developer'.tr(),
             subtitle: 'settings.developer_mode.description'.tr()),
         const SizedBox(height: 20),
         _card(p, [
@@ -622,9 +729,15 @@ class _SettingsAppState extends ConsumerState<SettingsApp> with SingleTickerProv
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('settings.developer_mode'.tr(), style: TextStyle(color: p.textPrimary, fontSize: 14, fontWeight: FontWeight.w600)),
+                    Text('settings.developer_mode'.tr(),
+                        style: TextStyle(
+                            color: p.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600)),
                     const SizedBox(height: 4),
-                    Text('Install sideloaded packages and debug via local bridge.', style: TextStyle(color: p.textSecondary, fontSize: 12)),
+                    Text(
+                        'Install sideloaded packages and debug via local bridge.',
+                        style: TextStyle(color: p.textSecondary, fontSize: 12)),
                   ],
                 ),
               ),
@@ -637,7 +750,8 @@ class _SettingsAppState extends ConsumerState<SettingsApp> with SingleTickerProv
   }
 
   // ======= Shared UI helpers =======
-  Widget _sectionHeader(ThemePalette p, IconData icon, String title, {String? subtitle}) {
+  Widget _sectionHeader(ThemePalette p, IconData icon, String title,
+      {String? subtitle}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -655,10 +769,16 @@ class _SettingsAppState extends ConsumerState<SettingsApp> with SingleTickerProv
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: p.textPrimary)),
+              Text(title,
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: p.textPrimary)),
               if (subtitle != null) ...[
                 const SizedBox(height: 4),
-                Text(subtitle, style: TextStyle(fontSize: 13, color: p.textSecondary, height: 1.35)),
+                Text(subtitle,
+                    style: TextStyle(
+                        fontSize: 13, color: p.textSecondary, height: 1.35)),
               ],
             ],
           ),
@@ -672,7 +792,8 @@ class _SettingsAppState extends ConsumerState<SettingsApp> with SingleTickerProv
       padding: const EdgeInsets.symmetric(horizontal: 2),
       child: Text(
         title,
-        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: p.textSecondary),
+        style: TextStyle(
+            fontSize: 12, fontWeight: FontWeight.w700, color: p.textSecondary),
       ),
     );
   }
@@ -702,17 +823,22 @@ class _SettingsAppState extends ConsumerState<SettingsApp> with SingleTickerProv
     );
   }
 
-  Widget _infoRow(ThemePalette p, String label, String value, {Color? valueColor}) {
+  Widget _infoRow(ThemePalette p, String label, String value,
+      {Color? valueColor}) {
     return Row(
       children: [
         SizedBox(
           width: 180,
-          child: Text(label, style: TextStyle(color: p.textSecondary, fontSize: 13)),
+          child: Text(label,
+              style: TextStyle(color: p.textSecondary, fontSize: 13)),
         ),
         Expanded(
           child: Text(
             value,
-            style: TextStyle(color: valueColor ?? p.textPrimary, fontSize: 13, fontWeight: FontWeight.w500),
+            style: TextStyle(
+                color: valueColor ?? p.textPrimary,
+                fontSize: 13,
+                fontWeight: FontWeight.w500),
           ),
         ),
       ],

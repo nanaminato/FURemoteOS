@@ -122,38 +122,75 @@ class ThemePaletteDefaults {
   };
 
   static final Map<String, String> nordLight = {
-    'AppBackground': '#ECEFF4', 'ShellBackground': '#E5E9F0',
-    'Surface': '#FFFFFF', 'SurfaceRaised': '#F8FAFC', 'SurfaceSunken': '#E5E9F0',
-    'TextPrimary': '#2E3440', 'TextSecondary': '#4C566A', 'TextTertiary': '#5E6A7D',
-    'BorderDefault': '#D8DEE9', 'Accent': '#5E81AC', 'Info': '#88C0D0',
-    'Success': '#A3BE8C', 'Warning': '#EBCB8B', 'Danger': '#BF616A',
+    'AppBackground': '#ECEFF4',
+    'ShellBackground': '#E5E9F0',
+    'Surface': '#FFFFFF',
+    'SurfaceRaised': '#F8FAFC',
+    'SurfaceSunken': '#E5E9F0',
+    'TextPrimary': '#2E3440',
+    'TextSecondary': '#4C566A',
+    'TextTertiary': '#5E6A7D',
+    'BorderDefault': '#D8DEE9',
+    'Accent': '#5E81AC',
+    'Info': '#88C0D0',
+    'Success': '#A3BE8C',
+    'Warning': '#EBCB8B',
+    'Danger': '#BF616A',
   };
 
   static final Map<String, String> nordDark = {
-    'AppBackground': '#2E3440', 'ShellBackground': '#2E3440',
-    'Surface': '#3B4252', 'SurfaceRaised': '#434C5E', 'SurfaceSunken': '#2E3440',
-    'TextPrimary': '#ECEFF4', 'TextSecondary': '#D8DEE9', 'TextTertiary': '#B8C2D2',
-    'BorderDefault': '#4C566A', 'Accent': '#5E81AC', 'Info': '#88C0D0',
-    'Success': '#A3BE8C', 'Warning': '#EBCB8B', 'Danger': '#BF616A',
+    'AppBackground': '#2E3440',
+    'ShellBackground': '#2E3440',
+    'Surface': '#3B4252',
+    'SurfaceRaised': '#434C5E',
+    'SurfaceSunken': '#2E3440',
+    'TextPrimary': '#ECEFF4',
+    'TextSecondary': '#D8DEE9',
+    'TextTertiary': '#B8C2D2',
+    'BorderDefault': '#4C566A',
+    'Accent': '#5E81AC',
+    'Info': '#88C0D0',
+    'Success': '#A3BE8C',
+    'Warning': '#EBCB8B',
+    'Danger': '#BF616A',
   };
 
   static final Map<String, String> catppuccinLight = {
-    'AppBackground': '#EFF1F5', 'ShellBackground': '#E6E9EF',
-    'Surface': '#FFFFFF', 'SurfaceRaised': '#F7F8FB', 'SurfaceSunken': '#E6E9EF',
-    'TextPrimary': '#4C4F69', 'TextSecondary': '#6C6F85', 'TextTertiary': '#7C7F93',
-    'BorderDefault': '#CCD0DA', 'Accent': '#1E66F5', 'Info': '#04A5E5',
-    'Success': '#40A02B', 'Warning': '#DF8E1D', 'Danger': '#D20F39',
+    'AppBackground': '#EFF1F5',
+    'ShellBackground': '#E6E9EF',
+    'Surface': '#FFFFFF',
+    'SurfaceRaised': '#F7F8FB',
+    'SurfaceSunken': '#E6E9EF',
+    'TextPrimary': '#4C4F69',
+    'TextSecondary': '#6C6F85',
+    'TextTertiary': '#7C7F93',
+    'BorderDefault': '#CCD0DA',
+    'Accent': '#1E66F5',
+    'Info': '#04A5E5',
+    'Success': '#40A02B',
+    'Warning': '#DF8E1D',
+    'Danger': '#D20F39',
   };
 
   static final Map<String, String> catppuccinDark = {
-    'AppBackground': '#1E1E2E', 'ShellBackground': '#1E1E2E',
-    'Surface': '#313244', 'SurfaceRaised': '#45475A', 'SurfaceSunken': '#181825',
-    'TextPrimary': '#CDD6F4', 'TextSecondary': '#BAC2DE', 'TextTertiary': '#A6ADC8',
-    'BorderDefault': '#585B70', 'Accent': '#89B4FA', 'Info': '#89DCEB',
-    'Success': '#A6E3A1', 'Warning': '#F9E2AF', 'Danger': '#F38BA8',
+    'AppBackground': '#1E1E2E',
+    'ShellBackground': '#1E1E2E',
+    'Surface': '#313244',
+    'SurfaceRaised': '#45475A',
+    'SurfaceSunken': '#181825',
+    'TextPrimary': '#CDD6F4',
+    'TextSecondary': '#BAC2DE',
+    'TextTertiary': '#A6ADC8',
+    'BorderDefault': '#585B70',
+    'Accent': '#89B4FA',
+    'Info': '#89DCEB',
+    'Success': '#A6E3A1',
+    'Warning': '#F9E2AF',
+    'Danger': '#F38BA8',
   };
 
-  static Map<String, String> resolve(ThemePreferencesDto? preferences, bool dark) {
+  static Map<String, String> resolve(
+      ThemePreferencesDto? preferences, bool dark) {
     final result = Map<String, String>.from(dark ? darkBase : lightBase);
     final source = preferences ?? ThemePreferencesDto.defaults;
     Map<String, String>? palette;
@@ -187,7 +224,8 @@ class ThemePaletteDefaults {
     return result;
   }
 
-  static Map<String, String>? _resolveCustom(ThemePreferencesDto preferences, bool dark) {
+  static Map<String, String>? _resolveCustom(
+      ThemePreferencesDto preferences, bool dark) {
     final id = preferences.paletteId.substring('custom:'.length);
     try {
       final palette = preferences.customPalettes.firstWhere((p) => p.id == id);
@@ -202,7 +240,8 @@ class ThemePaletteDefaults {
 
   static void _overlay(Map<String, String> target, Map<String, String> source) {
     for (final entry in source.entries) {
-      if (ThemePaletteContract.colorTokens.contains(entry.key) && isColor(entry.value)) {
+      if (ThemePaletteContract.colorTokens.contains(entry.key) &&
+          isColor(entry.value)) {
         target[entry.key] = normalize(entry.value);
       }
     }
@@ -214,8 +253,10 @@ class ThemePaletteDefaults {
     target['AccentHover'] = adjust(accent, 0.12);
     target['AccentPressed'] = adjust(accent, -0.16);
     target['AccentMuted'] = blend(accent, target['SurfaceRaised']!, 0.15);
-    target['SelectionBackground'] = blend(accent, target['SurfaceRaised']!, 0.20);
-    target['SelectionForeground'] = bestForeground(target['SelectionBackground']!);
+    target['SelectionBackground'] =
+        blend(accent, target['SurfaceRaised']!, 0.20);
+    target['SelectionForeground'] =
+        bestForeground(target['SelectionBackground']!);
     final focus = ensureContrast(accent, target['Surface']!, 3.0);
     target['FocusBorder'] = focus;
     target['FocusRing'] = focus;
@@ -228,8 +269,11 @@ class ThemePaletteDefaults {
           ? '#000000'
           : '#FFFFFF';
 
-  static String ensureContrast(String foreground, String background, double minimum) =>
-      contrast(foreground, background) >= minimum ? foreground : bestForeground(background);
+  static String ensureContrast(
+          String foreground, String background, double minimum) =>
+      contrast(foreground, background) >= minimum
+          ? foreground
+          : bestForeground(background);
 
   static String blend(String foreground, String background, double alpha) {
     final fg = parse(foreground);
@@ -238,16 +282,19 @@ class ThemePaletteDefaults {
     final g = (fg.g * alpha + bg.g * (1 - alpha)).round().clamp(0, 255);
     final b = (fg.b * alpha + bg.b * (1 - alpha)).round().clamp(0, 255);
     return '#${r.toRadixString(16).padLeft(2, '0')}'
-        '${g.toRadixString(16).padLeft(2, '0')}'
-        '${b.toRadixString(16).padLeft(2, '0')}'.toUpperCase();
+            '${g.toRadixString(16).padLeft(2, '0')}'
+            '${b.toRadixString(16).padLeft(2, '0')}'
+        .toUpperCase();
   }
 
   static String adjust(String color, double amount) {
     final c = parse(color);
-    int shift(int v) => (v + (amount < 0 ? v : 255 - v) * amount).round().clamp(0, 255);
+    int shift(int v) =>
+        (v + (amount < 0 ? v : 255 - v) * amount).round().clamp(0, 255);
     return '#${shift(c.r).toRadixString(16).padLeft(2, '0')}'
-        '${shift(c.g).toRadixString(16).padLeft(2, '0')}'
-        '${shift(c.b).toRadixString(16).padLeft(2, '0')}'.toUpperCase();
+            '${shift(c.g).toRadixString(16).padLeft(2, '0')}'
+            '${shift(c.b).toRadixString(16).padLeft(2, '0')}'
+        .toUpperCase();
   }
 
   static ({int r, int g, int b}) parse(String color) {
@@ -264,11 +311,15 @@ class ThemePaletteDefaults {
     double luminance(String color) {
       double channel(int value) {
         final c = value / 255.0;
-        return c <= 0.04045 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4).toDouble();
+        return c <= 0.04045
+            ? c / 12.92
+            : pow((c + 0.055) / 1.055, 2.4).toDouble();
       }
 
       final rgb = parse(color);
-      return 0.2126 * channel(rgb.r) + 0.7152 * channel(rgb.g) + 0.0722 * channel(rgb.b);
+      return 0.2126 * channel(rgb.r) +
+          0.7152 * channel(rgb.g) +
+          0.0722 * channel(rgb.b);
     }
 
     final a = luminance(first);
@@ -283,8 +334,10 @@ class ThemePaletteDefaults {
   static bool isColor(String value) {
     if (value.length != 7 && value.length != 9) return false;
     if (value[0] != '#') return false;
-    return value.substring(1).split('').every((c) =>
-        '0123456789ABCDEFabcdef'.contains(c));
+    return value
+        .substring(1)
+        .split('')
+        .every((c) => '0123456789ABCDEFabcdef'.contains(c));
   }
 
   static String normalize(String value) => value.toUpperCase();
