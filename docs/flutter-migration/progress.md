@@ -33,9 +33,9 @@
 - 已完成（本轮）：Image 文件可经“Open / Open with → Image Viewer”打开内置图片查看器，文本扩展名可经“Open / Open with → Code Editor”打开内置代码编辑器；两个应用都从 `/files/content` 读取远程字节。Workspace preferences 现完整映射 Protocol 的 `defaultApps`；Open With 的“Always use this application”会以原 Avalonia app ID（`remoteos.imageviewer` / `remoteos.codeeditor`）写回既有的 workspace preferences 同步层，普通 Open 先遵循映射。无 MIME 且无已知扩展名时读取远程字节，拒绝 NUL 或无效 UTF-8 后才回退 Code Editor。未知/不支持类型明确提示没有兼容应用。这遵循 Avalonia 的内置应用激活方向，而非调用客户端宿主默认程序。
 - 已完成（本轮）：Explorer 现有独立历史栈；Back、Forward、Up 均已绑定，前进后再导航会丢弃前进分支，且向上导航同时处理 POSIX `/` 与 Windows `\` 路径。
 - 已完成（本轮）：目录上传使用 `file_selector` 的原生目录选择器，在所选目录根创建同名远程目录及所有子目录后，逐文件上传到相对目标目录；符号链接不会被递归跟随。这对应 Avalonia 的 `BuildUploadPlan`/`UploadSourcesAsync` 的目录树语义，仍由服务端写权限约束。
-- 尚未完成：Avalonia 的主机剪贴板文件粘贴，以及远程条目拖放移动。Flutter 标准 `Clipboard` API 不公开系统文件列表，因此不能把文本剪贴板误作文件上传；恢复时需使用已经过平台审计的文件剪贴板桥接。随后实施受同一服务端权限约束的远程拖放移动。
-- 自动验证（本轮）：在 `RemoteOS.Client` 运行 `flutter test` 通过（29 tests）；加入 `file_selector` 后运行 `flutter build linux --debug` 成功生成 `build/linux/x64/debug/bundle/remoteos_client`。`flutter analyze lib/apps/explorer/explorer_app.dart lib/features/files/data/remote_file_api.dart` 仍因宿主传给 Flutter analysis server 的 LSP 输入截断而报 `FormatException: Unexpected end of input`；与此前记录一致，待 CI/普通终端复验。
-- 后续从这里继续：实现上述主机剪贴板文件上传和远程拖放移动，并补充 Explorer REST 契约/组件的直接测试后，才可将 `FLUTTER-010` 标为完成；在此之前不得开始 `FLUTTER-011`。不要基于 Protocol 中未被 Avalonia 使用的端点新增功能。
+- 已完成（本轮）：远程条目可通过长按拖放到另一文件夹来移动；目标高亮仅在目标为文件夹且不会将目录移入自身/后代时出现，提交时调用既有 `move` API。主机文件剪贴板使用 `pasteboard 0.5.0`（Linux/Windows 原生文件列表）读取路径后上传文件或目录；目录选择与剪贴板目录共用同一递归上传计划，均创建同名根目录、跳过符号链接并保留相对树。空剪贴板或文本剪贴板不会被错误地当作文件。
+- 自动验证（本轮）：新增 `test/features/files/remote_file_api_test.dart`，覆盖 `DirectoryDto.directories/files`、properties、rename 的 `sourcePath`、copy/move 的 `destinationPath` 与 MIME 映射；同 `test/features/workspace/remote_workspace_api_test.dart` 一起通过。运行 `flutter build linux --debug` 成功生成 `build/linux/x64/debug/bundle/remoteos_client`。`flutter analyze lib/apps/explorer/explorer_app.dart lib/features/files/data/remote_file_api.dart` 仍因宿主传给 Flutter analysis server 的 LSP 输入截断而报 `FormatException: Unexpected end of input`；与此前记录一致，待 CI/普通终端复验。
+- 尚未完成：Avalonia Explorer 的“在当前目录打开内置终端”。Flutter Terminal 目前没有接收远程工作目录的 activation 参数，不能仅打开一个无关目录的终端来冒充等价行为。恢复时先在 `terminal_app.dart` 实现该 activation，再从 Explorer 提供仅目录/当前目录可用的命令；随后可完成 `FLUTTER-010`，在此之前不得开始 `FLUTTER-011`。不要基于 Protocol 中未被 Avalonia 使用的端点新增功能。
 
 ## FLUTTER-008 验收记录
 

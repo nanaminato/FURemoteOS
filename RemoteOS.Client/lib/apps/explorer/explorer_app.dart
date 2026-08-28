@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_selector/file_selector.dart';
+import 'package:pasteboard/pasteboard.dart';
 
 import '../../core/theme/theme_service.dart';
 import '../../core/network/remoteos_api.dart';
@@ -202,20 +203,24 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
 
   bool _canMoveEntry(_FileEntry source, _FileEntry target) {
     if (target.type != 'Folder' || source.path == target.path) return false;
-    final sourcePath = source.path.replaceAll('\\', '/').replaceFirst(RegExp(r'/+$'), '');
-    final targetPath = target.path.replaceAll('\\', '/').replaceFirst(RegExp(r'/+$'), '');
+    final sourcePath =
+        source.path.replaceAll('\\', '/').replaceFirst(RegExp(r'/+$'), '');
+    final targetPath =
+        target.path.replaceAll('\\', '/').replaceFirst(RegExp(r'/+$'), '');
     return source.type != 'Folder' ||
         !(targetPath == sourcePath || targetPath.startsWith('$sourcePath/'));
   }
 
   Future<void> _moveEntry(_FileEntry source, _FileEntry target) =>
-      _runOperation(() => _api.move(source.path, _joinPath(target.path, source.name)));
+      _runOperation(
+          () => _api.move(source.path, _joinPath(target.path, source.name)));
 
   Widget _draggableEntry(ThemePalette palette, _FileEntry entry, Widget child) {
     final target = entry.type != 'Folder'
         ? child
         : DragTarget<_FileEntry>(
-            onWillAcceptWithDetails: (details) => _canMoveEntry(details.data, entry),
+            onWillAcceptWithDetails: (details) =>
+                _canMoveEntry(details.data, entry),
             onAcceptWithDetails: (details) => _moveEntry(details.data, entry),
             builder: (context, candidates, _) => DecoratedBox(
               decoration: BoxDecoration(
@@ -283,23 +288,41 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
       final rootPath =
           await getDirectoryPath(confirmButtonText: 'Select folder');
       if (rootPath == null || rootPath.isEmpty) return;
-      final root = Directory(rootPath);
-      final directories = <Directory>[root];
-      final files = <File>[];
-      await for (final entity
-          in root.list(recursive: true, followLinks: false)) {
-        if (entity is Directory) directories.add(entity);
-        if (entity is File) files.add(entity);
-      }
-      directories.sort((a, b) => a.path.length.compareTo(b.path.length));
+      await _runOperation(() => _uploadDirectoryTree(rootPath));
+    } catch (error) {
+      if (mounted) _showError(error);
+    }
+  }
+
+  Future<void> _uploadDirectoryTree(String rootPath) async {
+    final root = Directory(rootPath);
+    final directories = <Directory>[root];
+    final files = <File>[];
+    await for (final entity in root.list(recursive: true, followLinks: false)) {
+      if (entity is Directory) directories.add(entity);
+      if (entity is File) files.add(entity);
+    }
+    directories.sort((a, b) => a.path.length.compareTo(b.path.length));
+    for (final directory in directories) {
+      await _api.createDirectory(_remoteUploadPath(root.path, directory.path));
+    }
+    for (final file in files) {
+      await _api.upload(_remoteUploadPath(root.path, file.parent.path), file);
+    }
+  }
+
+  Future<void> _pasteHostFiles() async {
+    if (_path.isEmpty) return;
+    try {
+      final paths = await Pasteboard.files();
+      if (paths.isEmpty) return;
       await _runOperation(() async {
-        for (final directory in directories) {
-          await _api
-              .createDirectory(_remoteUploadPath(root.path, directory.path));
-        }
-        for (final file in files) {
-          final parent = file.parent.path;
-          await _api.upload(_remoteUploadPath(root.path, parent), file);
+        for (final path in paths) {
+          if (FileSystemEntity.isFileSync(path)) {
+            await _api.upload(_path, File(path));
+          } else if (FileSystemEntity.isDirectorySync(path)) {
+            await _uploadDirectoryTree(path);
+          }
         }
       });
     } catch (error) {
@@ -649,6 +672,9 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
                   _hasSelection ? () => _copySelection(cut: true) : null),
           _toolButton(palette, Icons.paste_outlined, 'Paste',
               onPressed: _clipboardPaths?.isNotEmpty == true ? _paste : null),
+          _toolButton(
+              palette, Icons.content_paste_go_outlined, 'Paste host files',
+              onPressed: _path.isEmpty ? null : _pasteHostFiles),
           const Spacer(),
           IconButton(
             tooltip: _detailsView ? 'Icon view' : 'Details view',
@@ -847,41 +873,44 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
   Widget _entryRow(ThemePalette palette, _FileEntry entry) => ContextMenuRegion(
       controller: _menu,
       entries: _entryMenuEntries(entry),
-      child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => _select(entry,
-                toggle: HardwareKeyboard.instance.isControlPressed ||
-                    HardwareKeyboard.instance.isShiftPressed),
-            onLongPress: () => _select(entry, toggle: true),
-            onDoubleTap: () => _openEntry(entry),
-            child: Container(
-                height: 42,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                color: _selectedPaths.contains(entry.path)
-                    ? palette.accentMuted
-                    : Colors.transparent,
-                child: Row(children: [
-                  Expanded(
-                      flex: 3,
-                      child: Row(children: [
-                        Icon(entry.icon,
-                            size: 19,
-                            color: entry.type == 'Folder'
-                                ? const Color(0xFFE9A23B)
-                                : palette.textSecondary),
-                        const SizedBox(width: 10),
-                        Expanded(
-                            child: Text(entry.name,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                    fontSize: 13, color: palette.textPrimary)))
-                      ])),
-                  _column(entry.modified, 2, palette),
-                  _column(entry.type, 2, palette),
-                  _column(entry.size, 1, palette),
-                ])),
-          )));
+      child: _draggableEntry(
+          palette,
+          entry,
+          Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => _select(entry,
+                    toggle: HardwareKeyboard.instance.isControlPressed ||
+                        HardwareKeyboard.instance.isShiftPressed),
+                onDoubleTap: () => _openEntry(entry),
+                child: Container(
+                    height: 42,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    color: _selectedPaths.contains(entry.path)
+                        ? palette.accentMuted
+                        : Colors.transparent,
+                    child: Row(children: [
+                      Expanded(
+                          flex: 3,
+                          child: Row(children: [
+                            Icon(entry.icon,
+                                size: 19,
+                                color: entry.type == 'Folder'
+                                    ? const Color(0xFFE9A23B)
+                                    : palette.textSecondary),
+                            const SizedBox(width: 10),
+                            Expanded(
+                                child: Text(entry.name,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                        fontSize: 13,
+                                        color: palette.textPrimary)))
+                          ])),
+                      _column(entry.modified, 2, palette),
+                      _column(entry.type, 2, palette),
+                      _column(entry.size, 1, palette),
+                    ])),
+              ))));
 
   Widget _iconGrid(ThemePalette palette, List<_FileEntry> entries) =>
       GridView.builder(
@@ -897,36 +926,39 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
           return ContextMenuRegion(
               controller: _menu,
               entries: _entryMenuEntries(entry),
-              child: InkWell(
-                  onTap: () => _select(entry,
-                      toggle: HardwareKeyboard.instance.isControlPressed ||
-                          HardwareKeyboard.instance.isShiftPressed),
-                  onLongPress: () => _select(entry, toggle: true),
-                  onDoubleTap: () => _openEntry(entry),
-                  borderRadius: BorderRadius.circular(6),
-                  child: Container(
-                      decoration: BoxDecoration(
-                        color: _selectedPaths.contains(entry.path)
-                            ? palette.accentMuted
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(entry.icon,
-                                size: 42,
-                                color: entry.type == 'Folder'
-                                    ? const Color(0xFFE9A23B)
-                                    : palette.textSecondary),
-                            const SizedBox(height: 7),
-                            Text(entry.name,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                    fontSize: 12, color: palette.textPrimary))
-                          ]))));
+              child: _draggableEntry(
+                  palette,
+                  entry,
+                  InkWell(
+                      onTap: () => _select(entry,
+                          toggle: HardwareKeyboard.instance.isControlPressed ||
+                              HardwareKeyboard.instance.isShiftPressed),
+                      onDoubleTap: () => _openEntry(entry),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                          decoration: BoxDecoration(
+                            color: _selectedPaths.contains(entry.path)
+                                ? palette.accentMuted
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(entry.icon,
+                                    size: 42,
+                                    color: entry.type == 'Folder'
+                                        ? const Color(0xFFE9A23B)
+                                        : palette.textSecondary),
+                                const SizedBox(height: 7),
+                                Text(entry.name,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        color: palette.textPrimary))
+                              ])))));
         },
       );
 
