@@ -42,6 +42,7 @@ class NotepadApp extends ConsumerStatefulWidget {
 class _NotepadAppState extends ConsumerState<NotepadApp> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
+  final _lineNumberScrollController = ScrollController();
   final _focusNode = FocusNode();
 
   // Document state — mirrors `NotepadViewModel` observable properties.
@@ -52,6 +53,28 @@ class _NotepadAppState extends ConsumerState<NotepadApp> {
   bool _isLoading = false;
   String _statusText = '';
   double _fontSize = 14;
+  bool _wordWrap = true;
+  bool _showLineNumbers = true;
+
+  // Simple undo/redo stack (text snapshotting).
+  final List<_DocSnapshot> _undoStack = [];
+  final List<_DocSnapshot> _redoStack = [];
+  bool _isApplyingHistory = false;
+  static const int _maxHistory = 500;
+
+  // Cursor position shown in status bar.
+  int _cursorLine = 1;
+  int _cursorColumn = 1;
+  int _cursorOffset = 0;
+
+  // Find/replace model.
+  final _findController = TextEditingController();
+  final _replaceController = TextEditingController();
+  bool _findCaseSensitive = false;
+  bool _findRegex = false;
+  bool _showFindReplace = false;
+  bool _isReplaceMode = false;
+  String _findStatus = '';
 
   static const List<double> _fontSizes = [12, 13, 14, 16, 18, 20];
 
@@ -59,6 +82,7 @@ class _NotepadAppState extends ConsumerState<NotepadApp> {
   void initState() {
     super.initState();
     _controller.addListener(_onTextChanged);
+    _controller.addListener(_onSelectionChanged);
     _statusText = 'notepad.status.ready'.tr();
     final preferences = ref.read(workspaceSyncProvider).preferences;
     final stored = preferences?.notepadDefaultEncoding;
@@ -69,23 +93,87 @@ class _NotepadAppState extends ConsumerState<NotepadApp> {
     if (widget.initialPath != null && widget.initialPath!.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback(
           (_) => _openPath(widget.initialPath!, _encodingName));
+    } else {
+      _pushUndoSnapshot(silent: true);
     }
   }
 
   @override
   void dispose() {
     _controller.removeListener(_onTextChanged);
+    _controller.removeListener(_onSelectionChanged);
     _controller.dispose();
     _scrollController.dispose();
+    _lineNumberScrollController.dispose();
     _focusNode.dispose();
+    _findController.dispose();
+    _replaceController.dispose();
     super.dispose();
   }
 
+  void _onSelectionChanged() {
+    final sel = _controller.selection;
+    final offset = sel.baseOffset.clamp(0, _controller.text.length);
+    final textBefore = _controller.text.substring(0, offset);
+    final line = '\n'.allMatches(textBefore).length + 1;
+    final lastLf = textBefore.lastIndexOf('\n');
+    final column = offset - (lastLf < 0 ? 0 : lastLf + 1) + 1;
+    if (_cursorLine != line ||
+        _cursorColumn != column ||
+        _cursorOffset != offset) {
+      setState(() {
+        _cursorLine = line;
+        _cursorColumn = column;
+        _cursorOffset = offset;
+      });
+    }
+  }
+
   void _onTextChanged() {
-    if (_isLoading) return;
+    if (_isLoading || _isApplyingHistory) return;
+    _pushUndoSnapshot();
     if (!_isDirty) {
       setState(() => _isDirty = true);
     }
+  }
+
+  void _pushUndoSnapshot({bool silent = false}) {
+    final current = _DocSnapshot(
+      text: _controller.text,
+      selection: _controller.selection,
+    );
+    if (_undoStack.isNotEmpty && _undoStack.last.text == current.text) {
+      if (!silent) _undoStack[_undoStack.length - 1] = current;
+      return;
+    }
+    _undoStack.add(current);
+    if (_undoStack.length > _maxHistory) _undoStack.removeAt(0);
+    _redoStack.clear();
+  }
+
+  void _undo() {
+    if (_undoStack.length < 2) return;
+    final current = _undoStack.removeLast();
+    _redoStack.add(current);
+    final prev = _undoStack.last;
+    _applySnapshot(prev);
+    setState(() => _isDirty = true);
+  }
+
+  void _redo() {
+    if (_redoStack.isEmpty) return;
+    final next = _redoStack.removeLast();
+    _undoStack.add(next);
+    _applySnapshot(next);
+  }
+
+  void _applySnapshot(_DocSnapshot snapshot) {
+    _isApplyingHistory = true;
+    _controller.value = TextEditingValue(
+      text: snapshot.text,
+      selection: snapshot.selection,
+    );
+    _isApplyingHistory = false;
   }
 
   int get _lineCount => '\n'.allMatches(_controller.text).length + 1;
@@ -110,6 +198,9 @@ class _NotepadAppState extends ConsumerState<NotepadApp> {
     }
     _isLoading = true;
     _controller.clear();
+    _undoStack.clear();
+    _redoStack.clear();
+    _pushUndoSnapshot(silent: true);
     setState(() {
       _currentPath = null;
       _encodingName = _defaultEncodingName;
@@ -152,6 +243,9 @@ class _NotepadAppState extends ConsumerState<NotepadApp> {
       _isLoading = true;
       final decoded = TextFileEncodings.decode(bytes, requestedEncoding);
       _controller.text = decoded;
+      _undoStack.clear();
+      _redoStack.clear();
+      _pushUndoSnapshot(silent: true);
       setState(() {
         _currentPath = path;
         _encodingName = requestedEncoding;
@@ -321,6 +415,206 @@ class _NotepadAppState extends ConsumerState<NotepadApp> {
     return parts.isEmpty ? normalized : parts.last;
   }
 
+  // ---- Edit commands ----
+
+  void _cut() {
+    if (!_controller.selection.isCollapsed) {
+      Clipboard.setData(ClipboardData(text: _controller.selection.textInside(_controller.text) ?? ''));
+      _deleteSelection();
+    }
+  }
+
+  Future<void> _copy() async {
+    if (!_controller.selection.isCollapsed) {
+      await Clipboard.setData(ClipboardData(text: _controller.selection.textInside(_controller.text) ?? ''));
+    }
+  }
+
+  Future<void> _paste() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text;
+    if (text == null) return;
+    final sel = _controller.selection;
+    final newText = _controller.text.replaceRange(
+      sel.start,
+      sel.end,
+      text,
+    );
+    final newOffset = sel.start + text.length;
+    _controller.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: newOffset),
+    );
+  }
+
+  void _selectAll() {
+    _controller.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: _controller.text.length,
+    );
+  }
+
+  void _deleteSelection() {
+    final sel = _controller.selection;
+    if (sel.isCollapsed) return;
+    final text = _controller.text;
+    final newText = text.replaceRange(sel.start, sel.end, '');
+    _controller.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(offset: sel.start),
+    );
+  }
+
+  // ---- Find & Replace ----
+
+  void _openFind() {
+    setState(() {
+      _showFindReplace = true;
+      _isReplaceMode = false;
+      _findStatus = '';
+    });
+    Future.delayed(Duration.zero, () {
+      if (mounted) FocusScope.of(context).requestFocus(_findFocusNode);
+    });
+  }
+
+  void _openReplace() {
+    setState(() {
+      _showFindReplace = true;
+      _isReplaceMode = true;
+      _findStatus = '';
+    });
+    Future.delayed(Duration.zero, () {
+      if (mounted) FocusScope.of(context).requestFocus(_findFocusNode);
+    });
+  }
+
+  void _closeFindReplace() {
+    setState(() {
+      _showFindReplace = false;
+      _findStatus = '';
+    });
+  }
+
+  final _findFocusNode = FocusNode();
+
+  List<TextSelection> _findAllMatches() {
+    final query = _findController.text;
+    if (query.isEmpty) return const [];
+    final text = _controller.text;
+    final matches = <TextSelection>[];
+    try {
+      final pattern = _findRegex
+          ? RegExp(query, caseSensitive: _findCaseSensitive)
+          : RegExp(RegExp.escape(query), caseSensitive: _findCaseSensitive);
+      for (final match in pattern.allMatches(text)) {
+        matches.add(TextSelection(baseOffset: match.start, extentOffset: match.end));
+      }
+    } catch (_) {
+      // Invalid regex — ignore silently; UI shows status.
+    }
+    return matches;
+  }
+
+  int _findNextIndex(List<TextSelection> matches) {
+    if (matches.isEmpty) return -1;
+    final caret = _controller.selection.baseOffset.clamp(0, _controller.text.length);
+    for (var i = 0; i < matches.length; i++) {
+      if (matches[i].start >= caret && !matches[i].isCollapsed) {
+        return i;
+      }
+    }
+    return 0;
+  }
+
+  void _findNext() {
+    final matches = _findAllMatches();
+    if (matches.isEmpty) {
+      setState(() => _findStatus = 'notepad.find.not_found'.tr());
+      return;
+    }
+    final idx = _findNextIndex(matches);
+    _selectMatch(matches[idx]);
+    setState(() => _findStatus =
+        'notepad.found_n_of_m'.tr(args: ['${idx + 1}', '${matches.length}']));
+  }
+
+  void _findPrev() {
+    final matches = _findAllMatches();
+    if (matches.isEmpty) {
+      setState(() => _findStatus = 'notepad.find.not_found'.tr());
+      return;
+    }
+    final caret = _controller.selection.baseOffset.clamp(0, _controller.text.length);
+    var idx = matches.length - 1;
+    for (var i = matches.length - 1; i >= 0; i--) {
+      if (matches[i].end <= caret && !matches[i].isCollapsed) {
+        idx = i;
+        break;
+      }
+    }
+    _selectMatch(matches[idx]);
+    setState(() => _findStatus =
+        'notepad.found_n_of_m'.tr(args: ['${idx + 1}', '${matches.length}']));
+  }
+
+  void _selectMatch(TextSelection match) {
+    _controller.selection = match;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _controller.buildTextSpan?.call(context: context, withComposing: false);
+      // Best effort scroll by jumping to selection offset.
+    });
+  }
+
+  void _replaceNext() {
+    final matches = _findAllMatches();
+    if (matches.isEmpty) {
+      setState(() => _findStatus = 'notepad.find.not_found'.tr());
+      return;
+    }
+    final idx = _findNextIndex(matches);
+    final match = matches[idx];
+    final replacement = _replaceController.text;
+    final newText = _controller.text.replaceRange(match.start, match.end, replacement);
+    final newSelection = TextSelection.collapsed(offset: match.start + replacement.length);
+    _controller.value = TextEditingValue(text: newText, selection: newSelection);
+    setState(() => _findStatus =
+        'notepad.replace.replaced_one'.tr(args: ['${idx + 1}']));
+  }
+
+  void _replaceAll() {
+    final matches = _findAllMatches();
+    if (matches.isEmpty) {
+      setState(() => _findStatus = 'notepad.find.not_found'.tr());
+      return;
+    }
+    final replacement = _replaceController.text;
+    final buffer = StringBuffer();
+    var cursor = 0;
+    for (final match in matches) {
+      buffer.write(_controller.text.substring(cursor, match.start));
+      buffer.write(replacement);
+      cursor = match.end;
+    }
+    buffer.write(_controller.text.substring(cursor));
+    final newText = buffer.toString();
+    _controller.value = TextEditingValue(
+      text: newText,
+      selection: const TextSelection.collapsed(offset: 0),
+    );
+    setState(() => _findStatus =
+        'notepad.replace.replaced_all'.tr(args: ['${matches.length}']));
+  }
+
+  // ---- Print (placeholder — RemoteOS shell currently has no local printer) ----
+
+  Future<void> _printDocument() async {
+    setState(() {
+      _statusText = 'notepad.print.not_available'.tr();
+    });
+  }
+
   // ---- Build ----
 
   @override
@@ -333,42 +627,223 @@ class _NotepadAppState extends ConsumerState<NotepadApp> {
       child: Column(
         children: [
           _buildMenuBar(palette),
+          if (_showFindReplace) _buildFindReplaceToolbar(palette),
           Expanded(
             child: Container(
               color: palette.surface,
-              child: TextField(
-                controller: _controller,
-                scrollController: _scrollController,
-                expands: true,
-                maxLines: null,
-                minLines: null,
-                textAlignVertical: TextAlignVertical.top,
-                style: TextStyle(
-                  fontFamily: 'Consolas',
-                  fontFamilyFallback: const ['Courier New', 'monospace'],
-                  fontSize: _fontSize,
-                  height: 1.35,
-                  color: palette.textPrimary,
-                ),
-                cursorColor: palette.accent,
-                cursorWidth: 2,
-                keyboardType: TextInputType.multiline,
-                textInputAction: TextInputAction.newline,
-                decoration: InputDecoration(
-                  border: InputBorder.none,
-                  filled: true,
-                  fillColor: palette.surface,
-                  contentPadding: const EdgeInsets.all(14),
-                  hintText: 'Start typing...',
-                  hintStyle:
-                      TextStyle(color: palette.textTertiary, fontSize: _fontSize),
-                  isCollapsed: true,
-                  isDense: false,
-                ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (_showLineNumbers) _buildLineNumbersGutter(palette),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      controller: _scrollController,
+                      scrollDirection: _wordWrap ? Axis.vertical : Axis.horizontal,
+                      child: _wordWrap
+                          ? _buildTextField(palette, null)
+                          : SingleChildScrollView(
+                              scrollDirection: Axis.vertical,
+                              child: _buildTextField(palette, null),
+                            ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
           _buildStatusBar(palette),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLineNumbersGutter(ThemePalette palette) {
+    return Container(
+      width: 52,
+      padding: const EdgeInsets.only(top: 14, right: 8),
+      decoration: BoxDecoration(
+        color: palette.surfaceSunken,
+        border: Border(right: BorderSide(color: palette.borderSubtle)),
+      ),
+      child: Text(
+        List.generate(_lineCount, (i) => '${i + 1}').join('\n'),
+        textAlign: TextAlign.right,
+        style: TextStyle(
+          fontFamily: 'Consolas',
+          fontFamilyFallback: const ['Courier New', 'monospace'],
+          fontSize: _fontSize,
+          height: 1.35,
+          color: palette.textTertiary,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField(ThemePalette palette, ScrollController? _ignored) {
+    final contentPadding = EdgeInsets.only(
+      left: _showLineNumbers ? 8 : 14,
+      right: 14,
+      top: 14,
+      bottom: 14,
+    );
+    final text = _controller.text;
+    double? intrinsicWidth;
+    if (!_wordWrap && text.isNotEmpty) {
+      // Directionality is required for TextPainter layout.
+      final direction = Directionality.maybeOf(context);
+      if (direction != null) {
+        final painter = TextPainter(
+          text: TextSpan(
+            text: _longestLine(text),
+            style: TextStyle(
+              fontFamily: 'Consolas',
+              fontFamilyFallback: const ['Courier New', 'monospace'],
+              fontSize: _fontSize,
+              height: 1.35,
+            ),
+          ),
+          maxLines: 1,
+          textDirection: direction,
+        )..layout();
+        intrinsicWidth = painter.width + 28;
+      }
+    }
+    return Container(
+      width: intrinsicWidth,
+      constraints: _wordWrap
+          ? null
+          : BoxConstraints(minWidth: MediaQuery.of(context).size.width),
+      child: TextField(
+        controller: _controller,
+        expands: false,
+        maxLines: _wordWrap ? null : _lineCount,
+        minLines: _wordWrap ? null : _lineCount,
+        textAlignVertical: TextAlignVertical.top,
+        style: TextStyle(
+          fontFamily: 'Consolas',
+          fontFamilyFallback: const ['Courier New', 'monospace'],
+          fontSize: _fontSize,
+          height: 1.35,
+          color: palette.textPrimary,
+        ),
+        cursorColor: palette.accent,
+        cursorWidth: 2,
+        keyboardType: TextInputType.multiline,
+        textInputAction: TextInputAction.newline,
+        decoration: InputDecoration(
+          border: InputBorder.none,
+          filled: true,
+          fillColor: palette.surface,
+          contentPadding: contentPadding,
+          hintText: 'notepad.hint.start_typing'.tr(),
+          hintStyle:
+              TextStyle(color: palette.textTertiary, fontSize: _fontSize),
+          isCollapsed: true,
+          isDense: false,
+        ),
+      ),
+    );
+  }
+
+  String _longestLine(String text) {
+    if (text.isEmpty) return '';
+    return text.split('\n').reduce((a, b) => a.length > b.length ? a : b);
+  }
+
+  Widget _buildFindReplaceToolbar(ThemePalette palette) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: palette.surface,
+        border: Border(bottom: BorderSide(color: palette.borderSubtle)),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 220,
+            child: TextField(
+              controller: _findController,
+              focusNode: _findFocusNode,
+              style: TextStyle(color: palette.textPrimary, fontSize: 13),
+              onSubmitted: (_) => _findNext(),
+              decoration: InputDecoration(
+                isDense: true,
+                labelText: 'notepad.find.find'.tr(),
+                labelStyle: TextStyle(color: palette.textSecondary, fontSize: 12),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          IconButton(
+            tooltip: 'common.previous'.tr(),
+            onPressed: _findPrev,
+            icon: Icon(Icons.arrow_upward_rounded, size: 18, color: palette.textSecondary),
+          ),
+          IconButton(
+            tooltip: 'common.next'.tr(),
+            onPressed: _findNext,
+            icon: Icon(Icons.arrow_downward_rounded, size: 18, color: palette.textSecondary),
+          ),
+          if (_isReplaceMode) ...[
+            const SizedBox(width: 10),
+            SizedBox(
+              width: 220,
+              child: TextField(
+                controller: _replaceController,
+                style: TextStyle(color: palette.textPrimary, fontSize: 13),
+                decoration: InputDecoration(
+                  isDense: true,
+                  labelText: 'notepad.find.replace_with'.tr(),
+                  labelStyle: TextStyle(color: palette.textSecondary, fontSize: 12),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            TextButton(
+              onPressed: _replaceNext,
+              child: Text('notepad.find.replace'.tr(), style: const TextStyle(fontSize: 12)),
+            ),
+            TextButton(
+              onPressed: _replaceAll,
+              child: Text('notepad.find.replace_all'.tr(), style: const TextStyle(fontSize: 12)),
+            ),
+          ],
+          const SizedBox(width: 10),
+          FilterChip(
+            label: Text('Aa', style: TextStyle(fontSize: 11, color: _findCaseSensitive ? palette.textOnAccent : palette.textSecondary)),
+            backgroundColor: palette.surfaceRaised,
+            selectedColor: palette.accent,
+            selected: _findCaseSensitive,
+            onSelected: (v) => setState(() => _findCaseSensitive = v),
+            side: BorderSide(color: _findCaseSensitive ? palette.accent : palette.borderDefault),
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+          ),
+          const SizedBox(width: 6),
+          FilterChip(
+            label: Text('.*', style: TextStyle(fontSize: 11, color: _findRegex ? palette.textOnAccent : palette.textSecondary)),
+            backgroundColor: palette.surfaceRaised,
+            selectedColor: palette.accent,
+            selected: _findRegex,
+            onSelected: (v) => setState(() => _findRegex = v),
+            side: BorderSide(color: _findRegex ? palette.accent : palette.borderDefault),
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              _findStatus,
+              style: TextStyle(color: palette.textTertiary, fontSize: 11),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            tooltip: 'common.close'.tr(),
+            onPressed: _closeFindReplace,
+            icon: Icon(Icons.close_rounded, size: 18, color: palette.textSecondary),
+          ),
         ],
       ),
     );
@@ -380,8 +855,24 @@ class _NotepadAppState extends ConsumerState<NotepadApp> {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     final ctrl = HardwareKeyboard.instance.isControlPressed;
     final shift = HardwareKeyboard.instance.isShiftPressed;
-    if (!ctrl) return KeyEventResult.ignored;
+    final alt = HardwareKeyboard.instance.isAltPressed;
     final key = event.logicalKey;
+
+    // Ctrl + F / Ctrl + H / F3 / Shift+F3 handled even when focus is in editor.
+    if (key == LogicalKeyboardKey.f3) {
+      if (shift) {
+        _findPrev();
+      } else {
+        _findNext();
+      }
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.escape && _showFindReplace) {
+      _closeFindReplace();
+      return KeyEventResult.handled;
+    }
+
+    if (!ctrl) return KeyEventResult.ignored;
     if (key == LogicalKeyboardKey.keyN && !shift) {
       _newDocument();
       return KeyEventResult.handled;
@@ -396,6 +887,43 @@ class _NotepadAppState extends ConsumerState<NotepadApp> {
     }
     if (key == LogicalKeyboardKey.keyS && shift) {
       _saveAs();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.keyZ && !shift) {
+      _undo();
+      return KeyEventResult.handled;
+    }
+    if ((key == LogicalKeyboardKey.keyY) ||
+        (key == LogicalKeyboardKey.keyZ && shift)) {
+      _redo();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.keyX) {
+      _cut();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.keyC && !alt) {
+      _copy();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.keyV) {
+      _paste();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.keyA) {
+      _selectAll();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.keyF) {
+      _openFind();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.keyH) {
+      _openReplace();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.keyP) {
+      _printDocument();
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
@@ -437,8 +965,94 @@ class _NotepadAppState extends ConsumerState<NotepadApp> {
               child: Text('${'common.save_as_ellipsis'.tr()}    Ctrl+Shift+S',
                   style: const TextStyle(fontSize: 13)),
             ),
+            const MenuItemButton(child: Divider(height: 1)),
+            MenuItemButton(
+              onPressed: _chooseEncoding,
+              leadingIcon: const Icon(Icons.translate_rounded, size: 16),
+              child: Text('common.file_encoding'.tr(),
+                  style: const TextStyle(fontSize: 13)),
+            ),
+            MenuItemButton(
+              onPressed: _printDocument,
+              leadingIcon: const Icon(Icons.print_outlined, size: 16),
+              child: Text('${'common.print'.tr()}    Ctrl+P',
+                  style: const TextStyle(fontSize: 13)),
+            ),
           ]),
-          _menuButton(palette, Icons.tune_outlined, 'common.settings'.tr(), [
+          _menuButton(palette, Icons.edit_note_outlined, 'common.edit'.tr(), [
+            MenuItemButton(
+              onPressed: _undo,
+              leadingIcon: const Icon(Icons.undo_outlined, size: 16),
+              child: Text('${'common.undo'.tr()}    Ctrl+Z',
+                  style: const TextStyle(fontSize: 13)),
+            ),
+            MenuItemButton(
+              onPressed: _redo,
+              leadingIcon: const Icon(Icons.redo_outlined, size: 16),
+              child: Text('${'common.redo'.tr()}    Ctrl+Y',
+                  style: const TextStyle(fontSize: 13)),
+            ),
+            const MenuItemButton(child: Divider(height: 1)),
+            MenuItemButton(
+              onPressed: _cut,
+              leadingIcon: const Icon(Icons.content_cut_outlined, size: 16),
+              child: Text('${'common.cut'.tr()}    Ctrl+X',
+                  style: const TextStyle(fontSize: 13)),
+            ),
+            MenuItemButton(
+              onPressed: _copy,
+              leadingIcon: const Icon(Icons.content_copy_outlined, size: 16),
+              child: Text('${'common.copy'.tr()}    Ctrl+C',
+                  style: const TextStyle(fontSize: 13)),
+            ),
+            MenuItemButton(
+              onPressed: _paste,
+              leadingIcon: const Icon(Icons.content_paste_outlined, size: 16),
+              child: Text('${'common.paste'.tr()}    Ctrl+V',
+                  style: const TextStyle(fontSize: 13)),
+            ),
+            MenuItemButton(
+              onPressed: _selectAll,
+              leadingIcon: const Icon(Icons.select_all_outlined, size: 16),
+              child: Text('${'common.select_all'.tr()}    Ctrl+A',
+                  style: const TextStyle(fontSize: 13)),
+            ),
+            const MenuItemButton(child: Divider(height: 1)),
+            MenuItemButton(
+              onPressed: _openFind,
+              leadingIcon: const Icon(Icons.search_outlined, size: 16),
+              child: Text('${'common.find'.tr()}    Ctrl+F',
+                  style: const TextStyle(fontSize: 13)),
+            ),
+            MenuItemButton(
+              onPressed: _openReplace,
+              leadingIcon: const Icon(Icons.find_replace_outlined, size: 16),
+              child: Text('${'common.replace'.tr()}    Ctrl+H',
+                  style: const TextStyle(fontSize: 13)),
+            ),
+          ]),
+          _menuButton(palette, Icons.visibility_outlined, 'common.view'.tr(), [
+            MenuItemButton(
+              onPressed: () => setState(() => _wordWrap = !_wordWrap),
+              trailingIcon: Icon(
+                _wordWrap ? Icons.check_box : Icons.check_box_outline_blank,
+                size: 16,
+                color: palette.accent,
+              ),
+              child: Text('common.word_wrap'.tr(),
+                  style: const TextStyle(fontSize: 13)),
+            ),
+            MenuItemButton(
+              onPressed: () => setState(() => _showLineNumbers = !_showLineNumbers),
+              trailingIcon: Icon(
+                _showLineNumbers ? Icons.check_box : Icons.check_box_outline_blank,
+                size: 16,
+                color: palette.accent,
+              ),
+              child: Text('common.line_numbers'.tr(),
+                  style: const TextStyle(fontSize: 13)),
+            ),
+            const MenuItemButton(child: Divider(height: 1)),
             MenuItemButton(
               onPressed: _openSettings,
               leadingIcon: const Icon(Icons.settings_outlined, size: 16),
@@ -512,6 +1126,16 @@ class _NotepadAppState extends ConsumerState<NotepadApp> {
               style: TextStyle(color: palette.textTertiary, fontSize: 11),
             ),
           ),
+          Text(
+            'notepad.status.ln_col'.tr(args: ['$_cursorLine', '$_cursorColumn']),
+            style: TextStyle(color: palette.textTertiary, fontSize: 11),
+          ),
+          const SizedBox(width: 14),
+          Text(
+            'notepad.status.offset'.tr(args: ['$_cursorOffset']),
+            style: TextStyle(color: palette.textTertiary, fontSize: 11),
+          ),
+          const SizedBox(width: 14),
           if (_hasOpenFile) ...[
             TextButton(
               onPressed: _chooseEncoding,
@@ -539,6 +1163,13 @@ class _NotepadAppState extends ConsumerState<NotepadApp> {
       ),
     );
   }
+}
+
+/// Snapshot used for undo/redo history.
+class _DocSnapshot {
+  const _DocSnapshot({required this.text, required this.selection});
+  final String text;
+  final TextSelection selection;
 }
 
 /// Save-as path input dialog. Mirrors Avalonia's `TextInputDialogView` used

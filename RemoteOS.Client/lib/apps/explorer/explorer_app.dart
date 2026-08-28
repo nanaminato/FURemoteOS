@@ -76,8 +76,16 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
       _isPickerMode &&
       widget.picker!.mode == ExplorerPickerMode.selectFolder;
   bool get _isFilePickerMode =>
-      _isPickerMode && !_isFolderPickerMode;
-  bool get _allowMultipleFiles => _isFilePickerMode && widget.picker!.allowMultiple;
+      _isPickerMode && !_isFolderPickerMode && !_isSaveFilePickerMode;
+  bool get _isSaveFilePickerMode =>
+      _isPickerMode &&
+      widget.picker!.mode == ExplorerPickerMode.saveFile;
+  bool get _isMultiFilePickerMode =>
+      _isPickerMode &&
+      widget.picker!.mode == ExplorerPickerMode.openFiles;
+  bool get _allowMultipleFiles =>
+      _isMultiFilePickerMode ||
+      (_isFilePickerMode && widget.picker!.allowMultiple);
 
   @override
   void initState() {
@@ -88,6 +96,10 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
           ? const [ExplorerFileFilter.allFiles]
           : widget.picker!.filters;
       _pickerSelectedFilter = _pickerFilters.first;
+      final suggested = widget.picker!.suggestedFileName;
+      if (suggested != null && suggested.isNotEmpty) {
+        _pickerName.text = suggested;
+      }
     }
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadInitial());
   }
@@ -251,7 +263,17 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
           .where((entry) => entry.type == 'Folder')
           .firstOrNull;
       _pickerName.text = folder?.name ?? '';
-    } else {
+    } else if (_isSaveFilePickerMode) {
+      final files = _selectedEntries
+          .where((entry) =>
+              entry.type == 'File' &&
+              (_pickerSelectedFilter.matches(entry.name) ||
+                  _pickerSelectedFilter.patterns.contains('*')))
+          .toList(growable: false);
+      if (files.isNotEmpty) {
+        _pickerName.text = files.first.name;
+      }
+    } else if (_allowMultipleFiles) {
       final files = _selectedEntries
           .where((entry) =>
               entry.type == 'File' &&
@@ -261,6 +283,14 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
       _pickerName.text = files.isEmpty
           ? ''
           : files.map((entry) => '"${entry.name}"').join(' ');
+    } else {
+      final files = _selectedEntries
+          .where((entry) =>
+              entry.type == 'File' &&
+              (_pickerSelectedFilter.matches(entry.name) ||
+                  _pickerSelectedFilter.patterns.contains('*')))
+          .toList(growable: false);
+      _pickerName.text = files.isEmpty ? '' : files.first.name;
     }
     _pickerNameIsUpdating = false;
   }
@@ -271,7 +301,19 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
       return _selectedEntries.any((entry) => entry.type == 'Folder') ||
           _path.isNotEmpty;
     }
-    if (_pickerName.text.trim().isNotEmpty) return true;
+    if (_isSaveFilePickerMode) {
+      // Save-as: only needs a non-empty target name (current folder + name).
+      return _pickerName.text.trim().isNotEmpty && _path.isNotEmpty;
+    }
+    if (_pickerName.text.trim().isNotEmpty && !_allowMultipleFiles) {
+      return true;
+    }
+    if (_allowMultipleFiles) {
+      return _selectedEntries.any((entry) =>
+          entry.type == 'File' &&
+          (_pickerSelectedFilter.matches(entry.name) ||
+              _pickerSelectedFilter.patterns.contains('*')));
+    }
     return _selectedEntries.any((entry) =>
         entry.type == 'File' &&
         (_pickerSelectedFilter.matches(entry.name) ||
@@ -280,7 +322,11 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
 
   bool _isSelectableForPicker(_FileEntry entry) {
     if (entry.type != 'File') return false;
-    if (!_isFilePickerMode) return false;
+    if (!(_isFilePickerMode ||
+        _isMultiFilePickerMode ||
+        _isSaveFilePickerMode)) {
+      return false;
+    }
     return _pickerSelectedFilter.matches(entry.name) ||
         _pickerSelectedFilter.patterns.contains('*');
   }
@@ -295,7 +341,14 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
           .map((entry) => entry.path)
           .toList(growable: false);
       selected = folders.isNotEmpty ? folders : (_path.isEmpty ? const [] : [_path]);
-    } else {
+    } else if (_isSaveFilePickerMode) {
+      final typed = _pickerName.text.trim();
+      if (typed.isEmpty || _path.isEmpty) return;
+      final resolved = typed.startsWith('/') || typed.startsWith('\\')
+          ? typed
+          : _joinPath(_path, typed);
+      selected = [resolved];
+    } else if (_allowMultipleFiles) {
       final files = _selectedEntries
           .where((entry) =>
               entry.type == 'File' &&
@@ -312,8 +365,23 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
       } else {
         selected = files;
       }
-      if (!_allowMultipleFiles && selected.length > 1) {
-        selected = [selected.first];
+    } else {
+      final files = _selectedEntries
+          .where((entry) =>
+              entry.type == 'File' &&
+              (_pickerSelectedFilter.matches(entry.name) ||
+                  _pickerSelectedFilter.patterns.contains('*')))
+          .map((entry) => entry.path)
+          .toList(growable: false);
+      if (files.isEmpty && _pickerName.text.trim().isNotEmpty) {
+        final typed = _pickerName.text.trim();
+        final resolved = typed.startsWith('/') || typed.startsWith('\\')
+            ? typed
+            : (_path.isEmpty ? typed : _joinPath(_path, typed));
+        selected = [resolved];
+      } else {
+        selected = files;
+        if (selected.length > 1) selected = [selected.first];
       }
     }
     if (selected.isEmpty) return;
@@ -558,10 +626,24 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
       return;
     }
     if (_isPickerMode) {
-      // Picker mode: folders still navigate (handled above), files confirm
-      // the picker when the filter allows them. Non-matching files are
-      // silently ignored, matching Avalonia's `IsSelectableFile` guard.
-      if (_isFilePickerMode && _isSelectableForPicker(entry)) {
+      // Picker mode: folders still navigate (handled above). In file modes
+      // a single click fills the name box; a double-click or confirm button
+      // commits it. Save-file simply fills the name with the existing
+      // filename (so the user can overwrite it), mirroring Avalonia's
+      // combined explorer + text input save flow.
+      if (_isSaveFilePickerMode && _isSelectableForPicker(entry)) {
+        _select(entry);
+        return;
+      }
+      if ((_isFilePickerMode || _isMultiFilePickerMode) &&
+          _isSelectableForPicker(entry)) {
+        if (_allowMultipleFiles) {
+          // In multi-select the primary click just adds to the selection.
+          _select(entry);
+          return;
+        }
+        // Single-select: fill the name and immediately confirm on open,
+        // matching the Avalonia file-open behaviour.
         _select(entry);
         _confirmPicker();
       }

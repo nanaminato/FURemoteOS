@@ -21,6 +21,18 @@
                     "notepad.open_remote_file":  "打开远程文件",
                     "notepad.save_remote_file":  "保存远程文件",
                     "notepad.remote_path_prompt":  "输入完整的远程路径：",
-                    "notepad.text_file_filter":  "文本文件"
+                    "notepad.text_file_filter":  "文本文件",
+                    "notepad.status.ln_col":  "第 {0} 行，第 {1} 列",
+                    "notepad.status.offset":  "偏移量 {0}",
+                    "notepad.hint.start_typing":  "开始输入文本...",
+                    "notepad.find.find":  "查找内容",
+                    "notepad.find.replace_with":  "替换为",
+                    "notepad.find.replace":  "替换",
+                    "notepad.find.replace_all":  "全部替换",
+                    "notepad.find.not_found":  "未找到匹配项。",
+                    "notepad.found_n_of_m":  "找到 {0} / {1}",
+                    "notepad.replace.replaced_one":  "已替换 {0} 处",
+                    "notepad.replace.replaced_all":  "已替换全部 {0} 处",
+                    "notepad.print.not_available":  "当前环境暂不支持打印。"
                 }
 }

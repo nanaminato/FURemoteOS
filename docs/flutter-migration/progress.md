@@ -30,6 +30,8 @@
 
 * 已完成：`FLUTTER-013`（Docker Manager，本轮收口；Windows 本机构建被宿主 VS 缺少 ATL 组件阻塞，见下）。
 
+* 已完成：`FLUTTER-014`（Notepad & Settings 对齐，含 Explorer 选择模式/模态框补齐；Windows `flutter build windows --debug` 已通过，未做功能测试）。
+
 * 进行中的工作树改动：`FLUTTER-002` 至 `FLUTTER-009` 的认证、本地化、主题、窗口、modal、context menu、shell 和 workspace REST 基础层、测试与依赖更新尚未提交。
 
 ## FLUTTER-009 验收记录
@@ -216,7 +218,40 @@
 
 * 自动验证：`flutter test` 通过；`flutter build linux --debug` 成功生成 `build/linux/x64/debug/bundle/remoteos_client`。
 
-* 静态分析：本环境下 `flutter analyze` 会因 Flutter analysis server 的 LSP 输入被宿主截断而以 `FormatException: Unexpected end of input` 退出；这是工具运行环境问题，尚需在普通本地终端或 CI 重新验证。
+* 静态分析：本环境下 `flutter analyze` 会因 Flutter analysis server 的 LSP 输入被宿主截断而以 `FormatException: Unexpected end of input` 退出；需在普通终端或 CI 复验。
+
+## FLUTTER-014 当前实施记录（Notepad & Settings 对齐 + Explorer 选择模式）
+
+* Avalonia 输入：`Apps/Notepad/NotepadApp.cs`（菜单、撤销重做、查找替换、行号、自动换行、状态栏 Ln/Col、打印、默认编码、reopen/save-with encoding），`Apps/Settings/*.cs` 及对应 Views（侧栏顺序：系统 / 个性化 / 时间和语言 / 网络 / 应用 / 镜像源 / 默认应用 / 开发者；系统页两张卡片：关于 + 账户和工作区；镜像源新增/选择/删除；默认应用 scheme 映射读写到 Workspace preferences），`Apps/Explorer/ExplorerPickerOptions.cs`（openFile/openFiles/saveFile 模式与 suggestedFileName）。
+
+* 对照依据：用户提供的 Settings 主界面截图（系统页）与 Avalonia 源码目录 `E:\riderprojects\RemoteOS\Client\RemoteOS.Client\Apps\Settings`。
+
+* 已完成（Explorer 选择模式/模态框）：`lib/apps/explorer/explorer_picker.dart` 补 `ExplorerPickerMode.openFiles` / `saveFile`，`ExplorerPickerOptions` 加 `suggestedFileName`，新增 `showRemoteMultiFilePicker` / `showRemoteSaveFilePicker`。`lib/apps/explorer/explorer_app.dart` 对应新增 saveFile、multiFile 模式的标题栏、确认按钮与结果返回，保存模式下新建文件同名已有条目可覆盖，仍保留 owner-bound modal 语义。
+
+* 已完成（Notepad 能力对齐）：`lib/apps/notepad/notepad_app.dart` 新增撤销栈 / 重做栈（`_undoStack`、`_redoStack`，Ctrl+Z/Y 绑定）、查找/替换模型（支持大小写敏感、正则；替换单个/全部），文件菜单 + 编辑菜单 + 视图菜单下拉 UI，显示行号 gutter、自动换行切换、状态栏 Ln/Col/Offset + 行/字符计数，查找/替换工具栏（上一、下一、替换、全部替换、关闭），`print` 菜单项（因环境限制显示状态提示不做真实打印）。新建/打开/另存为/切换编码会清空历史，光标位置实时更新。
+
+* 已完成（Settings UI 对齐）：`lib/apps/settings/settings_app.dart` 侧栏 8 项顺序按 Avalonia 重新排序，系统页改为两张卡片（关于：版本 RemoteOS 0.1 / 连接状态 / 服务器；账户和工作区：用户名 / 主机平台 / 工作区 / 设备 / 设备角色 / 上次登录；页标题下方副标题为“RemoteOS 云原生桌面环境”，卡片下方说明“RemoteOS 使用宿主操作系统的用户和权限系统。”）。新增 镜像源（Image Mirrors）页面：可新增 name+endpoint 镜像源、可选择或切换默认、可删除非默认条目；新增 默认应用（Default Apps）页面：支持从 `WorkspacePreferences.defaultApps` 回显、可新增/删除映射、可编辑 scheme/扩展名并在下拉中选择兼容应用；编辑结果通过 `WorkspaceSyncCoordinator.queuePreferences` 写回与同步层一致。Settings 内部 UI 模型：`_AppOptionUi`（const 构造 + 10 个已知应用 + schemes/extensions 列表）、`_DefaultAppMappingUi`（scheme + appId）、`_ImageMirrorUi`（id/name/endpoint/isDefault/isSelected）。依赖 `Platform.operatingSystem`/`Platform.localHostname`（dart:io）填充主机信息。
+
+* 已完成（本地化 key，三语完全对齐）：
+  - common：新增 edit/view/undo/redo/cut/paste/select_all/find/replace/word_wrap/line_numbers/previous/next/print。
+  - notepad：新增 status.ln_col、status.offset、hint.start_typing、find.find、find.replace_with、find.replace、find.replace_all、find.not_found、found_n_of_m、replace.replaced_one、replace.replaced_all、print.not_available。
+  - settings：新增 value.connected / value.not_connected，system.tagline（改为“RemoteOS 云原生桌面环境”）、system.description，完整 image_mirrors.*（description/new_name/new_endpoint/registries/required/added/removed/default/in_use/select/default_selected/selected），完整 default_apps.*（description/add/empty/scheme/application），page.default_apps。
+  - 仍保留原有键值兼容性。通过 `jq empty` 校验三语种的 JSON 语法。
+
+* 未实现/刻意保留与 Avalonia 的差距：
+  - Notepad：未接入真实打印驱动（菜单项存在但显示状态提示）。
+  - Settings：开发者页仅保留原 Flutter 内容，未扩展 Avalonia 中可能存在的更多子项；个性化页中的壁纸选择等沿用现有实现；应用页未做 Avalonia 中“安装大小”“卸载”等本地宿主安装信息；网络页未接入真实网卡数据，仍为原测试连接按钮。
+  - Explorer 选择模式：与 RemoteOS Server 的 REST 路径和权限仍复用现有 Explorer 客户端；未新增新的服务端契约。
+  - 任务按用户要求“仅确保编译通过、不进行功能测试”执行；未启动真实 RemoteOS Server 进行连接/打开/保存/查找替换等 E2E。
+
+* 命令验证：
+  - `flutter analyze lib/apps/notepad/notepad_app.dart lib/apps/settings/settings_app.dart lib/apps/explorer/explorer_app.dart lib/apps/explorer/explorer_picker.dart`：23 条 info/warning，0 error（info 主要是 SDK deprecation 提示如 Radio `groupValue` / `value` / `withOpacity` / `no_leading_underscores_for_local_identifiers` 等；warning 是未使用局部变量和 dead null-aware，均不影响编译）。
+  - `flutter build windows --debug`：2026-08-28 成功，产物 `build\windows\x64\runner\Debug\remoteos_client.exe`（exit code 0；此前记载的 ATL 缺失问题未复现，可能因为客户端已装 ATL 组件或插件更新）。
+
+* 风险/遗留：
+  - 未做功能测试与 Server E2E；打开/保存/查找替换/镜像源选择/默认应用映射的真实行为需要手动在已登录的 Server 上验证。
+  - `Platform.operatingSystem` 返回小写（如 "windows"）；UI 仍直接展示，如需标题化可在后续一轮调整。
+  - TextPainter 测量行宽的方向性改为通过 `Directionality.maybeOf(context)` 获得，避免直接枚举 `TextDirection.ltr`（该 SDK 版本下 analyzer 不认 getter）。若后续 Flutter 版本重新暴露该枚举可再简化。
 
 ## 后续执行规则
 

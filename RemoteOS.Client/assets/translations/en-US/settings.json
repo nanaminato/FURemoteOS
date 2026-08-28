@@ -1,9 +1,10 @@
-﻿{
+{
     "Strings":  {
                     "settings.page.applications":  "Applications",
                     "settings.page.developer":  "Developer",
                     "settings.page.network":  "Network",
                     "settings.page.image_mirrors":  "Image mirrors",
+                    "settings.page.default_apps":  "Default apps",
                     "settings.page.personalization":  "Personalization",
                     "settings.page.time_language":  "Time \u0026 language",
                     "settings.page.system":  "System",
@@ -33,14 +34,34 @@
                     "settings.developer_mode.title":  "Developer mode",
                     "settings.developer_mode.description":  "Enable advanced diagnostic and development tools.",
                     "settings.language_region.description":  "Choose the language used throughout RemoteOS.",
-                    "settings.system.tagline":  "Device, account, and workspace information",
+                    "settings.system.tagline":  "RemoteOS cloud-native desktop environment",
+                    "settings.system.description":  "RemoteOS uses the host operating system's users and permissions.",
                     "settings.test_connection":  "Test connection",
+                    "settings.value.connected":  "Connected",
+                    "settings.value.not_connected":  "Not connected",
                     "theme.mode_light":  "Light",
                     "theme.mode_dark":  "Dark",
                     "theme.mode_system":  "System",
                     "theme.palette_remoteos_blue":  "RemoteOS Blue",
                     "theme.palette_nord":  "Nord",
                     "theme.palette_catppuccin":  "Catppuccin",
-                    "theme.accent_color":  "Accent color"
+                    "theme.accent_color":  "Accent color",
+                    "settings.image_mirrors.description":  "Configure remote image and container registries used by RemoteOS.",
+                    "settings.image_mirrors.new_name":  "Name (e.g. Harbor)",
+                    "settings.image_mirrors.new_endpoint":  "Endpoint URL",
+                    "settings.image_mirrors.registries":  "Registries",
+                    "settings.image_mirrors.required":  "Name and endpoint cannot be empty.",
+                    "settings.image_mirrors.added":  "Mirror added.",
+                    "settings.image_mirrors.removed":  "Mirror removed.",
+                    "settings.image_mirrors.default":  "Default",
+                    "settings.image_mirrors.in_use":  "In use",
+                    "settings.image_mirrors.select":  "Select",
+                    "settings.image_mirrors.default_selected":  "Switched to default mirror.",
+                    "settings.image_mirrors.selected":  "Switched to: {0}",
+                    "settings.default_apps.description":  "Map protocols and file extensions to default applications.",
+                    "settings.default_apps.add":  "Add mapping",
+                    "settings.default_apps.empty":  "No default app mappings yet.",
+                    "settings.default_apps.scheme":  "Scheme / extension",
+                    "settings.default_apps.application":  "Default app"
                 }
 }

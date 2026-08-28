@@ -9,7 +9,19 @@ import 'explorer_app.dart';
 /// Mirrors `Client.Apps.Explorer.ExplorerPickerMode`. Selecting a file
 /// (OpenFile) returns the picked path; selecting a folder (SelectFolder)
 /// returns the current address bar path or the highlighted folder.
-enum ExplorerPickerMode { openFile, selectFolder }
+///
+/// [openFiles] (plural) is the multi-select equivalent of [openFile].
+/// [saveFile] switches the picker footer into "save with name" mode, where
+/// the user can either select an existing file (to overwrite, confirmed via
+/// the surrounding modal) or type a new filename. This mirrors how hosted
+/// apps previously combined the picker with `TextInputDialogView` for
+/// remote Save-As flows.
+enum ExplorerPickerMode {
+  openFile,
+  openFiles,
+  selectFolder,
+  saveFile,
+}
 
 /// Mirrors `Client.Apps.Explorer.ExplorerFileFilter`. Patterns use the
 /// classic `*.txt` wildcard syntax and are matched case-insensitively
@@ -80,13 +92,18 @@ class ExplorerFileFilter {
 }
 
 /// Mirrors `Client.Apps.Explorer.ExplorerPickerOptions`. Filters apply only
-/// in [ExplorerPickerMode.openFile] mode; folder picker mode accepts every
-/// directory.
+/// in file-oriented modes ([ExplorerPickerMode.openFile],
+/// [ExplorerPickerMode.openFiles] and [ExplorerPickerMode.saveFile]); the
+/// folder picker accepts every directory.
+///
+/// [suggestedFileName] is only used by [ExplorerPickerMode.saveFile] and
+/// mirrors the `defaultName` passed to `NotepadApp.RequestSavePathAsync`.
 class ExplorerPickerOptions {
   const ExplorerPickerOptions({
     this.mode = ExplorerPickerMode.openFile,
     this.allowMultiple = false,
     this.filters = const [ExplorerFileFilter.allFiles],
+    this.suggestedFileName,
     required this.onConfirm,
     this.onCancel,
   });
@@ -94,9 +111,11 @@ class ExplorerPickerOptions {
   final ExplorerPickerMode mode;
   final bool allowMultiple;
   final List<ExplorerFileFilter> filters;
+  final String? suggestedFileName;
 
-  /// Invoked with the picked paths (single path when [allowMultiple] is
-  /// false). Wired to the surrounding modal by the host application.
+  /// Invoked with the picked paths. File pickers return one or many file
+  /// paths; folder pickers return a single folder path; the save-file
+  /// picker returns the fully resolved remote target path (exactly one).
   final void Function(List<String> paths) onConfirm;
 
   /// Invoked when the user cancels the picker (Esc or the cancel button).
@@ -130,6 +149,83 @@ Future<String?> showRemoteFilePicker(
               filters: filters,
               onConfirm: (paths) =>
                   modals.complete(dialogId, paths.isEmpty ? null : paths.first),
+              onCancel: () => modals.dismiss(dialogId),
+            ),
+          );
+        },
+      ),
+    ),
+  );
+}
+
+/// Opens the Explorer as a modal multi-file picker and returns the chosen
+/// remote paths. Mirrors the Avalonia `ExplorerPickerMode.OpenFile` with
+/// `AllowMultiple: true`.
+Future<List<String>?> showRemoteMultiFilePicker(
+  WidgetRef ref,
+  BuildContext context, {
+  String? title,
+  List<ExplorerFileFilter> filters = const [ExplorerFileFilter.allFiles],
+  Size preferredSize = const Size(760, 520),
+}) {
+  final ownerId = RemoteWindowScope.of(context).window.id;
+  final modals = ref.read(modalManagerProvider);
+  return modals.open<List<String>>(
+    ownerId: ownerId,
+    spec: ModalSpec(
+      title: title ?? 'explorer.picker.open_files'.tr(),
+      icon: Icons.file_open_outlined,
+      preferredSize: preferredSize,
+      child: Builder(
+        builder: (modalContext) {
+          final dialogId = RemoteModalScope.of(modalContext).windowId;
+          return ExplorerApp(
+            picker: ExplorerPickerOptions(
+              mode: ExplorerPickerMode.openFiles,
+              filters: filters,
+              onConfirm: (paths) => modals.complete<List<String>>(
+                  dialogId, paths.isEmpty ? null : paths),
+              onCancel: () => modals.dismiss(dialogId),
+            ),
+          );
+        },
+      ),
+    ),
+  );
+}
+
+/// Opens the Explorer as a save-file picker and returns the full remote
+/// target path (the current folder + typed/selected filename). Mirrors the
+/// original Avalonia pattern where `TextInputDialogView` + Explorer were
+/// combined for Save-As flows; the Flutter version unifies them into a
+/// single managed modal so the filename filter and folder can be edited
+/// together.
+Future<String?> showRemoteSaveFilePicker(
+  WidgetRef ref,
+  BuildContext context, {
+  String? title,
+  required String suggestedFileName,
+  List<ExplorerFileFilter> filters = const [ExplorerFileFilter.allFiles],
+  Size preferredSize = const Size(760, 520),
+}) {
+  final ownerId = RemoteWindowScope.of(context).window.id;
+  final modals = ref.read(modalManagerProvider);
+  return modals.open<String>(
+    ownerId: ownerId,
+    spec: ModalSpec(
+      title: title ?? 'explorer.picker.save_file'.tr(),
+      icon: Icons.save_outlined,
+      preferredSize: preferredSize,
+      child: Builder(
+        builder: (modalContext) {
+          final dialogId = RemoteModalScope.of(modalContext).windowId;
+          return ExplorerApp(
+            picker: ExplorerPickerOptions(
+              mode: ExplorerPickerMode.saveFile,
+              filters: filters,
+              suggestedFileName: suggestedFileName,
+              onConfirm: (paths) => modals.complete<String>(
+                  dialogId, paths.isEmpty ? null : paths.first),
               onCancel: () => modals.dismiss(dialogId),
             ),
           );

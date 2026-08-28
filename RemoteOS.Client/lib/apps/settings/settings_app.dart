@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:easy_localization/easy_localization.dart';
@@ -8,6 +10,47 @@ import '../../../core/theme/theme_palette_defaults.dart';
 import '../../../core/auth/auth_service.dart';
 import '../../../core/localization/language_catalog.dart';
 import '../../../features/workspace/application/workspace_sync_coordinator.dart';
+import '../../../features/workspace/domain/workspace_models.dart';
+
+/// Local UI model: an application option for protocol / extension mapping.
+class _AppOptionUi {
+  const _AppOptionUi({
+    required this.id,
+    required this.displayName,
+    required this.schemes,
+    required this.extensions,
+  });
+  final String id;
+  final String displayName;
+  final List<String> schemes;
+  final List<String> extensions;
+}
+
+/// Local UI model: one protocol/extension → app mapping row.
+class _DefaultAppMappingUi {
+  _DefaultAppMappingUi({
+    required this.scheme,
+    required this.appId,
+  });
+  String scheme;
+  String appId;
+}
+
+/// Local UI model: one image mirror registry entry.
+class _ImageMirrorUi {
+  _ImageMirrorUi({
+    required this.id,
+    required this.name,
+    required this.endpoint,
+    required this.isDefault,
+    required this.isSelected,
+  });
+  String id;
+  String name;
+  String endpoint;
+  bool isDefault;
+  bool isSelected;
+}
 
 /// A fully functional Settings app with:
 /// - Theme mode (Light/Dark/System)
@@ -26,15 +69,48 @@ class _SettingsAppState extends ConsumerState<SettingsApp>
     with SingleTickerProviderStateMixin {
   static const _pageIds = [
     'system',
-    'time_language',
     'personalization',
-    'applications',
+    'time_language',
     'network',
+    'applications',
+    'image_mirrors',
+    'default_apps',
     'developer',
   ];
 
   late final TabController _tabController;
   int _selectedPage = 0;
+
+  // Default apps local UI state (persisted via WorkspacePreferences.defaultApps).
+  final List<_DefaultAppMappingUi> _defaultMappings = [];
+  final List<_AppOptionUi> _appOptions = const [
+    _AppOptionUi(id: 'remoteos.welcome', displayName: '欢迎 / Welcome', schemes: [], extensions: []),
+    _AppOptionUi(id: 'remoteos.notepad', displayName: '记事本 / Notepad', schemes: ['txt', 'md'], extensions: ['.txt', '.md', '.markdown', '.json', '.xml', '.yaml', '.yml', '.toml', '.ini', '.cfg', '.conf', '.config', '.log']),
+    _AppOptionUi(id: 'remoteos.code_editor', displayName: '代码编辑器 / Code Editor', schemes: [], extensions: ['.dart', '.cs', '.py', '.ts', '.tsx', '.js', '.jsx', '.java', '.go', '.rs', '.c', '.cpp', '.h', '.hpp', '.sh', '.ps1', '.bat', '.sql', '.kt', '.swift']),
+    _AppOptionUi(id: 'remoteos.terminal', displayName: '终端 / Terminal', schemes: [], extensions: ['.sh', '.ps1', '.bat', '.cmd']),
+    _AppOptionUi(id: 'remoteos.explorer', displayName: '文件资源管理器 / Explorer', schemes: ['file'], extensions: []),
+    _AppOptionUi(id: 'remoteos.browser', displayName: '浏览器 / Browser', schemes: ['http', 'https', 'mailto', 'ftp'], extensions: ['.html', '.htm', '.xhtml', '.mht']),
+    _AppOptionUi(id: 'remoteos.settings', displayName: '设置 / Settings', schemes: ['remoteos'], extensions: []),
+    _AppOptionUi(id: 'remoteos.docker_manager', displayName: 'Docker 管理器 / Docker Manager', schemes: [], extensions: ['.dockerfile', '.yaml', '.yml']),
+  ];
+  final List<String> _availableSchemes = [
+    'http', 'https', 'mailto', 'ftp', 'file', 'remoteos',
+    '.txt', '.md', '.markdown', '.json', '.xml', '.yaml', '.yml', '.toml',
+    '.ini', '.cfg', '.conf', '.config', '.log', '.csv',
+    '.html', '.htm', '.xhtml',
+    '.dart', '.cs', '.py', '.ts', '.tsx', '.js', '.jsx',
+    '.java', '.go', '.rs', '.c', '.cpp', '.h',
+    '.sh', '.ps1', '.bat', '.cmd', '.sql', '.kt', '.swift',
+    '.dockerfile', '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.svg',
+  ];
+
+  // Image mirrors local UI state.
+  final List<_ImageMirrorUi> _imageMirrors = [
+    _ImageMirrorUi(id: '', name: 'Docker Hub (默认 / Default)', endpoint: 'registry-1.docker.io', isDefault: true, isSelected: false),
+  ];
+  final _newMirrorName = TextEditingController();
+  final _newMirrorEndpoint = TextEditingController();
+  String _imageMirrorStatus = '';
 
   @override
   void initState() {
@@ -45,12 +121,37 @@ class _SettingsAppState extends ConsumerState<SettingsApp>
         setState(() => _selectedPage = _tabController.index);
       }
     });
+    _loadDefaultAppMappings();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _newMirrorName.dispose();
+    _newMirrorEndpoint.dispose();
     super.dispose();
+  }
+
+  void _loadDefaultAppMappings() {
+    final prefs = ref.read(workspaceSyncProvider).preferences;
+    if (prefs == null) return;
+    for (final m in prefs.defaultApps) {
+      _defaultMappings.add(_DefaultAppMappingUi(
+        scheme: m.scheme,
+        appId: m.appId,
+      ));
+    }
+  }
+
+  void _persistDefaultApps() {
+    final current = ref.read(workspaceSyncProvider).preferences;
+    if (current == null) return;
+    final updated = current.copyWith(
+      defaultApps: _defaultMappings
+          .map((m) => WorkspaceDefaultAppMapping(scheme: m.scheme, appId: m.appId))
+          .toList(growable: false),
+    );
+    ref.read(workspaceSyncProvider.notifier).queuePreferences(updated);
   }
 
   @override
@@ -85,14 +186,19 @@ class _SettingsAppState extends ConsumerState<SettingsApp>
         labelKey: 'settings.page.system'
       ),
       (
+        id: 'personalization',
+        icon: Icons.palette_outlined,
+        labelKey: 'settings.page.personalization'
+      ),
+      (
         id: 'time_language',
         icon: Icons.language_outlined,
         labelKey: 'settings.page.time_language'
       ),
       (
-        id: 'personalization',
-        icon: Icons.palette_outlined,
-        labelKey: 'settings.theme'
+        id: 'network',
+        icon: Icons.network_check_outlined,
+        labelKey: 'settings.page.network'
       ),
       (
         id: 'applications',
@@ -100,9 +206,14 @@ class _SettingsAppState extends ConsumerState<SettingsApp>
         labelKey: 'settings.page.applications'
       ),
       (
-        id: 'network',
-        icon: Icons.network_check_outlined,
-        labelKey: 'settings.page.network'
+        id: 'image_mirrors',
+        icon: Icons.wallpaper_outlined,
+        labelKey: 'settings.page.image_mirrors'
+      ),
+      (
+        id: 'default_apps',
+        icon: Icons.link_outlined,
+        labelKey: 'settings.page.default_apps'
       ),
       (
         id: 'developer',
@@ -228,14 +339,18 @@ class _SettingsAppState extends ConsumerState<SettingsApp>
     switch (_pageIds[_selectedPage]) {
       case 'system':
         return _buildSystemPage(activePalette);
-      case 'time_language':
-        return _buildLanguagePage(activePalette);
       case 'personalization':
         return _buildPersonalizationPage(activePalette);
-      case 'applications':
-        return _buildApplicationsPage(activePalette);
+      case 'time_language':
+        return _buildLanguagePage(activePalette);
       case 'network':
         return _buildNetworkPage(activePalette);
+      case 'applications':
+        return _buildApplicationsPage(activePalette);
+      case 'image_mirrors':
+        return _buildImageMirrorsPage(activePalette);
+      case 'default_apps':
+        return _buildDefaultAppsPage(activePalette);
       case 'developer':
         return _buildDeveloperPage(activePalette);
       default:
@@ -246,21 +361,70 @@ class _SettingsAppState extends ConsumerState<SettingsApp>
   // ======= System Page =======
   Widget _buildSystemPage(ThemePalette p) {
     final auth = ref.watch(authProvider);
+    final hostPlatform = Platform.operatingSystem;
+    final deviceName = Platform.localHostname;
+    final connected = auth.isAuthenticated;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionHeader(p, Icons.computer_rounded, 'settings.page.system'.tr(),
-            subtitle: 'settings.system.tagline'.tr()),
-        const SizedBox(height: 20),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('settings.page.system'.tr(),
+                  style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w600,
+                      color: p.textPrimary)),
+              const SizedBox(height: 2),
+              Text('settings.system.tagline'.tr(),
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: p.textSecondary,
+                      height: 1.35)),
+            ],
+          ),
+        ),
         _card(p, [
-          _infoRow(p, 'settings.version'.tr(), 'v1.0.0 (Flutter port)'),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text('settings.about'.tr(),
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: p.textSecondary)),
+          ),
+          _infoRow(p, 'settings.version'.tr(), 'RemoteOS 0.1'),
           _infoRow(p, 'settings.connection_status'.tr(),
-              auth.isAuthenticated ? 'Connected' : 'Disconnected',
-              valueColor: auth.isAuthenticated ? p.success : p.textTertiary),
+              connected
+                  ? 'settings.value.connected'.tr()
+                  : 'settings.value.not_connected'.tr(),
+              valueColor: connected ? p.success : p.textTertiary),
           _infoRow(p, 'settings.server'.tr(), auth.serverUrl ?? '—'),
-          _infoRow(p, 'settings.username'.tr(), auth.username ?? '—'),
-          _infoRow(p, 'settings.workspace'.tr(), 'Default workspace'),
         ]),
+        const SizedBox(height: 16),
+        _card(p, [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text('settings.account_workspace'.tr(),
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: p.textSecondary)),
+          ),
+          _infoRow(p, 'settings.username'.tr(), auth.username ?? '—'),
+          _infoRow(p, 'settings.host_platform'.tr(), hostPlatform),
+          _infoRow(p, 'settings.workspace'.tr(),
+              '${auth.workspaceName ?? '—'} Workspace'),
+          _infoRow(p, 'settings.device'.tr(), deviceName),
+          _infoRow(p, 'settings.device_role'.tr(), 'Controller'),
+          _infoRow(p, 'settings.last_login'.tr(), '2026-08-28 08:39'),
+        ]),
+        const SizedBox(height: 16),
+        Text('settings.system.description'.tr(),
+            style: TextStyle(
+                fontSize: 12, color: p.textSecondary.withOpacity(0.75))),
       ],
     );
   }
@@ -782,6 +946,357 @@ class _SettingsAppState extends ConsumerState<SettingsApp>
         ]),
       ],
     );
+  }
+
+  // ======= Image Mirrors Page =======
+  Widget _buildImageMirrorsPage(ThemePalette p) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('settings.page.image_mirrors'.tr(),
+                  style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w600,
+                      color: p.textPrimary)),
+              const SizedBox(height: 2),
+              Text('settings.image_mirrors.description'.tr(),
+                  style: TextStyle(
+                      fontSize: 13, color: p.textSecondary, height: 1.35)),
+            ],
+          ),
+        ),
+        _card(p, [
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _newMirrorName,
+                  style: TextStyle(color: p.textPrimary, fontSize: 13),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    labelText: 'settings.image_mirrors.new_name'.tr(),
+                    labelStyle: TextStyle(color: p.textSecondary, fontSize: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: _newMirrorEndpoint,
+                  style: TextStyle(color: p.textPrimary, fontSize: 13),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    labelText: 'settings.image_mirrors.new_endpoint'.tr(),
+                    labelStyle: TextStyle(color: p.textSecondary, fontSize: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              FilledButton.icon(
+                onPressed: _addImageMirror,
+                icon: const Icon(Icons.add, size: 16),
+                label: Text('common.create'.tr(), style: const TextStyle(fontSize: 13)),
+              ),
+            ],
+          ),
+          if (_imageMirrorStatus.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(_imageMirrorStatus,
+                style: TextStyle(color: p.textTertiary, fontSize: 12)),
+          ],
+        ]),
+        const SizedBox(height: 16),
+        _sectionTitle(p, 'settings.image_mirrors.registries'.tr()),
+        const SizedBox(height: 8),
+        for (int i = 0; i < _imageMirrors.length; i++) ...[
+          if (i > 0) const SizedBox(height: 8),
+          _buildImageMirrorTile(p, _imageMirrors[i]),
+        ],
+      ],
+    );
+  }
+
+  void _addImageMirror() {
+    final name = _newMirrorName.text.trim();
+    final endpoint = _newMirrorEndpoint.text.trim();
+    if (name.isEmpty || endpoint.isEmpty) {
+      setState(() => _imageMirrorStatus = 'settings.image_mirrors.required'.tr());
+      return;
+    }
+    setState(() {
+      _imageMirrors.add(_ImageMirrorUi(
+        id: 'm_${DateTime.now().millisecondsSinceEpoch}',
+        name: name,
+        endpoint: endpoint,
+        isDefault: false,
+        isSelected: false,
+      ));
+      _imageMirrorStatus = 'settings.image_mirrors.added'.tr();
+    });
+    _newMirrorName.clear();
+    _newMirrorEndpoint.clear();
+  }
+
+  Widget _buildImageMirrorTile(ThemePalette p, _ImageMirrorUi mirror) {
+    return _card(p, [
+      Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(mirror.name,
+                        style: TextStyle(
+                            color: p.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600)),
+                    if (mirror.isDefault) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: p.accentMuted,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text('settings.image_mirrors.default'.tr(),
+                            style: TextStyle(
+                                color: p.accent,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600)),
+                      ),
+                    ],
+                    if (mirror.isSelected && !mirror.isDefault) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: p.success.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text('settings.image_mirrors.in_use'.tr(),
+                            style: TextStyle(
+                                color: p.success,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600)),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(mirror.endpoint,
+                    style: TextStyle(color: p.textSecondary, fontSize: 12)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          OutlinedButton(
+            onPressed: mirror.isDefault
+                ? () {
+                    setState(() {
+                      for (final m in _imageMirrors) {
+                        m.isSelected = false;
+                      }
+                      _imageMirrorStatus =
+                          'settings.image_mirrors.default_selected'.tr();
+                    });
+                  }
+                : () {
+                    setState(() {
+                      for (final m in _imageMirrors) {
+                        m.isSelected = false;
+                      }
+                      mirror.isSelected = true;
+                      _imageMirrorStatus =
+                          'settings.image_mirrors.selected'.tr(args: [mirror.name]);
+                    });
+                  },
+            style: OutlinedButton.styleFrom(
+              foregroundColor: p.textSecondary,
+              minimumSize: const Size(72, 30),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            ),
+            child: Text('settings.image_mirrors.select'.tr()),
+          ),
+          if (!mirror.isDefault) ...[
+            const SizedBox(width: 8),
+            IconButton(
+              tooltip: 'common.delete'.tr(),
+              onPressed: () {
+                setState(() {
+                  _imageMirrors.remove(mirror);
+                  _imageMirrorStatus = 'settings.image_mirrors.removed'.tr();
+                });
+              },
+              icon: Icon(Icons.delete_outline_rounded,
+                  size: 18, color: p.textTertiary),
+            ),
+          ],
+        ],
+      ),
+    ]);
+  }
+
+  // ======= Default Apps Page =======
+  Widget _buildDefaultAppsPage(ThemePalette p) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('settings.page.default_apps'.tr(),
+                  style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w600,
+                      color: p.textPrimary)),
+              const SizedBox(height: 2),
+              Text('settings.default_apps.description'.tr(),
+                  style: TextStyle(
+                      fontSize: 13, color: p.textSecondary, height: 1.35)),
+            ],
+          ),
+        ),
+        Row(
+          children: [
+            FilledButton.icon(
+              onPressed: _addDefaultMapping,
+              icon: const Icon(Icons.add, size: 16),
+              label: Text('settings.default_apps.add'.tr(),
+                  style: const TextStyle(fontSize: 13)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        if (_defaultMappings.isEmpty)
+          Text('settings.default_apps.empty'.tr(),
+              style: TextStyle(color: p.textTertiary, fontSize: 12))
+        else
+          for (int i = 0; i < _defaultMappings.length; i++) ...[
+            if (i > 0) const SizedBox(height: 10),
+            _buildDefaultAppRow(p, _defaultMappings[i]),
+          ],
+      ],
+    );
+  }
+
+  void _addDefaultMapping() {
+    final usedSchemes = _defaultMappings.map((m) => m.scheme.toLowerCase()).toSet();
+    String pick = _availableSchemes.firstWhere(
+        (s) => !usedSchemes.contains(s.toLowerCase()),
+        orElse: () => 'http');
+    setState(() {
+      _defaultMappings.add(_DefaultAppMappingUi(
+        scheme: pick,
+        appId: _appOptions.first.id,
+      ));
+    });
+    _persistDefaultApps();
+  }
+
+  List<_AppOptionUi> _compatibleAppsFor(String scheme) {
+    if (scheme.startsWith('.')) {
+      final candidates = _appOptions
+          .where((app) => app.extensions
+              .any((ext) => ext.toLowerCase() == scheme.toLowerCase()))
+          .toList();
+      if (candidates.isNotEmpty) return candidates;
+      return _appOptions.where((app) => app.extensions.isNotEmpty).toList();
+    }
+    return _appOptions
+        .where((app) =>
+            const {'http', 'https', 'mailto', 'ftp'}.contains(scheme.toLowerCase()) ||
+            app.schemes.any(
+                (s) => s.toLowerCase() == scheme.toLowerCase()))
+        .toList();
+  }
+
+  Widget _buildDefaultAppRow(ThemePalette p, _DefaultAppMappingUi mapping) {
+    final schemeInputKey = GlobalKey<FormFieldState>();
+    final schemeCtrl = TextEditingController(text: mapping.scheme);
+    final compatible = _compatibleAppsFor(mapping.scheme);
+    final selectedApp = _appOptions.firstWhere((a) => a.id == mapping.appId,
+        orElse: () => compatible.isNotEmpty ? compatible.first : _appOptions.first);
+    return _card(p, [
+      Row(
+        children: [
+          SizedBox(
+            width: 200,
+            child: TextFormField(
+              key: schemeInputKey,
+              controller: schemeCtrl,
+              style: TextStyle(color: p.textPrimary, fontSize: 13),
+              decoration: InputDecoration(
+                isDense: true,
+                labelText: 'settings.default_apps.scheme'.tr(),
+                labelStyle: TextStyle(color: p.textSecondary, fontSize: 12),
+              ),
+              onFieldSubmitted: (value) {
+                final v = value.trim();
+                if (v.isEmpty) return;
+                setState(() => mapping.scheme = v);
+                _persistDefaultApps();
+              },
+              onChanged: (value) {
+                final v = value.trim();
+                if (v.isEmpty) return;
+                mapping.scheme = v;
+              },
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: DropdownButtonFormField<String>(
+              value: compatible.any((a) => a.id == selectedApp.id)
+                  ? selectedApp.id
+                  : (compatible.isNotEmpty ? compatible.first.id : _appOptions.first.id),
+              isExpanded: true,
+              style: TextStyle(color: p.textPrimary, fontSize: 13),
+              decoration: InputDecoration(
+                isDense: true,
+                labelText: 'settings.default_apps.application'.tr(),
+                labelStyle: TextStyle(color: p.textSecondary, fontSize: 12),
+              ),
+              items: [
+                for (final app in (compatible.isNotEmpty ? compatible : _appOptions))
+                  DropdownMenuItem(
+                    value: app.id,
+                    child: Text(app.displayName,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: p.textPrimary, fontSize: 13)),
+                  ),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() => mapping.appId = value);
+                _persistDefaultApps();
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            tooltip: 'common.delete'.tr(),
+            onPressed: () {
+              setState(() => _defaultMappings.remove(mapping));
+              _persistDefaultApps();
+            },
+            icon: Icon(Icons.delete_outline_rounded,
+                size: 18, color: p.textTertiary),
+          ),
+        ],
+      ),
+    ]);
   }
 
   // ======= Shared UI helpers =======

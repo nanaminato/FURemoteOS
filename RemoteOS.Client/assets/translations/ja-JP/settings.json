@@ -1,9 +1,10 @@
-﻿{
+{
     "Strings":  {
                     "settings.page.applications":  "アプリ",
                     "settings.page.developer":  "開発者",
                     "settings.page.network":  "ネットワーク",
                     "settings.page.image_mirrors":  "イメージ ミラー",
+                    "settings.page.default_apps":  "既定のアプリ",
                     "settings.page.personalization":  "個人用設定",
                     "settings.page.time_language":  "時刻と言語",
                     "settings.page.system":  "システム",
@@ -33,14 +34,34 @@
                     "settings.developer_mode.title":  "開発者モード",
                     "settings.developer_mode.description":  "高度な診断ツールと開発ツールを有効にします。",
                     "settings.language_region.description":  "RemoteOS 全体で使用する言語を選択します。",
-                    "settings.system.tagline":  "デバイス、アカウント、ワークスペースの情報",
+                    "settings.system.tagline":  "RemoteOS クラウドネイティブ デスクトップ環境",
+                    "settings.system.description":  "RemoteOS はホスト OS のユーザーと権限を使用します。",
                     "settings.test_connection":  "接続をテスト",
+                    "settings.value.connected":  "接続済み",
+                    "settings.value.not_connected":  "未接続",
                     "theme.mode_light":  "ライト",
                     "theme.mode_dark":  "ダーク",
                     "theme.mode_system":  "システム",
                     "theme.palette_remoteos_blue":  "RemoteOS ブルー",
                     "theme.palette_nord":  "Nord",
                     "theme.palette_catppuccin":  "Catppuccin",
-                    "theme.accent_color":  "アクセント カラー"
+                    "theme.accent_color":  "アクセント カラー",
+                    "settings.image_mirrors.description":  "RemoteOS で使用するリモート イメージ / コンテナー レジストリを構成します。",
+                    "settings.image_mirrors.new_name":  "名前 (例: Harbor)",
+                    "settings.image_mirrors.new_endpoint":  "エンドポイント URL",
+                    "settings.image_mirrors.registries":  "レジストリ",
+                    "settings.image_mirrors.required":  "名前とエンドポイントは空にできません。",
+                    "settings.image_mirrors.added":  "ミラーを追加しました。",
+                    "settings.image_mirrors.removed":  "ミラーを削除しました。",
+                    "settings.image_mirrors.default":  "既定",
+                    "settings.image_mirrors.in_use":  "使用中",
+                    "settings.image_mirrors.select":  "選択",
+                    "settings.image_mirrors.default_selected":  "既定のミラーに切り替えました。",
+                    "settings.image_mirrors.selected":  "切り替え: {0}",
+                    "settings.default_apps.description":  "プロトコルやファイル拡張子を既定のアプリにマップします。",
+                    "settings.default_apps.add":  "マッピングを追加",
+                    "settings.default_apps.empty":  "既定のアプリ マッピングはまだありません。",
+                    "settings.default_apps.scheme":  "スキーム / 拡張子",
+                    "settings.default_apps.application":  "既定のアプリ"
                 }
 }

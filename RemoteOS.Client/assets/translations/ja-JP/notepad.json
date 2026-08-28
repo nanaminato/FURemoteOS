@@ -21,6 +21,18 @@
                     "notepad.open_remote_file":  "リモートファイルを開く",
                     "notepad.save_remote_file":  "リモートファイルを保存",
                     "notepad.remote_path_prompt":  "完全なリモートパスを入力:",
-                    "notepad.text_file_filter":  "テキストファイル"
+                    "notepad.text_file_filter":  "テキストファイル",
+                    "notepad.status.ln_col":  "行 {0}、列 {1}",
+                    "notepad.status.offset":  "オフセット {0}",
+                    "notepad.hint.start_typing":  "テキストの入力を開始...",
+                    "notepad.find.find":  "検索する文字列",
+                    "notepad.find.replace_with":  "置換後の文字列",
+                    "notepad.find.replace":  "置換",
+                    "notepad.find.replace_all":  "すべて置換",
+                    "notepad.find.not_found":  "該当する項目が見つかりません。",
+                    "notepad.found_n_of_m":  "{1} 件中 {0} 件目",
+                    "notepad.replace.replaced_one":  "{0} 件置換しました",
+                    "notepad.replace.replaced_all":  "全 {0} 件置換しました",
+                    "notepad.print.not_available":  "この環境では印刷は利用できません。"
                 }
 }

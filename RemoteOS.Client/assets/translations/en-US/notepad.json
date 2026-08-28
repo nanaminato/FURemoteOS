@@ -21,6 +21,18 @@
                     "notepad.open_remote_file":  "Open remote file",
                     "notepad.save_remote_file":  "Save remote file",
                     "notepad.remote_path_prompt":  "Enter a full remote path:",
-                    "notepad.text_file_filter":  "Text files"
+                    "notepad.text_file_filter":  "Text files",
+                    "notepad.status.ln_col":  "Ln {0}, Col {1}",
+                    "notepad.status.offset":  "Offset {0}",
+                    "notepad.hint.start_typing":  "Start typing...",
+                    "notepad.find.find":  "Find",
+                    "notepad.find.replace_with":  "Replace with",
+                    "notepad.find.replace":  "Replace",
+                    "notepad.find.replace_all":  "Replace all",
+                    "notepad.find.not_found":  "No matches found.",
+                    "notepad.found_n_of_m":  "{0} of {1} found",
+                    "notepad.replace.replaced_one":  "Replaced {0}",
+                    "notepad.replace.replaced_all":  "Replaced all {0}",
+                    "notepad.print.not_available":  "Printing is not available in this environment."
                 }
 }
