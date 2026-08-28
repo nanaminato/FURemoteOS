@@ -8,6 +8,7 @@ import '../../apps/browser/browser_app.dart';
 import '../../apps/code_editor/code_editor_app.dart';
 import '../../apps/explorer/explorer_app.dart';
 import '../../apps/image_viewer/image_viewer_app.dart';
+import '../../apps/task_manager/task_manager_app.dart';
 import '../../apps/server_admin/server_admin_apps.dart';
 
 /// Registry of available RemoteOS applications.
@@ -139,8 +140,7 @@ class BuiltinApps {
       icon: Icons.monitor_heart_outlined,
       defaultSize: const Size(820, 580),
       minimumSize: const Size(480, 360),
-      windowBuilder: (_) =>
-          const ServerAdminApp(kind: ServerAdminKind.taskManager),
+      windowBuilder: (_) => const TaskManagerApp(),
     ),
     AppRegistryEntry(
       id: 'docker_manager',

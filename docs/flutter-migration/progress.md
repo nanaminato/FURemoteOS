@@ -15,6 +15,7 @@
 - 已完成：`FLUTTER-009`（Workspace preference/layout sync）。
 - 已完成：`FLUTTER-010`（Explorer baseline）。
 - 已完成：`FLUTTER-011`（SignalR 终端传输 + UI）。
+- 进行中：`FLUTTER-012`（Task Manager；先迁移服务端性能/进程契约）。
 - 进行中的工作树改动：`FLUTTER-002` 至 `FLUTTER-009` 的认证、本地化、主题、窗口、modal、context menu、shell 和 workspace REST 基础层、测试与依赖更新尚未提交。
 
 ## FLUTTER-009 验收记录
@@ -44,6 +45,17 @@
 - Flutter 实现：`lib/apps/terminal/terminal_app.dart` 已移除所有本地 mock command。使用 `signalr_hub` 建立带 access-token 的 Hub 连接，向 `Start` 传递初始列/行和可选 working directory；将 `byte[]` 的 JSON Base64 表示与 UTF-8 I/O 转换，实时处理窗口 resize。`xterm2` 负责客户端 VT/xterm 渲染和键盘输入，避免把 ANSI/PTTY 原始流错误地当作普通文本。
 - Explorer 对齐：`lib/apps/explorer/explorer_app.dart` 通过当前目录工具栏和文件夹菜单创建 `TerminalApp(workingDirectory: ...)`；不新增 Avalonia 中不存在的会话管理、自动重连或额外终端功能。
 - 自动验证：`flutter build linux --debug` 于 2026-08-28 成功。仍需在可访问认证 Server 的环境中做手动端到端验证（连接、输入、ANSI 输出、resize、detach/terminate）；`flutter analyze` 仍受宿主 LSP 输入截断的既有 `FormatException` 影响。
+
+## FLUTTER-012 当前实施记录
+
+- Avalonia 输入：`Apps/TaskManager/TaskManagerApp.cs`、`TaskManagerClient.cs`、`PerformanceStream.cs`、`ViewModels/TaskManagerViewModel.cs` 与 `Views/TaskManagerMainView.axaml`。
+- 迁移边界：仅实现已有的性能资源页（CPU、内存、文件系统、磁盘、网络）、`/hubs/performance` 实时订阅及 REST history/snapshot 回退、可过滤的进程列表和结束进程反馈。不得新增 GPU 图表、进程树、优先级修改、服务管理或本地宿主监控。
+- 权限与验证：所有 REST/Hub 均依赖登录 access token；结束进程必须展示 Server 的 `requiresElevation` 结果，不能在客户端假定提权成功。验收需覆盖 Hub Subscribe/Unsubscribe、历史回补、进程 query/filter/kill wire fields，以及 Linux build；实际 Server 手动验证另列。
+- 已完成（本轮基础层）：新增 `features/system_monitor/data/remote_system_monitor_api.dart`，覆盖 snapshot、最长 60 秒 history、第一页 memory-sort process query 与 kill；DTO 保留 `requiresElevation`，不将服务端拒绝误报为已结束。新增 `test/features/system_monitor/remote_system_monitor_api_test.dart` 覆盖对应 route/query/result 字段；测试和 `flutter build linux --debug` 通过。
+- 已完成（本轮实时层）：新增 `features/system_monitor/data/performance_hub.dart`，以当前认证 token 连接 `/hubs/performance`，注册 `OnPerformanceSnapshot` 后调用 `Subscribe`；dispose 时 best-effort `Unsubscribe` 再停止连接。启用 SignalR automatic reconnect，并在 `onreconnected` 后重新 `Subscribe`、通知 UI 从 REST history 回补，符合 Avalonia `PerformanceStream` 的生命周期。
+- 已完成（本轮 UI）：新增 `apps/task_manager/task_manager_app.dart` 并替换注册表中原先泛用的 `ServerAdminApp` 占位页。界面保留 Avalonia 的 Performance/Processes 双页：性能页显示 Hub/history 提供的 CPU、内存、文件系统容量、磁盘 I/O 与网络速率；进程页每 5 秒刷新、可过滤、可结束任务并准确提示 `requiresElevation`。Hub 重连事件会重新读取 history，并保留最后有效样本作为回退。未新增进程树、GPU、优先级或服务控制。`flutter build linux --debug` 和 Task Manager API 测试均通过；测试现覆盖文件系统、磁盘和网络实时 DTO 字段的聚合。剩余验收：在实际已登录 Server 验证 Hub 首样本、断线后的 history 回补与结束进程的权限失败反馈；在此之前 FLUTTER-012 不得完成。
+- 对照审计（未完成）：Flutter 性能卡片现可选择 CPU、内存、文件系统、磁盘或网络，并用最多 60 个按 sequence 去重的 history/Hub 样本绘制所选资源折线图。该图在首次加载、实时更新及重连回补时更新。进程页已补线程列、自动刷新开关、手动刷新与清除筛选（并在关闭自动刷新时取消其 5 秒 timer）。剩余差距是 Avalonia 的逐设备/文件系统导航和详细字段；不能因 REST/Hub 层已就绪而提前结束 FLUTTER-012。
+- 已完成（本轮详情契约）：`RemoteSystemMonitorApi.info()` 已接入 `/api/v1/system/performance/info`，解析 CPU 型号/逻辑处理器数、内存总量以及文件系统、磁盘、网络身份列表；对 Server 未提供的字段保持 nullable，绝不伪造 0。性能页选择资源时已显示相应的真实低频详情。wire-format 测试与 Linux debug build 均通过。剩余是将聚合资源改成 Avalonia 的逐设备/文件系统选择。
 
 ## FLUTTER-008 验收记录
 

@@ -13,5 +13,6 @@
 | FLUTTER-009 | Workspace preference/layout sync | Completed — 2026-08-28 | WindowLayout、DesktopRestore | 002,008 |
 | FLUTTER-010 | Explorer baseline | Completed — 2026-08-28 | Explorer App/Client/ViewModel | 002,007,008 |
 | FLUTTER-011 | Terminal transport + UI spike | Completed — build verified | Terminal App/SignalR transport | 002,008 |
+| FLUTTER-012 | Task Manager | In progress — UI/build verified; Server E2E pending | TaskManager App/Client/ViewModel, `/api/v1/system/performance/*`, `/hubs/performance` | 002,008 |
 
 后续每项须补充：具体 Files、权限、行为/UI 要求、验收、自动/手动测试和风险。业务 Feature 任务按 01 的实际清单继续编号。
