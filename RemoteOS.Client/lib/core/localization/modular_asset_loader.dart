@@ -8,8 +8,20 @@ import 'language_catalog.dart';
 
 /// Loads each feature's translation bundle and exposes them as one catalog.
 ///
-/// Translation keys stay stable (for example, `settings.title`), while the
-/// files that own them live next to their feature-level catalog.
+/// The asset layout mirrors Avalonia's convention: `{locale}/{bundle}.json`
+/// with each file shaped like
+///
+/// ```json
+/// {
+///   "Culture": "en-US",
+///   "DisplayName": "English",
+///   "SortOrder": 0,
+///   "Strings": { "common.connect": "Connect" }
+/// }
+/// ```
+///
+/// Only `common.json` carries the three metadata fields; every other bundle
+/// (apps, docker, …) has a plain `Strings` map at the top level.
 class ModularAssetLoader extends AssetLoader {
   const ModularAssetLoader({this.catalog, this.assetBundle});
 
@@ -23,59 +35,44 @@ class ModularAssetLoader extends AssetLoader {
     final localeName = locale.toStringWithSeparator(separator: '-');
     final localizedStrings = <String, dynamic>{};
 
-    // Load English (or another configured source locale) first.  An optional
-    // pack is allowed to translate only the strings it owns without exposing
-    // resource keys for the rest of the UI.
-    final localesToLoad = <String>{activeCatalog.fallbackLocaleTag, localeName};
+    // Load the fallback locale first so every shipped key exists, then overlay
+    // the active locale on top.
+    final localesToLoad = <String>{LanguageCatalog.fallbackLocaleTag, localeName};
     for (final tag in localesToLoad) {
       if (!activeCatalog.isBuiltIn(tag)) continue;
       final definedKeys = <String>{};
       for (final bundle in activeCatalog.bundles) {
-        final assetPath = '$path/$bundle/$tag.json';
+        final assetPath = '$path/$tag/$bundle.json';
         final decoded = jsonDecode(await sourceBundle.loadString(assetPath));
         if (decoded is! Map<String, dynamic>) {
           throw FormatException(
               'Translation bundle must be a JSON object: $assetPath');
         }
-        for (final key in _leafKeys(decoded)) {
+        final strings = decoded['Strings'];
+        if (strings is! Map<String, dynamic>) {
+          throw FormatException(
+              'Translation bundle must contain a Strings map: $assetPath');
+        }
+        for (final key in strings.keys) {
           if (!definedKeys.add(key)) {
             throw FormatException(
                 'Duplicate translation key "$key" in locale $tag.');
           }
         }
-        _merge(localizedStrings, decoded);
+        _mergeFlat(localizedStrings, strings);
       }
     }
 
     final external = activeCatalog.externalTranslationsFor(localeName);
-    if (external != null) _merge(localizedStrings, external);
+    if (external != null) _mergeFlat(localizedStrings, external);
 
     return localizedStrings;
   }
 
-  static Iterable<String> _leafKeys(
-    Map<String, dynamic> source, {
-    String prefix = '',
-  }) sync* {
+  static void _mergeFlat(
+      Map<String, dynamic> target, Map<String, dynamic> source) {
     for (final entry in source.entries) {
-      final key = prefix.isEmpty ? entry.key : '$prefix.${entry.key}';
-      if (entry.value case final Map<String, dynamic> nested) {
-        yield* _leafKeys(nested, prefix: key);
-      } else {
-        yield key;
-      }
-    }
-  }
-
-  static void _merge(Map<String, dynamic> target, Map<String, dynamic> source) {
-    for (final entry in source.entries) {
-      final current = target[entry.key];
-      final incoming = entry.value;
-      if (current is Map<String, dynamic> && incoming is Map<String, dynamic>) {
-        _merge(current, incoming);
-      } else {
-        target[entry.key] = incoming;
-      }
+      target[entry.key] = entry.value;
     }
   }
 }

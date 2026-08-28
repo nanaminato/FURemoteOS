@@ -115,13 +115,15 @@ class _DesktopScreenState extends ConsumerState<DesktopScreen> {
                 controller: _desktopMenu,
                 child: Stack(
                   children: [
-                    ContextMenuRegion(
-                      controller: _desktopMenu,
-                      entries: _desktopMenuEntries(
-                        context,
-                        Size(constraints.maxWidth, workArea.height),
+                    Positioned.fill(
+                      child: ContextMenuRegion(
+                        controller: _desktopMenu,
+                        entries: _desktopMenuEntries(
+                          context,
+                          Size(constraints.maxWidth, workArea.height),
+                        ),
+                        child: _buildDesktopBackground(palette, constraints),
                       ),
-                      child: _buildDesktopBackground(palette, constraints),
                     ),
                     _buildDesktopIcons(context, workArea),
                     _buildWindowLayer(workArea),
@@ -234,21 +236,19 @@ class _DesktopScreenState extends ConsumerState<DesktopScreen> {
 
   Widget _buildDesktopBackground(
       ThemePalette palette, BoxConstraints constraints) {
-    return Positioned.fill(
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              palette.appBackground,
-              palette.shellBackground,
-            ],
-          ),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            palette.appBackground,
+            palette.shellBackground,
+          ],
         ),
-        child: CustomPaint(
-          painter: _DesktopPatternPainter(palette),
-        ),
+      ),
+      child: CustomPaint(
+        painter: _DesktopPatternPainter(palette),
       ),
     );
   }

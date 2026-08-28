@@ -7,9 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// A language available to the RemoteOS UI.
 ///
-/// The display name lives with the pack rather than in another locale's
-/// translations.  This means an externally installed language can always be
-/// selected, even when none of the bundled languages know its name.
+/// The display name and sort order are stored alongside each locale's own
+/// `common.json`, so externally installed language packs remain selectable
+/// even when no bundled language knows their names.
 class LanguageOption {
   const LanguageOption({
     required this.localeTag,
@@ -28,14 +28,26 @@ class LanguageOption {
 
 /// Discovers bundled languages and optional user-installed language packs.
 ///
-/// Bundled metadata belongs in `assets/translations/catalog.json`; code never
-/// needs updating when a shipped language is added.  A user pack is a single
-/// JSON file in [defaultLanguagePackDirectory] (or `REMOTEOS_LANGUAGE_PACKS`)
-/// and contains its own locale, display name, and translations.
+/// Each bundled language is a subdirectory of `assets/translations/` whose
+/// name is the locale tag (for example `en-US/`).  The directory contains one
+/// JSON file per bundle (`common.json`, `docker.json`, …).  Only `common.json`
+/// carries metadata:
+///
+/// ```json
+/// {
+///   "Culture": "en-US",
+///   "DisplayName": "English",
+///   "SortOrder": 0,
+///   "Strings": { "common.connect": "Connect" }
+/// }
+/// ```
+///
+/// A user-installed language pack lives in [defaultLanguagePackDirectory] (or
+/// the `REMOTEOS_LANGUAGE_PACKS` environment variable) and follows the same
+/// layout so external translators can ship a drop-in locale directory.
 class LanguageCatalog {
   LanguageCatalog._({
     required List<LanguageOption> languages,
-    required this.fallbackLocaleTag,
     required List<String> bundles,
     required Map<String, Map<String, dynamic>> externalTranslations,
   })  : languages = List.unmodifiable(
@@ -43,10 +55,13 @@ class LanguageCatalog {
         bundles = List.unmodifiable(bundles),
         _externalTranslations = Map.unmodifiable(externalTranslations);
 
-  static const _catalogAsset = 'assets/translations/catalog.json';
+  /// Hard-coded fallback locale.  The bundled `en-US/` directory MUST exist.
+  static const fallbackLocaleTag = 'en-US';
+
+  /// Asset root that contains one subdirectory per locale.
+  static const _assetRoot = 'assets/translations';
 
   final List<LanguageOption> languages;
-  final String fallbackLocaleTag;
   final List<String> bundles;
   final Map<String, Map<String, dynamic>> _externalTranslations;
 
@@ -66,56 +81,82 @@ class LanguageCatalog {
     AssetBundle? bundle,
     Directory? languagePackDirectory,
   }) async {
-    final source =
-        jsonDecode(await (bundle ?? rootBundle).loadString(_catalogAsset));
-    if (source is! Map<String, dynamic>) {
-      throw const FormatException('The translation catalog must be an object.');
-    }
+    final sourceBundle = bundle ?? rootBundle;
 
-    final bundles = _stringList(source['bundles'], 'bundles');
-    final fallbackLocale =
-        _requiredString(source['fallbackLocale'], 'fallbackLocale');
-    final rawLanguages = source['languages'];
-    if (rawLanguages is! List || rawLanguages.isEmpty) {
-      throw const FormatException(
-          'The translation catalog needs at least one language.');
-    }
-
+    // --- Discover built-in locales by probing common.json ---
+    // We can't list asset subdirectories at runtime, so we try known locale
+    // names.  Missing ones are silently skipped.
+    final candidates = <String>[
+      'en-US',
+      'zh-CN',
+      'ja-JP',
+    ];
     final languages = <LanguageOption>[];
     final knownTags = <String>{};
-    for (final rawLanguage in rawLanguages) {
-      if (rawLanguage is! Map<String, dynamic>) {
-        throw const FormatException('Each catalog language must be an object.');
+    final discoveredBundles = <String>{};
+
+    for (final tag in candidates) {
+      final commonPath = '$_assetRoot/$tag/common.json';
+      try {
+        final raw = await sourceBundle.loadString(commonPath);
+        final parsed = jsonDecode(raw);
+        if (parsed is! Map<String, dynamic>) continue;
+
+        final displayName = _requiredString(
+            parsed['DisplayName'], '$commonPath: DisplayName');
+        final sortOrder = parsed['SortOrder'] is int
+            ? parsed['SortOrder'] as int
+            : languages.length * 10;
+
+        if (!knownTags.add(tag.toLowerCase())) continue;
+        languages.add(LanguageOption(
+          localeTag: tag,
+          displayName: displayName,
+          sortOrder: sortOrder,
+          builtIn: true,
+        ));
+      } on FlutterError {
+        // Asset missing — the locale is simply not shipped.
+      } on FormatException {
+        continue;
       }
-      final tag = _requiredString(rawLanguage['locale'], 'languages[].locale');
-      if (!knownTags.add(tag.toLowerCase())) {
-        throw FormatException(
-            'The translation catalog contains $tag more than once.');
+
+      // Probe other files in this locale dir to discover bundle names.
+      // We don't have a directory listing, so we also try a known set.
+      for (final file in <String>[
+        'common',
+        'apps',
+        'docker',
+        'firewall',
+        'login',
+        'settings',
+        'shell',
+      ]) {
+        final path = '$_assetRoot/$tag/$file.json';
+        try {
+          await sourceBundle.loadString(path);
+          discoveredBundles.add(file);
+        } catch (_) {
+          // Not present in this locale — fine, it may be added later.
+        }
       }
-      languages.add(LanguageOption(
-        localeTag: tag,
-        displayName: _requiredString(
-            rawLanguage['displayName'], 'languages[].displayName'),
-        sortOrder: rawLanguage['sortOrder'] is int
-            ? rawLanguage['sortOrder'] as int
-            : languages.length * 10,
-        builtIn: true,
-      ));
     }
 
-    if (!knownTags.contains(fallbackLocale.toLowerCase())) {
+    if (!knownTags.contains(fallbackLocaleTag.toLowerCase())) {
       throw FormatException(
-          'The fallback locale $fallbackLocale is not listed in the translation catalog.');
+          'The fallback locale $fallbackLocaleTag must ship with the '
+          'application (missing assets/translations/$fallbackLocaleTag/common.json).');
     }
 
+    final bundles = discoveredBundles.toList()..sort();
+
+    // --- Scan external language packs ---
     final externalTranslations = <String, Map<String, dynamic>>{};
     final externalOptions = <String, LanguageOption>{};
     final directory = languagePackDirectory ?? defaultLanguagePackDirectory();
     if (await directory.exists()) {
       await for (final entity in directory.list(followLinks: false)) {
-        if (entity is! File || !entity.path.toLowerCase().endsWith('.json')) {
-          continue;
-        }
+        if (entity is! Directory) continue;
         try {
           final pack = await _readLanguagePack(entity);
           externalTranslations[pack.option.localeTag] = pack.translations;
@@ -123,7 +164,6 @@ class LanguageCatalog {
         } on FormatException {
           // Optional user content must never keep the client from opening.
         } on IOException {
-          // A pack can disappear while it is being inspected.
         }
       }
     }
@@ -132,8 +172,6 @@ class LanguageCatalog {
       for (final language in languages)
         if (externalOptions.remove(language.localeTag.toLowerCase())
             case final override?)
-          // An override changes its own label/order, but it must still load
-          // the bundled fragments before applying its partial translation map.
           LanguageOption(
             localeTag: language.localeTag,
             displayName: override.displayName,
@@ -147,13 +185,16 @@ class LanguageCatalog {
 
     return LanguageCatalog._(
       languages: mergedLanguages,
-      fallbackLocaleTag: fallbackLocale,
       bundles: bundles,
       externalTranslations: externalTranslations,
     );
   }
 
   /// Default location for user-owned language packs on each desktop platform.
+  ///
+  /// A pack is a directory whose name is the locale tag and that contains
+  /// `common.json` (and optionally other bundle files), mirroring the bundled
+  /// layout.
   static Directory defaultLanguagePackDirectory() {
     final override = Platform.environment['REMOTEOS_LANGUAGE_PACKS'];
     if (override != null && override.trim().isNotEmpty) {
@@ -178,28 +219,60 @@ class LanguageCatalog {
         '$configHome${Platform.pathSeparator}RemoteOS${Platform.pathSeparator}languages');
   }
 
-  static Future<_ExternalLanguagePack> _readLanguagePack(File file) async {
-    final decoded = jsonDecode(await file.readAsString());
-    if (decoded is! Map<String, dynamic>) {
-      throw FormatException('${file.path} must contain a JSON object.');
+  /// Reads an external language pack directory.
+  ///
+  /// Returns a flattened map of every `Strings` section from every bundle
+  /// JSON found inside.  Only `common.json` carries [LanguageOption] metadata;
+  /// if it is missing the pack is rejected.
+  static Future<_ExternalLanguagePack> _readLanguagePack(Directory dir) async {
+    final commonFile = File('${dir.path}${Platform.pathSeparator}common.json');
+    if (!await commonFile.exists()) {
+      throw FormatException(
+          '${dir.path}: external language pack must contain common.json.');
     }
-    final locale = _requiredString(decoded['locale'], '${file.path}: locale');
-    final displayName =
-        _requiredString(decoded['displayName'], '${file.path}: displayName');
-    final translations = decoded['translations'];
-    if (translations is! Map<String, dynamic>) {
-      throw FormatException('${file.path}: translations must be an object.');
+
+    final commonRaw = await commonFile.readAsString();
+    final commonParsed = jsonDecode(commonRaw);
+    if (commonParsed is! Map<String, dynamic>) {
+      throw FormatException(
+          '${commonFile.path}: must contain a JSON object.');
+    }
+
+    final locale = _requiredString(
+        commonParsed['Culture'], '${commonFile.path}: Culture');
+    final displayName = _requiredString(
+        commonParsed['DisplayName'], '${commonFile.path}: DisplayName');
+
+    // Collect strings from every bundle file in this directory.
+    final allStrings = <String, dynamic>{};
+    await for (final entity in dir.list(followLinks: false)) {
+      if (entity is! File || !entity.path.toLowerCase().endsWith('.json')) {
+        continue;
+      }
+      try {
+        final raw = await entity.readAsString();
+        final parsed = jsonDecode(raw);
+        if (parsed is! Map<String, dynamic>) continue;
+        final strings = parsed['Strings'];
+        if (strings is! Map<String, dynamic>) continue;
+        _mergeFlat(allStrings, strings);
+      } on FormatException {
+        continue;
+      } on IOException {
+        continue;
+      }
     }
 
     return _ExternalLanguagePack(
       option: LanguageOption(
         localeTag: locale,
         displayName: displayName,
-        sortOrder:
-            decoded['sortOrder'] is int ? decoded['sortOrder'] as int : 1000,
+        sortOrder: commonParsed['SortOrder'] is int
+            ? commonParsed['SortOrder'] as int
+            : 1000,
         builtIn: false,
       ),
-      translations: _deepCopy(translations),
+      translations: _deepCopy(allStrings),
     );
   }
 }
@@ -219,11 +292,10 @@ String _requiredString(Object? value, String field) {
   throw FormatException('$field must be a non-empty string.');
 }
 
-List<String> _stringList(Object? value, String field) {
-  if (value is! List || value.any((entry) => entry is! String)) {
-    throw FormatException('$field must be an array of strings.');
+void _mergeFlat(Map<String, dynamic> target, Map<String, dynamic> source) {
+  for (final entry in source.entries) {
+    target[entry.key] = entry.value;
   }
-  return value.cast<String>();
 }
 
 Map<String, dynamic> _deepCopy(Map<String, dynamic> source) =>

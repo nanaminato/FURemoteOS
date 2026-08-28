@@ -1,0 +1,22 @@
+﻿{
+    "Strings":  {
+                    "app.welcome":  "Welcome",
+                    "app.notepad":  "Notepad",
+                    "app.code_editor":  "Code Editor",
+                    "app.image_viewer":  "Image Viewer",
+                    "app.settings":  "Settings",
+                    "app.terminal":  "Terminal",
+                    "app.explorer":  "File Explorer",
+                    "app.browser":  "Browser",
+                    "app.task_manager":  "Task Manager",
+                    "app.docker_manager":  "Docker Manager",
+                    "app.firewall":  "Firewall",
+                    "app.certificates":  "Certificates",
+                    "app.web_servers":  "Web Servers",
+                    "app.tunnels":  "Tunnels",
+                    "app.git_client":  "Git Client",
+                    "app.port_forwarding":  "Port Forwarding",
+                    "app.process_guardian":  "Process Guardian",
+                    "app.app_installer":  "App Installer"
+                }
+}

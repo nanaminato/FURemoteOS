@@ -1,0 +1,22 @@
+﻿{
+    "Strings":  {
+                    "app.welcome":  "欢迎",
+                    "app.notepad":  "记事本",
+                    "app.code_editor":  "代码编辑器",
+                    "app.image_viewer":  "图片查看器",
+                    "app.settings":  "设置",
+                    "app.terminal":  "终端",
+                    "app.explorer":  "文件资源管理器",
+                    "app.browser":  "浏览器",
+                    "app.task_manager":  "任务管理器",
+                    "app.docker_manager":  "Docker 管理器",
+                    "app.firewall":  "防火墙",
+                    "app.certificates":  "证书管理",
+                    "app.web_servers":  "Web 服务器",
+                    "app.tunnels":  "隧道",
+                    "app.git_client":  "Git 客户端",
+                    "app.port_forwarding":  "端口转发",
+                    "app.process_guardian":  "进程守护",
+                    "app.app_installer":  "应用安装器"
+                }
+}

@@ -19,33 +19,37 @@ void main() {
       final locale = language.locale;
       final catalog = await loader.load('assets/translations', locale);
 
-      expect(catalog['common'], isA<Map<String, dynamic>>());
-      expect(catalog['login'], isA<Map<String, dynamic>>());
-      expect(catalog['shell'], isA<Map<String, dynamic>>());
-      expect(catalog['settings'], isA<Map<String, dynamic>>());
-      expect(catalog['app'], isA<Map<String, dynamic>>());
+      // All keys are flat dot-notation after migration.
+      expect(catalog['common.connect'], isA<String>());
+      expect(catalog['docker.login_required'], isA<String>());
+      expect(catalog['shell.connection.not_connected'], isA<String>());
+      expect(catalog['settings.title'], isA<String>());
+      expect(catalog['login.title'], isA<String>());
+      expect(catalog['apps.desktop_unknown'], isA<String>());
     }
   });
 
   test('discovers a user language pack and falls back for missing keys',
       () async {
-    final directory =
-        await Directory.systemTemp.createTemp('remoteos-language-');
-    addTearDown(() => directory.delete(recursive: true));
-    final pack = File('${directory.path}${Platform.pathSeparator}fr-FR.json');
-    await pack.writeAsString('''
+    final packDir = await Directory.systemTemp.createTemp('remoteos-language-');
+    addTearDown(() => packDir.delete(recursive: true));
+
+    // External pack is a directory that mirrors the bundled layout.
+    await File('${packDir.path}${Platform.pathSeparator}common.json')
+        .writeAsString('''
 {
-  "locale": "fr-FR",
-  "displayName": "Français",
-  "translations": {
-    "common": { "connect": "Se connecter" },
-    "login": { "title": "Connexion Bureau à distance" }
+  "Culture": "fr-FR",
+  "DisplayName": "Français",
+  "SortOrder": 30,
+  "Strings": {
+    "common.connect": "Se connecter",
+    "login.title": "Connexion Bureau à distance"
   }
 }
 ''');
 
     final languageCatalog =
-        await LanguageCatalog.load(languagePackDirectory: directory);
+        await LanguageCatalog.load(languagePackDirectory: packDir);
     final french = languageCatalog.languages.singleWhere(
       (language) => language.localeTag == 'fr-FR',
     );
@@ -55,25 +59,22 @@ void main() {
     );
 
     expect(french.displayName, 'Français');
-    expect(catalog['common']['connect'], 'Se connecter');
-    expect(catalog['common']['cancel'], 'Cancel');
-    expect(catalog['login']['title'], 'Connexion Bureau à distance');
+    expect(catalog['common.connect'], 'Se connecter');
+    // Missing key falls back to en-US from the bundled locale.
+    expect(catalog['common.cancel'], 'Cancel');
+    expect(catalog['login.title'], 'Connexion Bureau à distance');
   });
 
   test('rejects duplicate keys across feature bundles', () async {
     final assets = _TestAssetBundle({
-      'assets/translations/catalog.json': jsonEncode({
-        'fallbackLocale': 'en-US',
-        'bundles': ['shared', 'login'],
-        'languages': [
-          {'locale': 'en-US', 'displayName': 'English', 'sortOrder': 0},
-        ],
+      'assets/translations/en-US/common.json': jsonEncode({
+        'Culture': 'en-US',
+        'DisplayName': 'English',
+        'SortOrder': 0,
+        'Strings': {'common.connect': 'Connect'},
       }),
-      'assets/translations/shared/en-US.json': jsonEncode({
-        'common': {'connect': 'Connect'},
-      }),
-      'assets/translations/login/en-US.json': jsonEncode({
-        'common': {'connect': 'Sign in'},
+      'assets/translations/en-US/login.json': jsonEncode({
+        'Strings': {'common.connect': 'Sign in'},
       }),
     });
     final directory =
