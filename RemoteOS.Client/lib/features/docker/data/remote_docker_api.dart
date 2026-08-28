@@ -54,7 +54,7 @@ class RemoteDockerApi {
   Future<DockerOperationResult> deleteImage(String id) async =>
       DockerOperationResult.fromJson(_map(await _api.sendJson(
           'DELETE', '/api/v1/docker/images/$id',
-          body: {'imageReference': '', 'confirmed': true})));
+          body: {'imageReference': id, 'confirmed': true})));
 
   Future<DockerOperationResult> buildImage(
           String contextDirectory, String imageReference,
@@ -87,19 +87,19 @@ class RemoteDockerApi {
       DockerOperationResult.fromJson(_map(await _api.sendJson(
           'POST', '/api/v1/docker/volumes',
           body: {'name': name, 'driver': driver, 'confirmed': false})));
-  Future<DockerOperationResult> validateStack(
+  Future<DockerStackOperationResult> validateStack(
           DockerStackDefinition definition) async =>
-      DockerOperationResult.fromJson(_map(await _api.sendJson(
+      DockerStackOperationResult.fromJson(_map(await _api.sendJson(
           'POST', '/api/v1/docker/stacks/validate',
           body: definition.toJson())));
-  Future<DockerOperationResult> deployStack(
+  Future<DockerStackOperationResult> deployStack(
           DockerStackDefinition definition) async =>
-      DockerOperationResult.fromJson(_map(await _api.sendJson(
+      DockerStackOperationResult.fromJson(_map(await _api.sendJson(
           'POST', '/api/v1/docker/stacks/deploy',
           body: definition.toJson())));
-  Future<DockerOperationResult> stackAction(String name, String action,
+  Future<DockerStackOperationResult> stackAction(String name, String action,
           {bool confirmed = false}) async =>
-      DockerOperationResult.fromJson(_map(await _api.sendJson(
+      DockerStackOperationResult.fromJson(_map(await _api.sendJson(
           'POST', '/api/v1/docker/stacks/$name/$action',
           body: {'confirmed': confirmed})));
   Future<DockerStackDefinition?> stackDefinition(String name) async {
@@ -153,6 +153,22 @@ class DockerOperationResult {
           logLines: json['logLines'] is List
               ? (json['logLines'] as List).map((item) => '$item').toList()
               : null);
+}
+
+/// Compose operations return bounded diagnostic messages instead of raw logs.
+class DockerStackOperationResult {
+  const DockerStackOperationResult(
+      {required this.success, required this.problemCode, this.messages = const []});
+  final bool success;
+  final String problemCode;
+  final List<String> messages;
+  factory DockerStackOperationResult.fromJson(Map<String, dynamic> json) =>
+      DockerStackOperationResult(
+          success: json['success'] == true,
+          problemCode: json['problemCode']?.toString() ?? '',
+          messages: json['messages'] is List
+              ? (json['messages'] as List).map((item) => '$item').toList()
+              : const []);
 }
 
 class DockerContainerCreate {
@@ -247,23 +263,38 @@ class DockerContainerDetails {
       {required this.id,
       required this.name,
       required this.image,
+      required this.created,
       required this.state,
       required this.status,
+      required this.command,
+      required this.workingDirectory,
+      required this.restartPolicy,
       required this.ports,
       required this.mounts,
-      required this.networks});
-  final String id, name, image, state, status;
-  final List<String> ports, mounts, networks;
+      required this.networks,
+      required this.environment,
+      required this.labels});
+  final String id, name, image, created, state, status;
+  final String command, workingDirectory, restartPolicy;
+  final List<String> ports, mounts, networks, environment;
+  final Map<String, String> labels;
   factory DockerContainerDetails.fromJson(Map<String, dynamic> json) =>
       DockerContainerDetails(
           id: _text(json, 'id'),
           name: _text(json, 'name'),
           image: _text(json, 'image'),
+          created: _text(json, 'created'),
           state: _text(json, 'state'),
           status: _text(json, 'status'),
+          command: _text(json, 'command'),
+          workingDirectory: _text(json, 'workingDirectory'),
+          restartPolicy: _text(json, 'restartPolicy'),
           ports: _strings(json['ports']),
           mounts: _strings(json['mounts']),
-          networks: _strings(json['networks']));
+          networks: _strings(json['networks']),
+          environment: _strings(json['environment']),
+          labels: _map(json['labels'])
+              .map((key, value) => MapEntry(key, '$value')));
 }
 
 class DockerContainerLogs {

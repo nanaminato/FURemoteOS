@@ -14,6 +14,6 @@
 | FLUTTER-010 | Explorer baseline | Completed — 2026-08-28 | Explorer App/Client/ViewModel | 002,007,008 |
 | FLUTTER-011 | Terminal transport + UI spike | Completed — build verified | Terminal App/SignalR transport | 002,008 |
 | FLUTTER-012 | Task Manager | Completed — 2026-08-28 | TaskManager App/Client/ViewModel, `/api/v1/system/performance/*`, `/hubs/performance` | 002,008 |
-| FLUTTER-013 | Docker Manager | In progress — typed read model | Docker App/Client/ViewModel, `/api/v1/docker/*` | 002,007,008 |
+| FLUTTER-013 | Docker Manager | Completed — 2026-08-28（完整 `flutter test` 通过；Windows 本机构建被宿主 VS 缺 ATL 组件阻塞，见 progress.md） | Docker App/Client/ViewModel, `/api/v1/docker/*` | 002,007,008 |
 
 后续每项须补充：具体 Files、权限、行为/UI 要求、验收、自动/手动测试和风险。业务 Feature 任务按 01 的实际清单继续编号。

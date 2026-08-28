@@ -25,7 +25,11 @@ import '../terminal/terminal_app.dart';
 /// tree, command bar, editable breadcrumb and detail list.  The view is kept
 /// independent from transport so server file DTOs can be bound here directly.
 class ExplorerApp extends ConsumerStatefulWidget {
-  const ExplorerApp({super.key});
+  const ExplorerApp({super.key, this.initialPath});
+
+  /// Optional server path opened directly at activation, mirroring the
+  /// original client's `RemoteOsActivationUris.ExplorerPath` activation.
+  final String? initialPath;
 
   @override
   ConsumerState<ExplorerApp> createState() => _ExplorerAppState();
@@ -145,6 +149,11 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
           } else if (drives.isNotEmpty) {
             _location = drives.first.name;
             _path = drives.first.path;
+          }
+          final activatedPath = widget.initialPath;
+          if (activatedPath != null && activatedPath.isNotEmpty) {
+            _location = _fileName(activatedPath);
+            _path = activatedPath;
           }
           _address.text = _path;
           if (_historyIndex < 0) {

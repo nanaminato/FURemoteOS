@@ -54,7 +54,7 @@ void main() {
               jsonEncode({'success': true, 'problemCode': ''}), 200);
         case 'DELETE /api/v1/docker/images/img':
           expect(jsonDecode(request.body),
-              {'imageReference': '', 'confirmed': true});
+              {'imageReference': 'img', 'confirmed': true});
           return http.Response(
               jsonEncode({'success': true, 'problemCode': ''}), 200);
         case 'DELETE /api/v1/docker/networks/net':
@@ -70,7 +70,12 @@ void main() {
           expect(jsonDecode(request.body),
               {'name': 'web', 'composeYaml': 'services: {}'});
           return http.Response(
-              jsonEncode({'success': true, 'problemCode': ''}), 200);
+              jsonEncode({
+                'success': true,
+                'problemCode': '',
+                'messages': ['service web uses image nginx']
+              }),
+              200);
       }
       throw StateError('Unexpected $request');
     });
@@ -94,11 +99,10 @@ void main() {
     expect((await api.deleteImage('img')).success, isTrue);
     expect((await api.deleteNetwork('net')).success, isTrue);
     expect((await api.createNetwork('isolated')).success, isTrue);
-    expect(
-        (await api.validateStack(const DockerStackDefinition(
-                name: 'web', composeYaml: 'services: {}')))
-            .success,
-        isTrue);
+    final stackResult = await api.validateStack(const DockerStackDefinition(
+        name: 'web', composeYaml: 'services: {}'));
+    expect(stackResult.success, isTrue);
+    expect(stackResult.messages, ['service web uses image nginx']);
   });
 }
 

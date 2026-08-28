@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "fallbackLocale": "en-US",
-  "bundles": ["shared", "login", "shell", "settings", "apps"],
+  "bundles": ["shared", "login", "shell", "settings", "apps", "docker"],
   "languages": [
     { "locale": "en-US", "displayName": "English", "sortOrder": 0 },
     { "locale": "zh-CN", "displayName": "简体中文", "sortOrder": 10 },

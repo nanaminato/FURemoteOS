@@ -75,5 +75,6 @@ flutter:
     - assets/translations/shell/
     - assets/translations/settings/
     - assets/translations/apps/
+    - assets/translations/docker/
     - assets/icons/
     - assets/images/
