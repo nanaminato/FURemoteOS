@@ -50,6 +50,8 @@ class WorkspacePreferences {
     required this.region,
     required this.themePreferences,
     this.defaultApps = const [],
+    this.notepadDefaultEncoding = 'UTF-8',
+    this.codeEditorDefaultEncoding = 'UTF-8',
   });
 
   final String wallpaperKey;
@@ -60,6 +62,8 @@ class WorkspacePreferences {
   final String region;
   final ThemePreferencesDto themePreferences;
   final List<WorkspaceDefaultAppMapping> defaultApps;
+  final String notepadDefaultEncoding;
+  final String codeEditorDefaultEncoding;
 
   WorkspacePreferences copyWith({
     String? wallpaperKey,
@@ -70,6 +74,8 @@ class WorkspacePreferences {
     String? region,
     ThemePreferencesDto? themePreferences,
     List<WorkspaceDefaultAppMapping>? defaultApps,
+    String? notepadDefaultEncoding,
+    String? codeEditorDefaultEncoding,
   }) =>
       WorkspacePreferences(
         wallpaperKey: wallpaperKey ?? this.wallpaperKey,
@@ -80,6 +86,10 @@ class WorkspacePreferences {
         region: region ?? this.region,
         themePreferences: themePreferences ?? this.themePreferences,
         defaultApps: defaultApps ?? this.defaultApps,
+        notepadDefaultEncoding:
+            notepadDefaultEncoding ?? this.notepadDefaultEncoding,
+        codeEditorDefaultEncoding:
+            codeEditorDefaultEncoding ?? this.codeEditorDefaultEncoding,
       );
 
   factory WorkspacePreferences.fromJson(Map<String, dynamic> json) =>
@@ -103,6 +113,16 @@ class WorkspacePreferences {
             .map((item) => WorkspaceDefaultAppMapping.fromJson(
                 Map<String, dynamic>.from(item)))
             .toList(growable: false),
+        notepadDefaultEncoding:
+            (json['notepadDefaultEncoding']?.toString().trim().isNotEmpty ==
+                    true)
+                ? json['notepadDefaultEncoding'].toString().trim()
+                : 'UTF-8',
+        codeEditorDefaultEncoding:
+            (json['codeEditorDefaultEncoding']?.toString().trim().isNotEmpty ==
+                    true)
+                ? json['codeEditorDefaultEncoding'].toString().trim()
+                : 'UTF-8',
       );
 
   Map<String, dynamic> toJson() => {
@@ -114,6 +134,8 @@ class WorkspacePreferences {
         'region': region,
         'themePreferences': themePreferences.toJson(),
         'defaultApps': defaultApps.map((item) => item.toJson()).toList(),
+        'notepadDefaultEncoding': notepadDefaultEncoding,
+        'codeEditorDefaultEncoding': codeEditorDefaultEncoding,
       };
 }
 

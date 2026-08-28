@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:pasteboard/pasteboard.dart';
 
@@ -20,16 +21,26 @@ import '../../features/workspace/domain/workspace_models.dart';
 import '../image_viewer/image_viewer_app.dart';
 import '../code_editor/code_editor_app.dart';
 import '../terminal/terminal_app.dart';
+import 'explorer_picker.dart';
 
 /// File Explorer migration.  Its panes mirror the Avalonia explorer: location
 /// tree, command bar, editable breadcrumb and detail list.  The view is kept
 /// independent from transport so server file DTOs can be bound here directly.
+///
+/// When [picker] is supplied, the explorer reuses the navigation surface but
+/// hides the command bar's editing actions and adds a confirmation footer,
+/// mirroring `ExplorerViewModel.IsPickerMode` on the Avalonia side.
 class ExplorerApp extends ConsumerStatefulWidget {
-  const ExplorerApp({super.key, this.initialPath});
+  const ExplorerApp({super.key, this.initialPath, this.picker});
 
   /// Optional server path opened directly at activation, mirroring the
   /// original client's `RemoteOsActivationUris.ExplorerPath` activation.
   final String? initialPath;
+
+  /// Optional picker configuration. When set, the explorer behaves like an
+  /// OpenFile / SelectFolder dialog and reports the chosen paths back to the
+  /// host instead of opening them in their own windows.
+  final ExplorerPickerOptions? picker;
 
   @override
   ConsumerState<ExplorerApp> createState() => _ExplorerAppState();
@@ -53,10 +64,31 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
   final List<String> _history = <String>[];
   int _historyIndex = -1;
 
+  // Picker-mode state. Kept on the same widget so the explorer can be
+  // embedded as a modal without spawning a separate state object.
+  final _pickerName = TextEditingController();
+  List<ExplorerFileFilter> _pickerFilters = const [ExplorerFileFilter.allFiles];
+  ExplorerFileFilter _pickerSelectedFilter = ExplorerFileFilter.allFiles;
+  bool _pickerNameIsUpdating = false;
+
+  bool get _isPickerMode => widget.picker != null;
+  bool get _isFolderPickerMode =>
+      _isPickerMode &&
+      widget.picker!.mode == ExplorerPickerMode.selectFolder;
+  bool get _isFilePickerMode =>
+      _isPickerMode && !_isFolderPickerMode;
+  bool get _allowMultipleFiles => _isFilePickerMode && widget.picker!.allowMultiple;
+
   @override
   void initState() {
     super.initState();
     _search.addListener(() => setState(() {}));
+    if (widget.picker != null) {
+      _pickerFilters = widget.picker!.filters.isEmpty
+          ? const [ExplorerFileFilter.allFiles]
+          : widget.picker!.filters;
+      _pickerSelectedFilter = _pickerFilters.first;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadInitial());
   }
 
@@ -64,6 +96,7 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
   void dispose() {
     _search.dispose();
     _address.dispose();
+    _pickerName.dispose();
     super.dispose();
   }
 
@@ -79,6 +112,7 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
       }
       _history.add(path);
       _historyIndex = _history.length - 1;
+      if (_isPickerMode) _refreshPickerName();
     });
     _load(path);
   }
@@ -195,12 +229,100 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
     setState(() {
       if (toggle) {
         if (!_selectedPaths.add(entry.path)) _selectedPaths.remove(entry.path);
+      } else if (_allowMultipleFiles) {
+        _selectedPaths
+          ..clear()
+          ..add(entry.path);
       } else {
         _selectedPaths
           ..clear()
           ..add(entry.path);
       }
+      if (_isPickerMode) _refreshPickerName();
     });
+  }
+
+  void _refreshPickerName() {
+    if (!_isPickerMode) return;
+    if (_pickerNameIsUpdating) return;
+    _pickerNameIsUpdating = true;
+    if (_isFolderPickerMode) {
+      final folder = _selectedEntries
+          .where((entry) => entry.type == 'Folder')
+          .firstOrNull;
+      _pickerName.text = folder?.name ?? '';
+    } else {
+      final files = _selectedEntries
+          .where((entry) =>
+              entry.type == 'File' &&
+              (_pickerSelectedFilter.matches(entry.name) ||
+                  _pickerSelectedFilter.patterns.contains('*')))
+          .toList(growable: false);
+      _pickerName.text = files.isEmpty
+          ? ''
+          : files.map((entry) => '"${entry.name}"').join(' ');
+    }
+    _pickerNameIsUpdating = false;
+  }
+
+  bool get _canConfirmPicker {
+    if (!_isPickerMode) return false;
+    if (_isFolderPickerMode) {
+      return _selectedEntries.any((entry) => entry.type == 'Folder') ||
+          _path.isNotEmpty;
+    }
+    if (_pickerName.text.trim().isNotEmpty) return true;
+    return _selectedEntries.any((entry) =>
+        entry.type == 'File' &&
+        (_pickerSelectedFilter.matches(entry.name) ||
+            _pickerSelectedFilter.patterns.contains('*')));
+  }
+
+  bool _isSelectableForPicker(_FileEntry entry) {
+    if (entry.type != 'File') return false;
+    if (!_isFilePickerMode) return false;
+    return _pickerSelectedFilter.matches(entry.name) ||
+        _pickerSelectedFilter.patterns.contains('*');
+  }
+
+  void _confirmPicker() {
+    if (!_isPickerMode) return;
+    final picker = widget.picker!;
+    List<String> selected;
+    if (_isFolderPickerMode) {
+      final folders = _selectedEntries
+          .where((entry) => entry.type == 'Folder')
+          .map((entry) => entry.path)
+          .toList(growable: false);
+      selected = folders.isNotEmpty ? folders : (_path.isEmpty ? const [] : [_path]);
+    } else {
+      final files = _selectedEntries
+          .where((entry) =>
+              entry.type == 'File' &&
+              (_pickerSelectedFilter.matches(entry.name) ||
+                  _pickerSelectedFilter.patterns.contains('*')))
+          .map((entry) => entry.path)
+          .toList(growable: false);
+      if (files.isEmpty && _pickerName.text.trim().isNotEmpty) {
+        final typed = _pickerName.text.trim();
+        final resolved = typed.startsWith('/') || typed.startsWith('\\')
+            ? typed
+            : (_path.isEmpty ? typed : _joinPath(_path, typed));
+        selected = [resolved];
+      } else {
+        selected = files;
+      }
+      if (!_allowMultipleFiles && selected.length > 1) {
+        selected = [selected.first];
+      }
+    }
+    if (selected.isEmpty) return;
+    picker.onConfirm(selected);
+  }
+
+  void _cancelPicker() {
+    if (!_isPickerMode) return;
+    widget.picker!.onCancel?.call();
   }
 
   void _copySelection({required bool cut}) {
@@ -435,6 +557,16 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
       _navigate(entry.name, entry.path);
       return;
     }
+    if (_isPickerMode) {
+      // Picker mode: folders still navigate (handled above), files confirm
+      // the picker when the filter allows them. Non-matching files are
+      // silently ignored, matching Avalonia's `IsSelectableFile` guard.
+      if (_isFilePickerMode && _isSelectableForPicker(entry)) {
+        _select(entry);
+        _confirmPicker();
+      }
+      return;
+    }
     var candidates = _candidatesFor(entry);
     if (candidates.isEmpty && await _isTextContent(entry)) {
       candidates = const [
@@ -624,6 +756,33 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
   @override
   Widget build(BuildContext context) {
     final palette = watchPalette(ref, context);
+    if (_isPickerMode) {
+      // Picker reuses the navigation surface but drops the editing toolbar
+      // and status bar, adding the picker confirmation footer instead.
+      return ContextMenuHost(
+        controller: _menu,
+        child: LayoutBuilder(builder: (context, constraints) {
+          final compact = constraints.maxWidth < 680;
+          return Column(children: [
+            _pickerCommandBar(palette),
+            _addressBar(palette),
+            Expanded(
+              child: compact
+                  ? _content(palette, showTree: false)
+                  : Row(children: [
+                      _tree(palette),
+                      VerticalDivider(
+                          width: 1,
+                          thickness: 1,
+                          color: palette.borderSubtle),
+                      Expanded(child: _content(palette, showTree: false)),
+                    ]),
+            ),
+            _pickerFooter(palette),
+          ]);
+        }),
+      );
+    }
     return ContextMenuHost(
       controller: _menu,
       child: LayoutBuilder(builder: (context, constraints) {
@@ -644,6 +803,114 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
           _statusBar(palette),
         ]);
       }),
+    );
+  }
+
+  /// Slimmed-down toolbar shown in picker mode: navigation only, mirroring
+  /// Avalonia's `IsVisible="{Binding !IsPickerMode}"` on the edit actions.
+  Widget _pickerCommandBar(ThemePalette palette) => Container(
+        height: 48,
+        color: palette.surface,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Row(children: [
+          _toolButton(palette, Icons.arrow_back_rounded, 'Back',
+              onPressed: _historyIndex > 0
+                  ? () => _navigateHistory(_historyIndex - 1)
+                  : null),
+          _toolButton(palette, Icons.arrow_forward_rounded, 'Forward',
+              onPressed:
+                  _historyIndex >= 0 && _historyIndex < _history.length - 1
+                      ? () => _navigateHistory(_historyIndex + 1)
+                      : null),
+          _toolButton(palette, Icons.arrow_upward_rounded, 'Up',
+              onPressed: _path.isEmpty ? null : _goUp),
+          Container(
+              width: 1,
+              height: 22,
+              color: palette.borderSubtle,
+              margin: const EdgeInsets.symmetric(horizontal: 6)),
+          _toolButton(palette, Icons.refresh_rounded, 'Refresh',
+              onPressed: () => _load(_path)),
+        ]),
+      );
+
+  Widget _pickerFooter(ThemePalette palette) {
+    return Container(
+      decoration: BoxDecoration(
+        color: palette.surface,
+        border: Border(top: BorderSide(color: palette.borderSubtle)),
+      ),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(children: [
+            Text(
+              _isFolderPickerMode
+                  ? 'explorer.picker.folder_label'.tr()
+                  : 'explorer.picker.file_name_label'.tr(),
+              style: TextStyle(fontSize: 12, color: palette.textSecondary),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                controller: _pickerName,
+                style: TextStyle(fontSize: 13, color: palette.textPrimary),
+                decoration: InputDecoration(
+                  isDense: true,
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(4)),
+                ),
+                onChanged: (_) => setState(() {}),
+                onSubmitted: (_) {
+                  if (_canConfirmPicker) _confirmPicker();
+                },
+              ),
+            ),
+            if (_isFilePickerMode) ...[
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 180,
+                child: DropdownButton<ExplorerFileFilter>(
+                  value: _pickerSelectedFilter,
+                  isExpanded: true,
+                  items: [
+                    for (final filter in _pickerFilters)
+                      DropdownMenuItem(
+                          value: filter, child: Text(filter.label)),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() {
+                      _pickerSelectedFilter = value;
+                      _refreshPickerName();
+                    });
+                  },
+                ),
+              ),
+            ],
+          ]),
+          const SizedBox(height: 8),
+          Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+            TextButton(
+              onPressed: _cancelPicker,
+              child: Text('common.cancel'.tr()),
+            ),
+            const SizedBox(width: 8),
+            FilledButton(
+              onPressed: _canConfirmPicker ? _confirmPicker : null,
+              child: Text(
+                _isFolderPickerMode
+                    ? 'explorer.picker.select_folder'.tr()
+                    : 'common.open'.tr(),
+              ),
+            ),
+          ]),
+        ],
+      ),
     );
   }
 
@@ -831,11 +1098,19 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
 
   Widget _content(ThemePalette palette, {required bool showTree}) {
     final filter = _search.text.trim().toLowerCase();
-    final entries = filter.isEmpty
+    var entries = filter.isEmpty
         ? _entries
         : _entries
             .where((entry) => entry.name.toLowerCase().contains(filter))
             .toList();
+    // In file picker mode, hide files that the active filter rejects (folders
+    // remain navigable), mirroring Avalonia's `IsSelectableFile`.
+    if (_isFilePickerMode && !_pickerSelectedFilter.patterns.contains('*')) {
+      entries = entries
+          .where((entry) => entry.type == 'Folder' ||
+              _pickerSelectedFilter.matches(entry.name))
+          .toList();
+    }
     return Container(
       color: palette.appBackground,
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

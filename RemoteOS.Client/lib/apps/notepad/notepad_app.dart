@@ -1,14 +1,39 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:easy_localization/easy_localization.dart';
+
+import '../../core/network/remoteos_api.dart';
 import '../../core/theme/theme_service.dart';
 import '../../core/window_manager/modal_manager.dart';
 import '../../core/window_manager/window_manager.dart';
+import '../../features/files/data/remote_file_api.dart';
+import '../../features/files/text_file_encodings.dart';
+import '../../features/workspace/application/workspace_sync_coordinator.dart';
+import '../explorer/explorer_picker.dart';
 
-/// A simple Notepad application with toolbar, word wrap, and font size controls.
-/// Mirrors the original Avalonia Notepad UX (minimal, like classic Windows Notepad).
+/// Mirrors `Client.Apps.Notepad.NotepadApp.SupportedExtensions`. The built-in
+/// text editor accepts all of these extensions (and extension-less files)
+/// when opened from Explorer or via the open-file picker.
+const List<String> _supportedExtensions = [
+  '.txt', '.text', '.md', '.markdown', '.mdx', '.rst', '.adoc', '.asciidoc',
+  '.log', '.nfo', '.csv', '.tsv', '.tab', '.ini', '.cfg', '.conf', '.config',
+  '.properties', '.yaml', '.yml', '.toml', '.xml', '.xsd', '.xsl', '.xslt',
+  '.json', '.jsonc', '.json5', '.html', '.htm', '.xhtml', '.css', '.scss',
+  '.sass', '.less', '.tex', '.bib', '.srt', '.vtt', '.ics', '.vcf', '.diff',
+  '.patch', '.asc', '.pem', '.crt', '.cer', '.pub',
+];
+
+/// The Notepad application, migrated from the Avalonia
+/// `Client.Apps.Notepad.NotepadApp` + `NotepadViewModel`. It edits remote
+/// text files through the file API and supports reopen/save with an
+/// explicit encoding, mirroring the original capabilities.
 class NotepadApp extends ConsumerStatefulWidget {
-  const NotepadApp({super.key});
+  const NotepadApp({super.key, this.initialPath});
+
+  /// Optional remote path opened directly at activation, mirroring the
+  /// original `NotepadApp.OpenFile(context, path)` entry point.
+  final String? initialPath;
 
   @override
   ConsumerState<NotepadApp> createState() => _NotepadAppState();
@@ -17,68 +42,363 @@ class NotepadApp extends ConsumerStatefulWidget {
 class _NotepadAppState extends ConsumerState<NotepadApp> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
-  bool _wordWrap = true;
-  bool _showStatusBar = true;
+  final _focusNode = FocusNode();
+
+  // Document state — mirrors `NotepadViewModel` observable properties.
+  String? _currentPath;
+  String _encodingName = 'UTF-8';
+  String _defaultEncodingName = 'UTF-8';
+  bool _isDirty = false;
+  bool _isLoading = false;
+  String _statusText = '';
   double _fontSize = 14;
+
+  static const List<double> _fontSizes = [12, 13, 14, 16, 18, 20];
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_onTextChanged);
+    _statusText = 'notepad.status.ready'.tr();
+    final preferences = ref.read(workspaceSyncProvider).preferences;
+    final stored = preferences?.notepadDefaultEncoding;
+    _defaultEncodingName = TextFileEncodings.isSupported(stored)
+        ? stored!
+        : TextFileEncodings.defaultEncoding;
+    _encodingName = _defaultEncodingName;
+    if (widget.initialPath != null && widget.initialPath!.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _openPath(widget.initialPath!, _encodingName));
+    }
+  }
 
   @override
   void dispose() {
+    _controller.removeListener(_onTextChanged);
     _controller.dispose();
     _scrollController.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
-  int get _lineCount => '\n'.allMatches(_controller.text).length + 1;
+  void _onTextChanged() {
+    if (_isLoading) return;
+    if (!_isDirty) {
+      setState(() => _isDirty = true);
+    }
+  }
 
+  int get _lineCount => '\n'.allMatches(_controller.text).length + 1;
   int get _charCount => _controller.text.length;
+  bool get _hasOpenFile => _currentPath != null && _currentPath!.isNotEmpty;
+  String get _documentName {
+    if (_currentPath == null || _currentPath!.isEmpty) {
+      return 'notepad.document.untitled'.tr();
+    }
+    final normalized = _currentPath!.replaceAll('\\', '/');
+    final parts = normalized.split('/').where((part) => part.isNotEmpty);
+    return parts.isEmpty ? _currentPath! : parts.last;
+  }
+
+  // ---- Document commands ----
+
+  Future<void> _newDocument() async {
+    if (_isDirty && !await _confirmDiscard(
+        'notepad.reopen_dirty_title'.tr(),
+        'notepad.reopen_dirty_message'.tr())) {
+      return;
+    }
+    _isLoading = true;
+    _controller.clear();
+    setState(() {
+      _currentPath = null;
+      _encodingName = _defaultEncodingName;
+      _isDirty = false;
+      _statusText = 'notepad.status.new_document'.tr();
+    });
+    _isLoading = false;
+  }
+
+  Future<void> _openDocument() async {
+    final path = await showRemoteFilePicker(
+      ref,
+      context,
+      filters: [
+        ExplorerFileFilter(
+          label: 'notepad.text_file_filter'.tr(),
+          patterns: [
+            for (final extension in _supportedExtensions) '*$extension',
+          ],
+          includeExtensionlessFiles: true,
+        ),
+        ExplorerFileFilter.allFiles,
+      ],
+    );
+    if (path == null || path.isEmpty) return;
+    await _openPath(path, _defaultEncodingName);
+  }
+
+  Future<void> _openPath(String path, String requestedEncoding) async {
+    if (!TextFileEncodings.isSupported(requestedEncoding)) return;
+    try {
+      final bytes = await RemoteFileApi(ref.read(remoteOsApiProvider))
+          .readBytes(path);
+      if (bytes.isEmpty) {
+        setState(() {
+          _statusText = 'notepad.status.file_missing'.tr();
+        });
+        return;
+      }
+      _isLoading = true;
+      final decoded = TextFileEncodings.decode(bytes, requestedEncoding);
+      _controller.text = decoded;
+      setState(() {
+        _currentPath = path;
+        _encodingName = requestedEncoding;
+        _isDirty = false;
+        _statusText = 'notepad.status.opened'
+            .tr(args: [_baseName(path), requestedEncoding]);
+      });
+    } catch (error) {
+      setState(() {
+        _statusText =
+            'notepad.status.open_failed'.tr(args: [error.toString()]);
+      });
+    } finally {
+      _isLoading = false;
+    }
+  }
+
+  Future<void> _save() async {
+    var path = _currentPath;
+    if (path == null || path.isEmpty) {
+      path = await _requestSavePath('untitled.txt');
+      if (path == null || path.isEmpty) return;
+    }
+    await _saveToPath(path);
+  }
+
+  Future<void> _saveAs() async {
+    final suggested = (_currentPath == null || _currentPath!.isEmpty)
+        ? 'untitled.txt'
+        : _baseName(_currentPath!);
+    final path = await _requestSavePath(suggested);
+    if (path == null || path.isEmpty) return;
+    await _saveToPath(path);
+  }
+
+  Future<void> _saveToPath(String path) async {
+    try {
+      final bytes =
+          TextFileEncodings.encode(_controller.text, _encodingName);
+      await RemoteFileApi(ref.read(remoteOsApiProvider))
+          .writeBytes(path, bytes);
+      setState(() {
+        _currentPath = path;
+        _isDirty = false;
+        _statusText = 'notepad.status.saved'
+            .tr(args: [_baseName(path), _encodingName]);
+      });
+    } catch (error) {
+      setState(() {
+        _statusText =
+            'notepad.status.save_failed'.tr(args: [error.toString()]);
+      });
+    }
+  }
+
+  Future<String?> _requestSavePath(String defaultName) async {
+    return ref.read(modalManagerProvider).open<String>(
+      ownerId: RemoteWindowScope.of(context).window.id,
+      spec: ModalSpec(
+        title: 'notepad.save_remote_file'.tr(),
+        icon: Icons.save_outlined,
+        preferredSize: const Size(440, 230),
+        child: _SavePathDialog(
+          prompt: 'notepad.remote_path_prompt'.tr(),
+          initialValue: defaultName,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _chooseEncoding() async {
+    if (!_hasOpenFile) return;
+    final action = await ref.read(modalManagerProvider).open<_EncodingAction>(
+          ownerId: RemoteWindowScope.of(context).window.id,
+          spec: ModalSpec(
+            title: 'common.file_encoding'.tr(),
+            icon: Icons.translate_rounded,
+            preferredSize: const Size(420, 220),
+            child: const _EncodingActionDialog(),
+          ),
+        );
+    if (action == null) return;
+    final encoding = await ref.read(modalManagerProvider).open<String>(
+          ownerId: RemoteWindowScope.of(context).window.id,
+          spec: ModalSpec(
+            title: 'common.file_encoding'.tr(),
+            icon: Icons.translate_rounded,
+            preferredSize: const Size(420, 360),
+            child: _EncodingDialog(currentEncoding: _encodingName),
+          ),
+        );
+    if (encoding == null || encoding.trim().isEmpty) return;
+    if (action == _EncodingAction.reopen) {
+      await _reopenWithEncoding(encoding);
+    } else {
+      await _saveWithEncoding(encoding);
+    }
+  }
+
+  Future<void> _reopenWithEncoding(String encodingName) async {
+    if (!_hasOpenFile || !TextFileEncodings.isSupported(encodingName)) return;
+    if (_isDirty && !await _confirmDiscard(
+        'notepad.reopen_dirty_title'.tr(),
+        'notepad.reopen_dirty_message'.tr())) {
+      return;
+    }
+    setState(() => _encodingName = encodingName);
+    await _openPath(_currentPath!, encodingName);
+  }
+
+  Future<void> _saveWithEncoding(String encodingName) async {
+    if (!_hasOpenFile || !TextFileEncodings.isSupported(encodingName)) return;
+    setState(() => _encodingName = encodingName);
+    await _saveToPath(_currentPath!);
+  }
+
+  Future<bool> _confirmDiscard(String title, String message) {
+    return ref
+        .read(modalManagerProvider)
+        .open<bool>(
+          ownerId: RemoteWindowScope.of(context).window.id,
+          spec: ModalSpec(
+            title: title,
+            icon: Icons.warning_amber_rounded,
+            preferredSize: const Size(440, 230),
+            child: _ConfirmDialog(
+              title: title,
+              message: message,
+              confirmLabel: 'notepad.discard_changes'.tr(),
+            ),
+          ),
+        )
+        .then((value) => value == true);
+  }
+
+  Future<void> _openSettings() async {
+    await ref.read(modalManagerProvider).open<void>(
+          ownerId: RemoteWindowScope.of(context).window.id,
+          spec: ModalSpec(
+            title: 'notepad.settings.title'.tr(),
+            icon: Icons.tune_outlined,
+            preferredSize: const Size(440, 320),
+            child: _SettingsDialog(
+              fontSize: _fontSize,
+              defaultEncoding: _defaultEncodingName,
+              onFontSizeChanged: (size) => setState(() => _fontSize = size),
+              onDefaultEncodingChanged: (encoding) {
+                setState(() => _defaultEncodingName = encoding);
+                _saveDefaultEncoding(encoding);
+              },
+            ),
+          ),
+        );
+  }
+
+  void _saveDefaultEncoding(String encoding) {
+    final current = ref.read(workspaceSyncProvider).preferences;
+    if (current == null) return;
+    ref
+        .read(workspaceSyncProvider.notifier)
+        .queuePreferences(current.copyWith(notepadDefaultEncoding: encoding));
+  }
+
+  String _baseName(String path) {
+    final normalized = path.replaceAll('\\', '/');
+    final parts = normalized.split('/').where((part) => part.isNotEmpty);
+    return parts.isEmpty ? normalized : parts.last;
+  }
+
+  // ---- Build ----
 
   @override
   Widget build(BuildContext context) {
     final palette = watchPalette(ref, context);
-    return Column(
-      children: [
-        _buildMenuBar(palette),
-        Expanded(
-          child: Container(
-            color: palette.surface,
-            child: TextField(
-              controller: _controller,
-              scrollController: _scrollController,
-              expands: true,
-              maxLines: null,
-              minLines: null,
-              textAlignVertical: TextAlignVertical.top,
-              style: TextStyle(
-                fontFamily: 'Consolas',
-                fontFamilyFallback: const ['Courier New', 'monospace'],
-                fontSize: _fontSize,
-                height: 1.35,
-                color: palette.textPrimary,
+    return Focus(
+      focusNode: _focusNode,
+      autofocus: true,
+      onKeyEvent: _onKeyEvent,
+      child: Column(
+        children: [
+          _buildMenuBar(palette),
+          Expanded(
+            child: Container(
+              color: palette.surface,
+              child: TextField(
+                controller: _controller,
+                scrollController: _scrollController,
+                expands: true,
+                maxLines: null,
+                minLines: null,
+                textAlignVertical: TextAlignVertical.top,
+                style: TextStyle(
+                  fontFamily: 'Consolas',
+                  fontFamilyFallback: const ['Courier New', 'monospace'],
+                  fontSize: _fontSize,
+                  height: 1.35,
+                  color: palette.textPrimary,
+                ),
+                cursorColor: palette.accent,
+                cursorWidth: 2,
+                keyboardType: TextInputType.multiline,
+                textInputAction: TextInputAction.newline,
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  filled: true,
+                  fillColor: palette.surface,
+                  contentPadding: const EdgeInsets.all(14),
+                  hintText: 'Start typing...',
+                  hintStyle:
+                      TextStyle(color: palette.textTertiary, fontSize: _fontSize),
+                  isCollapsed: true,
+                  isDense: false,
+                ),
               ),
-              cursorColor: palette.accent,
-              cursorWidth: 2,
-              keyboardType: TextInputType.multiline,
-              textInputAction: TextInputAction.newline,
-              decoration: InputDecoration(
-                border: InputBorder.none,
-                filled: true,
-                fillColor: palette.surface,
-                contentPadding: const EdgeInsets.all(14),
-                hintText: 'Start typing...',
-                hintStyle:
-                    TextStyle(color: palette.textTertiary, fontSize: _fontSize),
-                isCollapsed: true,
-                isDense: false,
-              ),
-              // Note: Flutter TextField always wraps at layout width.
-              // Setting [maxLines: null] enables soft wrapping (default).
-              // For no-wrap, we'd need a horizontal SingleChildScrollView.
             ),
           ),
-        ),
-        if (_showStatusBar) _buildStatusBar(palette),
-      ],
+          _buildStatusBar(palette),
+        ],
+      ),
     );
+  }
+
+  // ---- Keyboard shortcuts ----
+
+  KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final ctrl = HardwareKeyboard.instance.isControlPressed;
+    final shift = HardwareKeyboard.instance.isShiftPressed;
+    if (!ctrl) return KeyEventResult.ignored;
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.keyN && !shift) {
+      _newDocument();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.keyO && !shift) {
+      _openDocument();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.keyS && !shift) {
+      _save();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.keyS && shift) {
+      _saveAs();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   Widget _buildMenuBar(ThemePalette palette) {
@@ -88,132 +408,55 @@ class _NotepadAppState extends ConsumerState<NotepadApp> {
       padding: const EdgeInsets.symmetric(horizontal: 6),
       child: Row(
         children: [
-          _menuButton(palette, Icons.description_outlined, 'File', [
+          _menuButton(palette, Icons.description_outlined, 'common.file'.tr(), [
             MenuItemButton(
-              onPressed: _newDoc,
+              onPressed: _newDocument,
               leadingIcon: const Icon(Icons.note_add_outlined, size: 16),
-              child: Text('${'common.new'.tr()}    Ctrl+N',
+              child: Text(
+                  '${'common.new'.tr()}    Ctrl+N',
                   style: const TextStyle(fontSize: 13)),
             ),
             MenuItemButton(
-              onPressed: () {},
+              onPressed: _openDocument,
               leadingIcon: const Icon(Icons.folder_open_outlined, size: 16),
-              child: Text('${'common.open_ellipsis'.tr()}    Ctrl+O',
-                  style: const TextStyle(fontSize: 13)),
-            ),
-            MenuItemButton(
-              onPressed: () {},
-              leadingIcon: const Icon(Icons.save_outlined, size: 16),
-              child: Text('${'common.save'.tr()}    Ctrl+S',
+              child: Text(
+                  '${'common.open_ellipsis'.tr()}    Ctrl+O',
                   style: const TextStyle(fontSize: 13)),
             ),
             const MenuItemButton(child: Divider(height: 1)),
             MenuItemButton(
-              onPressed: () {},
+              onPressed: _save,
+              leadingIcon: const Icon(Icons.save_outlined, size: 16),
+              child: Text(
+                  '${'common.save'.tr()}    Ctrl+S',
+                  style: const TextStyle(fontSize: 13)),
+            ),
+            MenuItemButton(
+              onPressed: _saveAs,
               leadingIcon: const Icon(Icons.save_as_outlined, size: 16),
-              child: Text('${'common.save_as_ellipsis'.tr()}',
+              child: Text('${'common.save_as_ellipsis'.tr()}    Ctrl+Shift+S',
                   style: const TextStyle(fontSize: 13)),
             ),
           ]),
-          _menuButton(palette, Icons.edit_outlined, 'Edit', [
+          _menuButton(palette, Icons.tune_outlined, 'common.settings'.tr(), [
             MenuItemButton(
-              onPressed: () => _controller.text = '',
-              leadingIcon: const Icon(Icons.delete_outline, size: 16),
-              child: const Text('Clear all', style: TextStyle(fontSize: 13)),
-            ),
-            MenuItemButton(
-              onPressed: () {
-                final sel = _controller.selection;
-                if (sel.isValid) {
-                  // ignore: deprecated_member_use
-                  _controller.clearComposing();
-                }
-              },
-              leadingIcon: const Icon(Icons.content_copy, size: 16),
-              child:
-                  const Text('Copy    Ctrl+C', style: TextStyle(fontSize: 13)),
+              onPressed: _openSettings,
+              leadingIcon: const Icon(Icons.settings_outlined, size: 16),
+              child: Text('common.preferences_ellipsis'.tr(),
+                  style: const TextStyle(fontSize: 13)),
             ),
           ]),
-          _menuButton(palette, Icons.view_quilt_outlined, 'View', [
-            MenuItemButton(
-              leadingIcon: Icon(
-                  _wordWrap ? Icons.check_box : Icons.check_box_outline_blank,
-                  size: 16),
-              onPressed: () => setState(() => _wordWrap = !_wordWrap),
-              child: const Text('Word wrap', style: TextStyle(fontSize: 13)),
-            ),
-            MenuItemButton(
-              leadingIcon: Icon(
-                  _showStatusBar
-                      ? Icons.check_box
-                      : Icons.check_box_outline_blank,
-                  size: 16),
-              onPressed: () => setState(() => _showStatusBar = !_showStatusBar),
-              child: const Text('Status bar', style: TextStyle(fontSize: 13)),
-            ),
-            SubmenuButton(
-              menuChildren: [
-                for (final sz in [
-                  10.0,
-                  11.0,
-                  12.0,
-                  14.0,
-                  16.0,
-                  18.0,
-                  20.0,
-                  24.0
-                ])
-                  MenuItemButton(
-                    onPressed: () => setState(() => _fontSize = sz),
-                    child: Text('${sz.toInt()} pt',
-                        style: TextStyle(
-                            fontSize: 13,
-                            fontWeight:
-                                sz == _fontSize ? FontWeight.w700 : null)),
-                  ),
-              ],
-              leadingIcon: const Icon(Icons.text_fields, size: 16),
-              child: const Text('Font size', style: TextStyle(fontSize: 13)),
-            ),
-            SubmenuButton(
-              menuChildren: [
-                MenuItemButton(
-                  onPressed: () => setState(
-                      () => _fontSize = (_fontSize - 1).clamp(8.0, 36.0)),
-                  child: const Text('Zoom out   Ctrl+-',
-                      style: TextStyle(fontSize: 13)),
-                ),
-                MenuItemButton(
-                  onPressed: () => setState(
-                      () => _fontSize = (_fontSize + 1).clamp(8.0, 36.0)),
-                  child: const Text('Zoom in   Ctrl++',
-                      style: TextStyle(fontSize: 13)),
-                ),
-                MenuItemButton(
-                  onPressed: () => setState(() => _fontSize = 14),
-                  child: const Text('Restore default zoom',
-                      style: TextStyle(fontSize: 13)),
-                ),
-              ],
-              leadingIcon: const Icon(Icons.zoom_out_map_outlined, size: 16),
-              child: const Text('Zoom', style: TextStyle(fontSize: 13)),
-            ),
-          ]),
-          const Spacer(),
-          _toolIcon(palette, Icons.text_decrease,
-              onTap: () =>
-                  setState(() => _fontSize = (_fontSize - 1).clamp(8.0, 36.0))),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
+          const SizedBox(width: 12),
+          Expanded(
             child: Text(
-              '${_fontSize.toInt()}pt',
-              style: TextStyle(color: palette.textSecondary, fontSize: 11),
+              _documentName,
+              style: TextStyle(
+                fontSize: 12,
+                color: palette.windowTitleForeground.withValues(alpha: 0.7),
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          _toolIcon(palette, Icons.text_increase,
-              onTap: () =>
-                  setState(() => _fontSize = (_fontSize + 1).clamp(8.0, 36.0))),
-          const SizedBox(width: 4),
         ],
       ),
     );
@@ -252,17 +495,6 @@ class _NotepadAppState extends ConsumerState<NotepadApp> {
     );
   }
 
-  Widget _toolIcon(ThemePalette palette, IconData icon, {VoidCallback? onTap}) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(4),
-      child: Padding(
-        padding: const EdgeInsets.all(4),
-        child: Icon(icon, size: 16, color: palette.textSecondary),
-      ),
-    );
-  }
-
   Widget _buildStatusBar(ThemePalette palette) {
     return Container(
       height: 24,
@@ -273,48 +505,72 @@ class _NotepadAppState extends ConsumerState<NotepadApp> {
       ),
       child: Row(
         children: [
-          Text('common.line_count_format'.tr(args: ['$_lineCount']),
-              style: TextStyle(color: palette.textTertiary, fontSize: 11)),
-          const SizedBox(width: 16),
-          Text('common.character_count_format'.tr(args: ['$_charCount']),
-              style: TextStyle(color: palette.textTertiary, fontSize: 11)),
-          const Spacer(),
-          Text('UTF-8',
-              style: TextStyle(color: palette.textTertiary, fontSize: 11)),
-          const SizedBox(width: 16),
-          Text('LF',
-              style: TextStyle(color: palette.textTertiary, fontSize: 11)),
-          const SizedBox(width: 16),
-          Text('${(_wordWrap ? 'Wrap' : 'No wrap')}',
-              style: TextStyle(color: palette.textTertiary, fontSize: 11)),
+          Expanded(
+            child: Text(
+              _statusText,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: palette.textTertiary, fontSize: 11),
+            ),
+          ),
+          if (_hasOpenFile) ...[
+            TextButton(
+              onPressed: _chooseEncoding,
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                minimumSize: const Size(0, 0),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                foregroundColor: palette.textTertiary,
+                textStyle: const TextStyle(fontSize: 11),
+              ),
+              child: Text(_encodingName),
+            ),
+            const SizedBox(width: 14),
+          ],
+          Text(
+            'common.line_count_format'.tr(args: ['$_lineCount']),
+            style: TextStyle(color: palette.textTertiary, fontSize: 11),
+          ),
+          const SizedBox(width: 14),
+          Text(
+            'common.character_count_format'.tr(args: ['$_charCount']),
+            style: TextStyle(color: palette.textTertiary, fontSize: 11),
+          ),
         ],
       ),
     );
   }
-
-  Future<void> _newDoc() async {
-    if (_controller.text.isNotEmpty) {
-      final confirmed = await ref.read(modalManagerProvider).open<bool>(
-            ownerId: RemoteWindowScope.of(context).window.id,
-            spec: const ModalSpec(
-              title: 'Create new document',
-              icon: Icons.note_add_outlined,
-              preferredSize: Size(460, 240),
-              child: _DiscardChangesDialog(),
-            ),
-          );
-      if (confirmed == true) _controller.clear();
-    } else {
-      _controller.clear();
-    }
-  }
 }
 
-class _DiscardChangesDialog extends ConsumerWidget {
-  const _DiscardChangesDialog();
+/// Save-as path input dialog. Mirrors Avalonia's `TextInputDialogView` used
+/// by `NotepadApp.RequestSavePathAsync`.
+class _SavePathDialog extends ConsumerStatefulWidget {
+  const _SavePathDialog({required this.prompt, required this.initialValue});
+  final String prompt;
+  final String initialValue;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_SavePathDialog> createState() => _SavePathDialogState();
+}
+
+class _SavePathDialogState extends ConsumerState<_SavePathDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue)
+      ..selection = TextSelection(
+          baseOffset: 0, extentOffset: widget.initialValue.length);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final palette = watchPalette(ref, context);
     final dialogId = RemoteModalScope.of(context).windowId;
     final modals = ref.read(modalManagerProvider);
@@ -323,9 +579,16 @@ class _DiscardChangesDialog extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Unsaved changes will be lost. Continue?',
-            style: TextStyle(color: palette.textPrimary, fontSize: 14),
+          Text(widget.prompt,
+              style: TextStyle(color: palette.textSecondary, fontSize: 12)),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _controller,
+            autofocus: true,
+            onSubmitted: (value) =>
+                modals.complete(dialogId, value.trim().isEmpty ? null : value),
+            style: TextStyle(color: palette.textPrimary),
+            decoration: const InputDecoration(labelText: 'Path'),
           ),
           const Spacer(),
           Row(
@@ -337,7 +600,185 @@ class _DiscardChangesDialog extends ConsumerWidget {
               ),
               const SizedBox(width: 8),
               FilledButton(
+                onPressed: () => modals.complete(
+                    dialogId,
+                    _controller.text.trim().isEmpty
+                        ? null
+                        : _controller.text.trim()),
+                child: Text('common.save'.tr()),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Confirmation dialog used for "discard unsaved changes?" prompts. Mirrors
+/// `ConfirmDialogView`.
+class _ConfirmDialog extends ConsumerWidget {
+  const _ConfirmDialog({
+    required this.title,
+    required this.message,
+    required this.confirmLabel,
+  });
+  final String title;
+  final String message;
+  final String confirmLabel;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final palette = watchPalette(ref, context);
+    final dialogId = RemoteModalScope.of(context).windowId;
+    final modals = ref.read(modalManagerProvider);
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(message, style: TextStyle(color: palette.textPrimary)),
+          const Spacer(),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => modals.dismiss(dialogId),
+                child: Text('common.cancel'.tr()),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
                 onPressed: () => modals.complete(dialogId, true),
+                child: Text(confirmLabel),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Step 1 of the encoding chooser: asks the user whether to reopen or save
+/// with the new encoding. Mirrors `EncodingActionDialogView`.
+enum _EncodingAction { reopen, save }
+
+class _EncodingActionDialog extends ConsumerWidget {
+  const _EncodingActionDialog();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final palette = watchPalette(ref, context);
+    final dialogId = RemoteModalScope.of(context).windowId;
+    final modals = ref.read(modalManagerProvider);
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Text(
+              'common.encoding_action_hint'.tr(),
+              style: TextStyle(color: palette.textPrimary),
+            ),
+          ),
+          const SizedBox(height: 10),
+          _actionTile(palette, 'common.reopen'.tr(),
+              () => modals.complete(dialogId, _EncodingAction.reopen)),
+          _actionTile(palette, 'common.save'.tr(),
+              () => modals.complete(dialogId, _EncodingAction.save)),
+          const Spacer(),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => modals.dismiss(dialogId),
+              child: Text('common.cancel'.tr()),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _actionTile(ThemePalette palette, String label, VoidCallback onTap) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(label,
+                style: TextStyle(color: palette.textPrimary, fontSize: 13)),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Step 2 of the encoding chooser: lists all supported encodings and returns
+/// the picked one. Mirrors `EncodingDialogView`.
+class _EncodingDialog extends ConsumerStatefulWidget {
+  const _EncodingDialog({required this.currentEncoding});
+  final String currentEncoding;
+
+  @override
+  ConsumerState<_EncodingDialog> createState() => _EncodingDialogState();
+}
+
+class _EncodingDialogState extends ConsumerState<_EncodingDialog> {
+  late String _selected = TextFileEncodings.isSupported(widget.currentEncoding)
+      ? widget.currentEncoding
+      : TextFileEncodings.available.first;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = watchPalette(ref, context);
+    final dialogId = RemoteModalScope.of(context).windowId;
+    final modals = ref.read(modalManagerProvider);
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('common.encoding_selection_hint'.tr(),
+              style: TextStyle(color: palette.textPrimary)),
+          const SizedBox(height: 12),
+          Expanded(
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: TextFileEncodings.available.length,
+              itemBuilder: (context, index) {
+                final encoding = TextFileEncodings.available[index];
+                return RadioListTile<String>(
+                  value: encoding,
+                  groupValue: _selected,
+                  title: Text(encoding),
+                  dense: true,
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _selected = value);
+                    }
+                  },
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => modals.dismiss(dialogId),
+                child: Text('common.cancel'.tr()),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: () => modals.complete(dialogId, _selected),
                 child: Text('common.ok'.tr()),
               ),
             ],
@@ -347,3 +788,101 @@ class _DiscardChangesDialog extends ConsumerWidget {
     );
   }
 }
+
+/// Settings dialog with font-size + default-encoding selectors. Mirrors the
+/// Avalonia `NotepadSettingsView` (kept on the same `NotepadViewModel`).
+class _SettingsDialog extends ConsumerStatefulWidget {
+  const _SettingsDialog({
+    required this.fontSize,
+    required this.defaultEncoding,
+    required this.onFontSizeChanged,
+    required this.onDefaultEncodingChanged,
+  });
+  final double fontSize;
+  final String defaultEncoding;
+  final ValueChanged<double> onFontSizeChanged;
+  final ValueChanged<String> onDefaultEncodingChanged;
+
+  @override
+  ConsumerState<_SettingsDialog> createState() => _SettingsDialogState();
+}
+
+class _SettingsDialogState extends ConsumerState<_SettingsDialog> {
+  late double _fontSize = widget.fontSize;
+  late String _defaultEncoding = widget.defaultEncoding;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = watchPalette(ref, context);
+    final dialogId = RemoteModalScope.of(context).windowId;
+    final modals = ref.read(modalManagerProvider);
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('notepad.settings.title'.tr(),
+              style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: palette.textPrimary)),
+          const SizedBox(height: 18),
+          Row(children: [
+            SizedBox(
+                width: 150,
+                child: Text('common.font_size'.tr(),
+                    style: TextStyle(color: palette.textSecondary))),
+            Expanded(
+              child: DropdownButton<double>(
+                value: _fontSize,
+                isExpanded: true,
+                items: [
+                  for (final size in _NotepadAppState._fontSizes)
+                    DropdownMenuItem(
+                        value: size, child: Text('${size.toInt()} pt')),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _fontSize = value);
+                  widget.onFontSizeChanged(value);
+                },
+              ),
+            ),
+          ]),
+          const SizedBox(height: 14),
+          Row(children: [
+            SizedBox(
+                width: 150,
+                child: Text('notepad.settings.default_encoding'.tr(),
+                    style: TextStyle(color: palette.textSecondary))),
+            Expanded(
+              child: DropdownButton<String>(
+                value: _defaultEncoding,
+                isExpanded: true,
+                items: [
+                  for (final encoding in TextFileEncodings.available)
+                    DropdownMenuItem(value: encoding, child: Text(encoding)),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _defaultEncoding = value);
+                  widget.onDefaultEncodingChanged(value);
+                },
+              ),
+            ),
+          ]),
+          const Spacer(),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton(
+              onPressed: () => modals.dismiss(dialogId),
+              child: Text('common.done'.tr()),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+

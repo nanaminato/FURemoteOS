@@ -127,8 +127,10 @@ class LanguageCatalog {
         'common',
         'apps',
         'docker',
+        'explorer',
         'firewall',
         'login',
+        'notepad',
         'settings',
         'shell',
       ]) {

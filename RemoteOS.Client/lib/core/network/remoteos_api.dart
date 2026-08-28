@@ -48,6 +48,42 @@ class RemoteOsApi {
     return response;
   }
 
+  /// Sends raw bytes via [method] (typically PUT) for binary file content
+  /// uploads, mirroring the server's `MapPut(FileApiRoutes.Content)` body
+  /// stream contract. Distinct from [sendJson] because file content must not
+  /// be JSON-encoded and may include arbitrary byte sequences.
+  Future<void> sendBytes(String method, String path,
+      {required List<int> bytes, Map<String, String>? query}) async {
+    final request = http.Request(method, endpoint(path, query))
+      ..headers['Accept'] = 'application/json'
+      ..headers['Content-Type'] = 'application/octet-stream'
+      ..bodyBytes = bytes;
+    final response = await http.Response.fromStream(
+      await _auth
+          .authenticatedClient()
+          .send(request)
+          .timeout(const Duration(seconds: 60)),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      dynamic decoded;
+      try {
+        decoded = response.body.trim().isEmpty
+            ? null
+            : jsonDecode(response.body);
+      } on FormatException {
+        decoded = null;
+      }
+      final map = decoded is Map ? decoded : const <String, dynamic>{};
+      throw RemoteOsApiException(
+        statusCode: response.statusCode,
+        message: map['detail']?.toString() ??
+            map['title']?.toString() ??
+            'HTTP ${response.statusCode}',
+        problemType: map['type']?.toString(),
+      );
+    }
+  }
+
   /// Posts a single local file as multipart/form-data. This is deliberately
   /// separate from [sendJson] because the Explorer upload endpoint requires a
   /// streamed file part rather than a JSON payload.

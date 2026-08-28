@@ -169,6 +169,13 @@ class RemoteFileApi {
     return response.stream
         .fold<List<int>>(<int>[], (bytes, chunk) => bytes..addAll(chunk));
   }
+
+  /// Writes raw bytes to a remote file path. Mirrors
+  /// `IFileService.WriteFileAsync` and `MapPut(FileApiRoutes.Content)` on the
+  /// server; Notepad/Code editor save their encoded content through here.
+  Future<void> writeBytes(String path, List<int> bytes) =>
+      _api.sendBytes('PUT', '/api/v1/files/content',
+          bytes: bytes, query: {'path': path});
 }
 
 /// The subset of `FilePropertiesDto` displayed by the Avalonia Explorer's

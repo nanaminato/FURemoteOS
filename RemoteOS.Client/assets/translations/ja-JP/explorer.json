@@ -1,0 +1,7 @@
+{
+    "Strings":  {
+                    "explorer.picker.folder_label":  "フォルダー：",
+                    "explorer.picker.file_name_label":  "ファイル名：",
+                    "explorer.picker.select_folder":  "フォルダーを選択"
+                }
+}

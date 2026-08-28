@@ -1,4 +1,4 @@
-﻿{
+{
     "Culture":  "en-US",
     "DisplayName":  "English",
     "SortOrder":  0,
@@ -41,6 +41,13 @@
                     "common.reopen":  "Reopen",
                     "common.line_count_format":  "Line {0}",
                     "common.character_count_format":  "{0} characters",
+                    "common.open_ellipsis":  "Open...",
+                    "common.save_as_ellipsis":  "Save as...",
+                    "common.preferences_ellipsis":  "Preferences...",
+                    "common.file_encoding":  "File encoding",
+                    "common.encoding_action_hint":  "Choose the action to perform.",
+                    "common.encoding_selection_hint":  "Choose the file encoding to use.",
+                    "common.discard_changes":  "Discard changes",
                     "language.en_US":  "English",
                     "language.zh_CN":  "简体中文",
                     "language.ja_JP":  "日本語"

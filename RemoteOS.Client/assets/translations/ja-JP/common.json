@@ -1,4 +1,4 @@
-﻿{
+{
     "Culture":  "ja-JP",
     "DisplayName":  "日本語",
     "SortOrder":  20,
@@ -41,6 +41,13 @@
                     "common.reopen":  "再度開く",
                     "common.line_count_format":  "行 {0}",
                     "common.character_count_format":  "{0} 文字",
+                    "common.open_ellipsis":  "開く...",
+                    "common.save_as_ellipsis":  "名前を付けて保存...",
+                    "common.preferences_ellipsis":  "環境設定...",
+                    "common.file_encoding":  "ファイル エンコーディング",
+                    "common.encoding_action_hint":  "実行する操作を選択してください。",
+                    "common.encoding_selection_hint":  "使用するファイル エンコーディングを選択してください。",
+                    "common.discard_changes":  "変更を破棄",
                     "language.en_US":  "English",
                     "language.zh_CN":  "简体中文",
                     "language.ja_JP":  "日本語"
