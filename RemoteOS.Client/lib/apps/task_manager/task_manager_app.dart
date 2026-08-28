@@ -24,6 +24,7 @@ class _TaskManagerAppState extends ConsumerState<TaskManagerApp> {
   PerformanceInfo? _info;
   final List<PerformanceSnapshot> _history = [];
   _PerformanceResource _selectedResource = _PerformanceResource.cpu;
+  String? _selectedResourceId;
   ProcessPage? _processes;
   String _filter = '';
   String? _error;
@@ -191,6 +192,21 @@ class _TaskManagerAppState extends ConsumerState<TaskManagerApp> {
               Text('${_selectedResource.label} · Last 60 seconds',
                   style: const TextStyle(
                       fontSize: 18, fontWeight: FontWeight.w600)),
+              if (_resourceChoices.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                DropdownButton<String?>(
+                    value: _selectedResourceId,
+                    hint: const Text('All resources'),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                          value: null, child: Text('All resources')),
+                      for (final item in _resourceChoices)
+                        DropdownMenuItem<String?>(
+                            value: item.id, child: Text(item.name))
+                    ],
+                    onChanged: (value) =>
+                        setState(() => _selectedResourceId = value)),
+              ],
               const SizedBox(height: 10),
               SizedBox(
                   height: 190,
@@ -218,16 +234,25 @@ class _TaskManagerAppState extends ConsumerState<TaskManagerApp> {
       _PerformanceResource.filesystem => [
           (
             'Filesystems',
-            info.filesystems.isEmpty ? '—' : info.filesystems.join(', ')
+            info.filesystems.isEmpty
+                ? '—'
+                : info.filesystems.map((item) => item.name).join(', ')
           )
         ],
       _PerformanceResource.disk => [
-          ('Disks', info.disks.isEmpty ? '—' : info.disks.join(', '))
+          (
+            'Disks',
+            info.disks.isEmpty
+                ? '—'
+                : info.disks.map((item) => item.name).join(', ')
+          )
         ],
       _PerformanceResource.network => [
           (
             'Network interfaces',
-            info.networks.isEmpty ? '—' : info.networks.join(', ')
+            info.networks.isEmpty
+                ? '—'
+                : info.networks.map((item) => item.name).join(', ')
           )
         ],
     };
@@ -241,28 +266,90 @@ class _TaskManagerAppState extends ConsumerState<TaskManagerApp> {
     ]);
   }
 
+  List<PerformanceResourceInfo> get _resourceChoices =>
+      switch (_selectedResource) {
+        _PerformanceResource.filesystem => _info?.filesystems ?? const [],
+        _PerformanceResource.disk => _info?.disks ?? const [],
+        _PerformanceResource.network => _info?.networks ?? const [],
+        _ => const []
+      };
+
   double _historyValue(PerformanceSnapshot item) => switch (_selectedResource) {
         _PerformanceResource.cpu => item.cpuPercent,
         _PerformanceResource.memory => item.memoryTotalBytes == 0
             ? 0
             : item.memoryUsedBytes * 100 / item.memoryTotalBytes,
-        _PerformanceResource.filesystem => item.filesystemTotalBytes == 0
-            ? 0
-            : item.filesystemUsedBytes * 100 / item.filesystemTotalBytes,
-        _PerformanceResource.disk =>
-          (item.diskReadBytesPerSecond + item.diskWriteBytesPerSecond)
-              .toDouble(),
-        _PerformanceResource.network =>
-          (item.networkReceiveBytesPerSecond + item.networkSendBytesPerSecond)
-              .toDouble()
+        _PerformanceResource.filesystem => _filesystemValue(item),
+        _PerformanceResource.disk => _diskValue(item),
+        _PerformanceResource.network => _networkValue(item)
       };
+
+  double _filesystemValue(PerformanceSnapshot item) {
+    final selected = _selectedResourceId;
+    if (selected == null) {
+      return item.filesystemTotalBytes == 0
+          ? 0
+          : item.filesystemUsedBytes * 100 / item.filesystemTotalBytes;
+    }
+    FilesystemUsage? filesystem;
+    for (final entry in item.filesystems) {
+      if (entry.id == selected) {
+        filesystem = entry;
+        break;
+      }
+    }
+    return filesystem == null || filesystem.totalBytes == 0
+        ? 0
+        : filesystem.usedBytes * 100 / filesystem.totalBytes;
+  }
+
+  double _diskValue(PerformanceSnapshot item) {
+    final selected = _selectedResourceId;
+    if (selected == null) {
+      return (item.diskReadBytesPerSecond + item.diskWriteBytesPerSecond)
+          .toDouble();
+    }
+    DiskMetrics? disk;
+    for (final entry in item.disks) {
+      if (entry.id == selected) {
+        disk = entry;
+        break;
+      }
+    }
+    return disk == null
+        ? 0
+        : (disk.readBytesPerSecond + disk.writeBytesPerSecond).toDouble();
+  }
+
+  double _networkValue(PerformanceSnapshot item) {
+    final selected = _selectedResourceId;
+    if (selected == null) {
+      return (item.networkReceiveBytesPerSecond +
+              item.networkSendBytesPerSecond)
+          .toDouble();
+    }
+    NetworkMetrics? network;
+    for (final entry in item.networks) {
+      if (entry.id == selected) {
+        network = entry;
+        break;
+      }
+    }
+    return network == null
+        ? 0
+        : (network.receiveBytesPerSecond + network.sendBytesPerSecond)
+            .toDouble();
+  }
 
   Widget _metric(ThemePalette palette, _PerformanceResource resource,
           String title, String value, double progress, IconData icon) =>
       SizedBox(
           width: 310,
           child: InkWell(
-              onTap: () => setState(() => _selectedResource = resource),
+              onTap: () => setState(() {
+                    _selectedResource = resource;
+                    _selectedResourceId = null;
+                  }),
               child: Card(
                   child: Padding(
                       padding: const EdgeInsets.all(18),

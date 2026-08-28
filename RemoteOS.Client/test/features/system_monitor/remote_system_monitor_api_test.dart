@@ -59,7 +59,8 @@ void main() {
     expect(history.single.filesystemUsedBytes, 30);
     expect(history.single.diskReadBytesPerSecond, 4);
     expect(history.single.networkSendBytesPerSecond, 9);
-    expect(info.filesystems, ['root']);
+    expect(info.filesystems.single.id, 'fs-root');
+    expect(info.filesystems.single.name, 'root');
     expect(info.logicalProcessors, 8);
     expect(processes.items.single.name, 'server');
     expect(killed.requiresElevation, isTrue);
@@ -72,14 +73,14 @@ const _snapshot = {
   'cpu': {'totalPercent': 25},
   'memory': {'usedBytes': 20, 'totalBytes': 100},
   'filesystems': [
-    {'usedBytes': 10, 'totalBytes': 40},
-    {'usedBytes': 20, 'totalBytes': 60}
+    {'id': 'fs-root', 'usedBytes': 10, 'totalBytes': 40},
+    {'id': 'fs-home', 'usedBytes': 20, 'totalBytes': 60}
   ],
   'disks': [
-    {'readBytesPerSecond': 4, 'writeBytesPerSecond': 5}
+    {'id': 'disk-0', 'readBytesPerSecond': 4, 'writeBytesPerSecond': 5}
   ],
   'networks': [
-    {'receiveBytesPerSecond': 8, 'sendBytesPerSecond': 9}
+    {'id': 'eth0', 'receiveBytesPerSecond': 8, 'sendBytesPerSecond': 9}
   ]
 };
 const _process = {
@@ -93,13 +94,13 @@ const _info = {
   'cpu': {'model': 'CPU', 'logicalProcessorCount': 8},
   'memory': {'totalBytes': 100},
   'filesystems': [
-    {'name': 'root'}
+    {'id': 'fs-root', 'name': 'root'}
   ],
   'disks': [
-    {'name': 'disk'}
+    {'id': 'disk-0', 'name': 'disk'}
   ],
   'networks': [
-    {'name': 'eth0'}
+    {'id': 'eth0', 'name': 'eth0'}
   ]
 };
 const _login = {

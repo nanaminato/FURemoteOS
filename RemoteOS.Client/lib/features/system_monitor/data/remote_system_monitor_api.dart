@@ -52,6 +52,9 @@ class PerformanceSnapshot {
       required this.diskWriteBytesPerSecond,
       required this.networkReceiveBytesPerSecond,
       required this.networkSendBytesPerSecond,
+      required this.filesystems,
+      required this.disks,
+      required this.networks,
       required this.timestamp});
   final int sequence;
   final double cpuPercent;
@@ -63,6 +66,9 @@ class PerformanceSnapshot {
   final int diskWriteBytesPerSecond;
   final int networkReceiveBytesPerSecond;
   final int networkSendBytesPerSecond;
+  final List<FilesystemUsage> filesystems;
+  final List<DiskMetrics> disks;
+  final List<NetworkMetrics> networks;
   final DateTime? timestamp;
 
   factory PerformanceSnapshot.fromJson(Map<String, dynamic> json) =>
@@ -81,8 +87,59 @@ class PerformanceSnapshot {
         networkReceiveBytesPerSecond:
             _sum(json['networks'], 'receiveBytesPerSecond'),
         networkSendBytesPerSecond: _sum(json['networks'], 'sendBytesPerSecond'),
+        filesystems: _asList(json['filesystems'])
+            .map((entry) => FilesystemUsage.fromJson(_asMap(entry)))
+            .toList(),
+        disks: _asList(json['disks'])
+            .map((entry) => DiskMetrics.fromJson(_asMap(entry)))
+            .toList(),
+        networks: _asList(json['networks'])
+            .map((entry) => NetworkMetrics.fromJson(_asMap(entry)))
+            .toList(),
         timestamp: DateTime.tryParse(json['timestamp']?.toString() ?? ''),
       );
+}
+
+class FilesystemUsage {
+  const FilesystemUsage(
+      {required this.id, required this.usedBytes, required this.totalBytes});
+  final String id;
+  final int usedBytes;
+  final int totalBytes;
+  factory FilesystemUsage.fromJson(Map<String, dynamic> json) =>
+      FilesystemUsage(
+          id: json['id']?.toString() ?? '',
+          usedBytes: (json['usedBytes'] as num?)?.toInt() ?? 0,
+          totalBytes: (json['totalBytes'] as num?)?.toInt() ?? 0);
+}
+
+class DiskMetrics {
+  const DiskMetrics(
+      {required this.id,
+      required this.readBytesPerSecond,
+      required this.writeBytesPerSecond});
+  final String id;
+  final int readBytesPerSecond;
+  final int writeBytesPerSecond;
+  factory DiskMetrics.fromJson(Map<String, dynamic> json) => DiskMetrics(
+      id: json['id']?.toString() ?? '',
+      readBytesPerSecond: (json['readBytesPerSecond'] as num?)?.toInt() ?? 0,
+      writeBytesPerSecond: (json['writeBytesPerSecond'] as num?)?.toInt() ?? 0);
+}
+
+class NetworkMetrics {
+  const NetworkMetrics(
+      {required this.id,
+      required this.receiveBytesPerSecond,
+      required this.sendBytesPerSecond});
+  final String id;
+  final int receiveBytesPerSecond;
+  final int sendBytesPerSecond;
+  factory NetworkMetrics.fromJson(Map<String, dynamic> json) => NetworkMetrics(
+      id: json['id']?.toString() ?? '',
+      receiveBytesPerSecond:
+          (json['receiveBytesPerSecond'] as num?)?.toInt() ?? 0,
+      sendBytesPerSecond: (json['sendBytesPerSecond'] as num?)?.toInt() ?? 0);
 }
 
 /// Low-frequency Task Manager metadata used for resource details; values that
@@ -98,27 +155,34 @@ class PerformanceInfo {
   final String? cpuModel;
   final int logicalProcessors;
   final int memoryTotalBytes;
-  final List<String> filesystems;
-  final List<String> disks;
-  final List<String> networks;
+  final List<PerformanceResourceInfo> filesystems;
+  final List<PerformanceResourceInfo> disks;
+  final List<PerformanceResourceInfo> networks;
   factory PerformanceInfo.fromJson(Map<String, dynamic> json) {
     final cpu = _asMap(json['cpu']);
     final memory = _asMap(json['memory']);
-    List<String> names(Object? source) => _asList(source)
-        .map((entry) =>
-            _asMap(entry)['name']?.toString() ??
-            _asMap(entry)['id']?.toString() ??
-            '')
-        .where((name) => name.isNotEmpty)
+    List<PerformanceResourceInfo> resources(Object? source) => _asList(source)
+        .map((entry) => PerformanceResourceInfo.fromJson(_asMap(entry)))
+        .where((item) => item.id.isNotEmpty)
         .toList();
     return PerformanceInfo(
         cpuModel: cpu['model']?.toString(),
         logicalProcessors: (cpu['logicalProcessorCount'] as num?)?.toInt() ?? 0,
         memoryTotalBytes: (memory['totalBytes'] as num?)?.toInt() ?? 0,
-        filesystems: names(json['filesystems']),
-        disks: names(json['disks']),
-        networks: names(json['networks']));
+        filesystems: resources(json['filesystems']),
+        disks: resources(json['disks']),
+        networks: resources(json['networks']));
   }
+}
+
+class PerformanceResourceInfo {
+  const PerformanceResourceInfo({required this.id, required this.name});
+  final String id;
+  final String name;
+  factory PerformanceResourceInfo.fromJson(Map<String, dynamic> json) =>
+      PerformanceResourceInfo(
+          id: json['id']?.toString() ?? '',
+          name: json['name']?.toString() ?? json['id']?.toString() ?? '');
 }
 
 class ProcessPage {

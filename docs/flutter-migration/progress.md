@@ -15,7 +15,8 @@
 - 已完成：`FLUTTER-009`（Workspace preference/layout sync）。
 - 已完成：`FLUTTER-010`（Explorer baseline）。
 - 已完成：`FLUTTER-011`（SignalR 终端传输 + UI）。
-- 进行中：`FLUTTER-012`（Task Manager；先迁移服务端性能/进程契约）。
+- 已完成：`FLUTTER-012`（Task Manager）。
+- 进行中：`FLUTTER-013`（Docker Manager）。
 - 进行中的工作树改动：`FLUTTER-002` 至 `FLUTTER-009` 的认证、本地化、主题、窗口、modal、context menu、shell 和 workspace REST 基础层、测试与依赖更新尚未提交。
 
 ## FLUTTER-009 验收记录
@@ -59,6 +60,26 @@
 - 回归基线：2026-08-28 在 Flutter Client 目录执行完整 `flutter test`，29 个已有测试与 2 个新增系统监控/API 测试全部通过（共 31）；`git diff --check` 无空白错误。测试日志中的缺失 localization key 警告来自既有 test assets，不影响通过状态。
 - Server E2E（2026-08-28）：使用用户提供的 localhost 登录会话，真实验证 `/api/v1/system/performance/info`、history 与 process query 的 JWT REST 契约；新增无凭据的 opt-in `test/integration/performance_hub_e2e_test.dart`，以 `REMOTEOS_E2E_URL`/`REMOTEOS_E2E_TOKEN` 运行后成功完成 `/hubs/performance` 的连接、`Subscribe`、首个 `OnPerformanceSnapshot` 接收与 `Unsubscribe`。新增 `test/integration/task_manager_kill_e2e_test.dart`：经 Terminal 创建受控 `sleep` 子进程、读取 PID、调用真实 Task Manager DELETE 路由并断言 `success: true`，finally 再次清理。`requiresElevation` 的实际权限失败仍不伪造，现有 API/UI 测试已覆盖该结果字段。
 - Terminal Server E2E（2026-08-28）：新增同样无凭据的 opt-in `test/integration/terminal_hub_e2e_test.dart`。对本地 Server 成功验证 `/hubs/terminals` 连接、`Start` 返回 session ID、Base64 `Input` 字节写入、Base64 `OnOutput` 原始字节回传；测试将 `workingDirectory` 指定为 `/tmp` 并以 `pwd` 输出断言，验证 Explorer “Open terminal here”实际激活远程工作目录。finally 调用 `Close`/`stop`，不遗留 PTY。该验证覆盖 Flutter Terminal 本轮重写的核心传输路径。
+- 已完成（收口，2026-08-28）：`PerformanceSnapshot` 保留每个 filesystem、disk 和 network 的稳定 ID 与实时值，`PerformanceInfo` 同样保留资源 ID/名称。性能页可在聚合值与单个实际文件系统、磁盘、网卡之间切换；资源图按所选 ID 绘制，缺失样本显示为 0 而不冒充另一项资源数据。未加入 GPU、进程树、优先级、服务管理或任何本地宿主监控。`flutter test test/features/system_monitor/remote_system_monitor_api_test.dart` 与 `flutter build linux --debug` 均于本轮通过，`git diff --check` 通过。因此 `FLUTTER-012` 完成。
+
+## FLUTTER-013 当前实施记录
+
+- Avalonia 范围：Docker Engine 可用性、容器、镜像、网络、卷、Compose Stack；容器创建/重命名/详情/日志/统计及安全 lifecycle 操作、镜像拉取/删除、网络/卷创建删除和 Stack 校验/部署/动作均须使用服务端的结构化 Docker 契约，不能拼接 Docker CLI。
+- 已完成（基础层）：新增 `features/docker/data/remote_docker_api.dart`，映射 status、containers、images、volumes、networks 和 stacks 的具体 DTO 字段。`apps/docker/docker_manager_app.dart` 现注册为 Docker Manager，按 Avalonia 的六个资源页显示真实类型化 DTO 与 Engine 可用性，替代 `RemoteAdminPage` 的无类型 JSON 表格；失败时可重试。容器/镜像/网络/卷/Stack 的创建、详情和写操作尚未迁移；`FLUTTER-013` 仍进行中。`flutter build linux --debug` 与 `git diff --check` 于本轮通过。
+- 已完成（写入契约）：Docker REST 层现覆盖容器 lifecycle（含 `force` / `confirmed`）、镜像拉取与删除、网络和卷删除；所有破坏性请求固定发送 Server 所需的确认字段，操作结果保留 `success`、`problemCode` 与安全的 `logLines`，不将错误误报为成功。UI 确认 modal 与创建、详情、日志/统计、Compose 操作仍待接入。
+- 已完成（容器交互）：Containers 页现支持 Start、Stop 与 Delete。Stop/Delete 使用 `ModalManager` 创建 owner-bound managed confirmation window，确认后才向服务端发送 `confirmed: true`；Start 没有被错误地标为破坏性操作。结果只以服务端 operation result 为准，成功后刷新列表。创建、重命名、详情、日志/统计及其他 Docker 资源操作仍待迁移。`flutter build linux --debug` 与 `git diff --check` 于本轮通过。
+- 自动验证：新增 `test/features/docker/remote_docker_api_test.dart`，覆盖认证 Docker status/containers DTO、容器 Stop 的 `force`/`confirmed` JSON、镜像删除的显式 JSON body 和网络删除的 `confirmed` query；`flutter test test/features/docker/remote_docker_api_test.dart`、`flutter build linux --debug` 与 `git diff --check` 均于本轮通过。
+- 已完成（容器详情基础）：REST 层映射 container inspect、受限 tail 的 logs 与 stats DTO；Containers 列表点击可通过 `ModalManager` 打开 720×620 owner-bound 详情窗口，显示 Docker 返回的身份、状态、ports、mounts 和 networks。日志/统计的详情展示及创建/重命名仍待接入；`flutter build linux --debug` 与 `git diff --check` 于本轮通过。
+- 已完成（容器详情收口）：详情窗口并行读取并显示有界 logs 与一次性 stats（CPU、memory、network、block I/O）；Server 未返回日志时明确显示空状态。不会把容器统计转换为本地监控或添加持续采样。创建/重命名和其他 Docker 资源操作仍待迁移；`flutter build linux --debug` 与 `git diff --check` 于本轮通过。
+- 已完成（创建/重命名契约）：`DockerContainerCreate` 严格对应 Protocol 的 name、image、arguments、ports、environment、mounts、network、restartPolicy，并通过 `/containers` POST 发送；重命名只调用服务端允许的 `/containers/{id}` PUT，不将镜像、端口或挂载伪装成就地修改。wire-format 测试覆盖创建 JSON；尚未提供表单 UI。`flutter test test/features/docker/remote_docker_api_test.dart`、`flutter build linux --debug` 与 `git diff --check` 于本轮通过。
+- 已完成（创建 UI）：Docker workspace 标题栏新增 Create container，使用 `ModalManager` 打开 Avalonia 对照尺寸 720×690 的 owner-bound 表单。表单仅收集 Protocol 已允许的 name、image、逐行 arguments/ports/environment/mounts、network、restart policy；name/image 缺失时不可提交，提交后调用结构化 create 契约并报告服务端结果。`flutter build linux --debug` 与 `git diff --check` 于本轮通过。
+- 已完成（网络/卷/Stack 契约）：REST 层已映射网络、卷的 create（包含服务端的 name/driver/confirmed payload）以及 Compose Stack 的 validate/deploy（name/composeYaml）；未拼接 Compose 或 Docker CLI。上述写操作的 modal/UI 尚未接入。`flutter build linux --debug` 与 `git diff --check` 于本轮通过。
+- 自动验证（网络/Stack）：Docker wire-format 测试现覆盖 network create 的 name/driver/confirmed 及 Stack validate 的 name/composeYaml。`flutter test test/features/docker/remote_docker_api_test.dart` 与 `git diff --check` 于本轮通过。
+- 回归基线（2026-08-28）：在 Flutter Client 目录运行完整 `flutter test`，32 项通过、3 项需要外部 `REMOTEOS_E2E_URL`/`REMOTEOS_E2E_TOKEN` 的集成测试按设计跳过；随后 `flutter build linux --debug` 与 `git diff --check` 通过。测试中 localization key 警告来自既有 test assets，不影响结果。
+- 已完成（Stack 动作契约）：新增 Compose stack action 的结构化 `confirmed` payload；可用于服务端允许的 start/stop/restart/down 等动作，客户端不推断动作是否合法或跳过服务端确认。UI 尚待接入。`flutter build linux --debug` 与 `git diff --check` 于本轮通过。
+- 已完成（Stack 详情契约）：REST 层可读取指定 Stack 的受控 definition（name/composeYaml）与 service 列表（service/container/image/state/status），用于后续只读详情和编辑前回填；没有把 Compose YAML 作为 shell 输入。`flutter build linux --debug` 与 `git diff --check` 于本轮通过。
+- 已完成（网络/卷详情契约）：REST 层可读取 network details（identity/driver/scope/containers）和 volume details（identity/driver/mountpoint/labels）；标签仍是服务端返回的受限数据。详情 modal 尚待接入。`flutter build linux --debug` 与 `git diff --check` 于本轮通过。
+- 已完成（镜像构建契约）：REST 层支持 image build 的 `contextDirectory`、`imageReference` 和可选 `dockerfile` 结构化请求；Server 仍负责验证 host-approved context roots，Flutter 不读取或拼接任意主机路径。UI 尚待接入。`flutter build linux --debug` 与 `git diff --check` 于本轮通过。
 
 ## FLUTTER-008 验收记录
 
