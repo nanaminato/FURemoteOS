@@ -2,7 +2,7 @@
 
 此文件是迁移恢复点。继续工作时先读取本文件和 `13-task-backlog.md`，从「下一项」开始；不得把已有代码当作已验收迁移成果。
 
-## 当前恢复点（2026-08-27）
+## 当前恢复点（2026-08-28）
 
 - 已完成：`FLUTTER-001`（Desktop skeleton）。
 - 已完成：`FLUTTER-002`（Auth + REST foundation）。
@@ -12,16 +12,23 @@
 - 已完成：`FLUTTER-006`（ModalManager）。
 - 已完成：`FLUTTER-007`（ContextMenuHost）。
 - 已完成：`FLUTTER-008`（Shell + desktop/taskbar）。
-- 进行中：`FLUTTER-009`（Workspace preference/layout sync）。
-- 当前阻塞：`DesktopStatePatch`/Workspace Hub 的服务端实现缺失。`RemoteOS.Server` 未映射 `WorkspaceApiRoutes.Desktop`，没有 `WorkspaceHub` 类，也没有 `app.MapHub(... WorkspaceHubPath)` 注册；Flutter 无法连接或验证 Protocol 已声明的状态同步契约。需决定是否把 server 端实现纳入本次迁移范围。
+- 已完成：`FLUTTER-009`（Workspace preference/layout sync）。
+- 进行中：`FLUTTER-010`（Explorer baseline；已完成源码差异审计，尚未验收）。
 - 进行中的工作树改动：`FLUTTER-002` 至 `FLUTTER-009` 的认证、本地化、主题、窗口、modal、context menu、shell 和 workspace REST 基础层、测试与依赖更新尚未提交。
 
-## FLUTTER-009 当前实施记录
+## FLUTTER-009 验收记录
 
 - 文件：`RemoteOS.Client/lib/features/auth/domain/auth_models.dart`、`RemoteOS.Client/lib/core/auth/auth_service.dart`、`RemoteOS.Client/lib/features/workspace/domain/workspace_models.dart`、`RemoteOS.Client/lib/features/workspace/data/remote_workspace_api.dart`、`RemoteOS.Client/test/features/workspace/remote_workspace_api_test.dart`。
-- 已完成：login response 和 `AuthSessionState` 保留 Protocol `workspace.id`；Workspace REST client 覆盖 GET/PUT preferences 和 GET/PUT window-layouts，路径为 `/api/v1/workspaces/{id}/preferences` 与 `/window-layouts`；DTO 保留 workspace 主题、语言、区域、壁纸 key 和 window size 契约。`WorkspaceSyncCoordinator` 在 desktop 打开后拉取 preferences/layouts，将 theme/language 应用于 UI，并将 Settings 的语言、主题、palette、accent 变更以 350ms debounce 写回 workspace。Desktop 以 app ID 读取并应用已保存的 window size，任何非 modal 窗口变化会合并保存对应尺寸。
-- 自动验证：`flutter test test/core/window_manager/window_manager_notifier_test.dart test/features/workspace/remote_workspace_api_test.dart` 通过，覆盖 restored app size、窗口状态机与 workspace JSON/路径；`flutter build linux --debug` 成功。
-- 未完成/阻塞：尚未实现 `DesktopStatePatch`/Workspace Hub 接收、desktop icon/taskbar 恢复或发送。经检查，server 端同样缺少 `/api/v1/workspaces/{id}/desktop` endpoint、`WorkspaceHub` 和 hub registration，无法作为 Flutter 客户端的可验证依赖；不得把 FLUTTER-009 标为完成，也不得开始 FLUTTER-010，除非用户授权补齐 server 端契约实现或明确允许跳过实时同步验收。
+- 已完成：login response 和 `AuthSessionState` 保留 Protocol `workspace.id`；Workspace REST client 覆盖 GET/PUT preferences 和 GET/PUT window-layouts，路径为 `/api/v1/workspaces/{id}/preferences` 与 `/window-layouts`。`WorkspaceSyncCoordinator` 分别读取 preferences/layouts，因此 preferences 临时不可用不会阻止布局恢复；窗口尺寸按 app ID 恢复，非 modal 窗口变化按 2 秒空闲时间合并保存，登出或标题栏关闭前会尽力刷新待写入的数据。Desktop 等待恢复完成才首次打开 Welcome，避免默认尺寸覆盖已保存尺寸；过期的异步写入不能回写较新的本地状态。
+- Avalonia 对照结论：原版的 `WindowLayoutStore` 与 `DesktopRestoreOrchestrator` 不实现 `DesktopStatePatch`、`WorkspaceHub`、桌面图标或任务栏的实时状态同步。因此这些 Protocol 预留契约不属于 `FLUTTER-009`，本次未新增该功能。
+- 自动验证：`flutter test test/features/workspace/remote_workspace_api_test.dart test/core/window_manager/window_manager_notifier_test.dart test/core/shell/desktop_window_shell_test.dart` 通过；`flutter build linux --debug` 成功。
+
+## FLUTTER-010 当前实施记录
+
+- Avalonia 输入：`Apps/Explorer/ExplorerClient.cs`、`IExplorerClient.cs`、`ViewModels/ExplorerViewModel.cs`、`Views/ExplorerMainView.axaml`。基线包含驱动器/特殊目录和目录列表、进入目录、列表/图标视图、地址导航、刷新、选择与多选、复制/剪切/粘贴、新建目录、重命名、删除、属性、打开方式、上传/下载；具体操作由 `FileAuthorizationPolicies` 限制。
+- Flutter 已有：`lib/apps/explorer/explorer_app.dart` 可加载驱动器、特殊目录和 `DirectoryDto.directories/files`，支持地址输入、刷新、目录双击进入、列表/图标视图及本地名称筛选；`features/files/data/remote_file_api.dart` 已有创建、删除、重命名、复制、移动的 REST 包装。
+- 缺口：Explorer UI 尚未绑定选择状态或 ContextMenuHost，命令栏的 copy/cut/paste 仍是无操作按钮；未接入新建目录、重命名、删除、属性、打开方式、上传/下载，也没有对应操作权限/错误反馈验收。因此不得标记完成。
+- 后续从这里继续：先实现与 Avalonia 一致的单/多选和受权限约束的复制、剪切、粘贴、新建目录、重命名、删除及刷新；复用现有 managed modal/context menu，随后按 Avalonia 行为决定属性、打开方式和上传/下载是否属于同一基线验收批次。不要基于 Protocol 中未被 Avalonia 使用的端点新增功能。
 
 ## FLUTTER-008 验收记录
 

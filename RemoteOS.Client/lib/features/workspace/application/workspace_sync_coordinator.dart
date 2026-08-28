@@ -28,7 +28,7 @@ class WorkspaceSyncCoordinator extends StateNotifier<WorkspaceSyncState> {
   WorkspaceSyncCoordinator({
     required RemoteWorkspaceApi api,
     required AuthNotifier auth,
-    this.writeDelay = const Duration(milliseconds: 350),
+    this.writeDelay = const Duration(seconds: 2),
   })  : _api = api,
         _auth = auth,
         super(const WorkspaceSyncState());
@@ -38,46 +38,61 @@ class WorkspaceSyncCoordinator extends StateNotifier<WorkspaceSyncState> {
   final Duration writeDelay;
   Timer? _pendingPreferenceWrite;
   Timer? _pendingLayoutWrite;
+  bool _preferencesDirty = false;
+  bool _layoutsDirty = false;
+  int _preferencesVersion = 0;
+  int _layoutsVersion = 0;
 
   Future<void> load() async {
     final workspaceId = _auth.current.workspaceId;
     if (!_auth.current.isAuthenticated || workspaceId == null) return;
     state = WorkspaceSyncState(layouts: state.layouts, loading: true);
+    // Keep window-layout restoration independent from optional preferences:
+    // this is how Avalonia's WindowLayoutStore remains usable when another
+    // workspace request temporarily fails.
+    WorkspacePreferences? preferences = state.preferences;
+    WorkspaceWindowLayouts layouts = state.layouts;
+    Object? error;
     try {
-      final result = await Future.wait([
-        _api.preferences(workspaceId),
-        _api.windowLayouts(workspaceId),
-      ]);
-      state = WorkspaceSyncState(
-        preferences: result[0] as WorkspacePreferences,
-        layouts: result[1] as WorkspaceWindowLayouts,
-      );
-    } catch (error) {
-      state = WorkspaceSyncState(
-        preferences: state.preferences,
-        layouts: state.layouts,
-        error: error,
-      );
+      preferences = await _api.preferences(workspaceId);
+    } catch (caught) {
+      error = caught;
     }
+    try {
+      layouts = await _api.windowLayouts(workspaceId);
+    } catch (caught) {
+      error ??= caught;
+    }
+    if (!mounted) return;
+    state = WorkspaceSyncState(
+      preferences: preferences,
+      layouts: layouts,
+      error: error,
+    );
   }
 
   void queuePreferences(WorkspacePreferences preferences) {
     state =
         WorkspaceSyncState(preferences: preferences, layouts: state.layouts);
+    _preferencesDirty = true;
+    final version = ++_preferencesVersion;
     _pendingPreferenceWrite?.cancel();
     _pendingPreferenceWrite =
-        Timer(writeDelay, () => _writePreferences(preferences));
+        Timer(writeDelay, () => _writePreferences(preferences, version));
   }
 
-  Future<void> _writePreferences(WorkspacePreferences preferences) async {
+  Future<void> _writePreferences(
+      WorkspacePreferences preferences, int version) async {
     final workspaceId = _auth.current.workspaceId;
     if (workspaceId == null) return;
     try {
       final saved = await _api.updatePreferences(workspaceId, preferences);
-      if (mounted)
+      if (mounted && version == _preferencesVersion) {
         state = WorkspaceSyncState(preferences: saved, layouts: state.layouts);
+        _preferencesDirty = false;
+      }
     } catch (error) {
-      if (mounted) {
+      if (mounted && version == _preferencesVersion) {
         state = WorkspaceSyncState(
           preferences: state.preferences,
           layouts: state.layouts,
@@ -95,24 +110,28 @@ class WorkspaceSyncCoordinator extends StateNotifier<WorkspaceSyncState> {
   }
 
   void queueLayouts(WorkspaceWindowLayouts layouts) {
-    if (state.preferences == null) return;
     state =
         WorkspaceSyncState(preferences: state.preferences, layouts: layouts);
+    _layoutsDirty = true;
+    final version = ++_layoutsVersion;
     _pendingLayoutWrite?.cancel();
-    _pendingLayoutWrite = Timer(writeDelay, () => _writeLayouts(layouts));
+    _pendingLayoutWrite =
+        Timer(writeDelay, () => _writeLayouts(layouts, version));
   }
 
-  Future<void> _writeLayouts(WorkspaceWindowLayouts layouts) async {
+  Future<void> _writeLayouts(
+      WorkspaceWindowLayouts layouts, int version) async {
     final workspaceId = _auth.current.workspaceId;
     if (workspaceId == null) return;
     try {
       final saved = await _api.updateWindowLayouts(workspaceId, layouts);
-      if (mounted) {
+      if (mounted && version == _layoutsVersion) {
         state =
             WorkspaceSyncState(preferences: state.preferences, layouts: saved);
+        _layoutsDirty = false;
       }
     } catch (error) {
-      if (mounted) {
+      if (mounted && version == _layoutsVersion) {
         state = WorkspaceSyncState(
           preferences: state.preferences,
           layouts: state.layouts,
@@ -120,6 +139,21 @@ class WorkspaceSyncCoordinator extends StateNotifier<WorkspaceSyncState> {
         );
       }
     }
+  }
+
+  /// Sends pending best-effort changes before a user-initiated disconnect or
+  /// close, matching Avalonia's WindowLayoutStore.FlushAsync behaviour.
+  Future<void> flush() async {
+    _pendingPreferenceWrite?.cancel();
+    _pendingPreferenceWrite = null;
+    _pendingLayoutWrite?.cancel();
+    _pendingLayoutWrite = null;
+
+    final preferences = state.preferences;
+    if (_preferencesDirty && preferences != null) {
+      await _writePreferences(preferences, _preferencesVersion);
+    }
+    if (_layoutsDirty) await _writeLayouts(state.layouts, _layoutsVersion);
   }
 
   @override

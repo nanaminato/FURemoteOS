@@ -15,6 +15,7 @@ import 'core/localization/language_catalog.dart';
 import 'core/shell/desktop_window_shell.dart';
 import 'core/runtime/desktop_runtime.dart';
 import 'core/runtime/startup_failure_app.dart';
+import 'features/workspace/application/workspace_sync_coordinator.dart';
 import 'screens/login/login_screen.dart';
 import 'screens/desktop/desktop_screen.dart';
 
@@ -159,7 +160,13 @@ class _RemoteOSAppState extends ConsumerState<RemoteOSApp> {
       },
       routerConfig: _router,
       builder: (context, child) => VirtualWindowFrame(
-        child: DesktopWindowShell(child: child ?? const SizedBox.shrink()),
+        child: DesktopWindowShell(
+          child: child ?? const SizedBox.shrink(),
+          onCloseRequested: () async {
+            await ref.read(workspaceSyncProvider.notifier).flush();
+            await windowManager.close();
+          },
+        ),
       ),
     );
   }

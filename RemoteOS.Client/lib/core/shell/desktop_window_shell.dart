@@ -10,9 +10,14 @@ import 'package:window_manager/window_manager.dart';
 /// moving the window back to the platform, while the OS retains ownership of
 /// the resize border and its minimum-size constraints.
 class DesktopWindowShell extends StatefulWidget {
-  const DesktopWindowShell({super.key, required this.child});
+  const DesktopWindowShell({
+    super.key,
+    required this.child,
+    this.onCloseRequested,
+  });
 
   final Widget child;
+  final Future<void> Function()? onCloseRequested;
 
   @override
   State<DesktopWindowShell> createState() => _DesktopWindowShellState();
@@ -189,7 +194,8 @@ class _DesktopWindowShellState extends State<DesktopWindowShell>
                               tooltip: 'common.close'.tr(),
                               icon: Icons.close_rounded,
                               isCloseButton: true,
-                              onPressed: windowManager.close,
+                              onPressed: widget.onCloseRequested ??
+                                  windowManager.close,
                             ),
                           ],
                         ),

@@ -130,11 +130,57 @@ class RemoteFileApi {
   Future<void> copy(String sourcePath, String targetDirectoryPath) =>
       _api.sendJson('POST', '/api/v1/files/copy', body: {
         'sourcePath': sourcePath,
-        'targetDirectoryPath': targetDirectoryPath
+        // The server contract calls this a destination path.  It accepts the
+        // target directory for Explorer copy/paste operations.
+        'destinationPath': targetDirectoryPath
       });
   Future<void> move(String sourcePath, String targetDirectoryPath) =>
       _api.sendJson('POST', '/api/v1/files/move', body: {
         'sourcePath': sourcePath,
-        'targetDirectoryPath': targetDirectoryPath
+        'destinationPath': targetDirectoryPath
       });
+
+  Future<RemoteFileProperties?> properties(String path) async {
+    final body = await _api.getJson('/api/v1/files/properties',
+        query: {'path': path});
+    return body is Map
+        ? RemoteFileProperties.fromJson(Map<String, dynamic>.from(body))
+        : null;
+  }
+}
+
+/// The subset of `FilePropertiesDto` displayed by the Avalonia Explorer's
+/// properties dialog.  Permission changes remain a separate server feature.
+class RemoteFileProperties {
+  const RemoteFileProperties({
+    required this.path,
+    required this.name,
+    required this.type,
+    this.size,
+    this.created,
+    this.modified,
+    this.permissions,
+    this.attributes,
+  });
+
+  final String path;
+  final String name;
+  final String type;
+  final int? size;
+  final DateTime? created;
+  final DateTime? modified;
+  final String? permissions;
+  final String? attributes;
+
+  factory RemoteFileProperties.fromJson(Map<String, dynamic> json) =>
+      RemoteFileProperties(
+        path: (json['path'] ?? '').toString(),
+        name: (json['name'] ?? '').toString(),
+        type: (json['type'] ?? '').toString(),
+        size: (json['size'] as num?)?.toInt(),
+        created: DateTime.tryParse((json['created'] ?? '').toString()),
+        modified: DateTime.tryParse((json['modified'] ?? '').toString()),
+        permissions: json['permissions']?.toString(),
+        attributes: json['attributes']?.toString(),
+      );
 }

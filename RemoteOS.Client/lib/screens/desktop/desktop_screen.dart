@@ -25,13 +25,13 @@ class DesktopScreen extends ConsumerStatefulWidget {
 class _DesktopScreenState extends ConsumerState<DesktopScreen> {
   bool _startMenuOpen = false;
   final _desktopMenu = RemoteContextMenuController();
+  String? _lastQueuedLayoutFingerprint;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _autoOpenWelcome();
-      _loadWorkspacePreferences();
+      _restoreDesktop();
     });
   }
 
@@ -45,25 +45,32 @@ class _DesktopScreenState extends ConsumerState<DesktopScreen> {
     }
   }
 
-  Future<void> _loadWorkspacePreferences() async {
+  /// Runs once after the managed window host is ready. Loading layouts before
+  /// opening the first application prevents its default size from replacing a
+  /// restored workspace size.
+  Future<void> _restoreDesktop() async {
     await ref.read(workspaceSyncProvider.notifier).load();
     if (!mounted) return;
     final preferences = ref.read(workspaceSyncProvider).preferences;
-    if (preferences == null) return;
-    ref.read(themeProvider.notifier)
-      ..setThemeKind(preferences.theme)
-      ..setPreferences(preferences.themePreferences);
-    final language = ref
-        .read(languageCatalogProvider)
-        .languages
-        .where((option) => option.localeTag == preferences.language);
-    if (language.isNotEmpty) await context.setLocale(language.first.locale);
+    if (preferences != null) {
+      ref.read(themeProvider.notifier)
+        ..setThemeKind(preferences.theme)
+        ..setPreferences(preferences.themePreferences);
+      final language = ref
+          .read(languageCatalogProvider)
+          .languages
+          .where((option) => option.localeTag == preferences.language);
+      if (language.isNotEmpty) await context.setLocale(language.first.locale);
+    }
+    if (!mounted) return;
+    _autoOpenWelcome();
   }
 
   void _toggleStartMenu() => setState(() => _startMenuOpen = !_startMenuOpen);
   void _closeStartMenu() => setState(() => _startMenuOpen = false);
 
   Future<void> _logout() async {
+    await ref.read(workspaceSyncProvider.notifier).flush();
     await ref.read(authProvider.notifier).logout();
     if (mounted) context.go('/login');
   }
@@ -215,9 +222,13 @@ class _DesktopScreenState extends ConsumerState<DesktopScreen> {
       );
     }
     if (sizes.isNotEmpty) {
-      ref
-          .read(workspaceSyncProvider.notifier)
-          .queueLayouts(WorkspaceWindowLayouts(windows: sizes.values.toList()));
+      final layouts = WorkspaceWindowLayouts(windows: sizes.values.toList());
+      final fingerprint = layouts.windows
+          .map((item) => '${item.key}:${item.width}:${item.height}')
+          .join('|');
+      if (fingerprint == _lastQueuedLayoutFingerprint) return;
+      _lastQueuedLayoutFingerprint = fingerprint;
+      ref.read(workspaceSyncProvider.notifier).queueLayouts(layouts);
     }
   }
 
