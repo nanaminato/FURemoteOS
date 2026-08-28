@@ -10,6 +10,7 @@ import '../../apps/explorer/explorer_app.dart';
 import '../../apps/image_viewer/image_viewer_app.dart';
 import '../../apps/task_manager/task_manager_app.dart';
 import '../../apps/docker/docker_manager_app.dart';
+import '../../apps/firewall/firewall_app.dart';
 import '../../apps/server_admin/server_admin_apps.dart';
 
 /// Registry of available RemoteOS applications.
@@ -155,10 +156,9 @@ class BuiltinApps {
       id: 'firewall',
       nameKey: key('firewall'),
       icon: Icons.shield_outlined,
-      defaultSize: const Size(820, 580),
-      minimumSize: const Size(520, 400),
-      windowBuilder: (_) =>
-          const ServerAdminApp(kind: ServerAdminKind.firewall),
+      defaultSize: const Size(1160, 760),
+      minimumSize: const Size(800, 520),
+      windowBuilder: (_) => const FirewallApp(),
     ),
     AppRegistryEntry(
       id: 'certificates',
