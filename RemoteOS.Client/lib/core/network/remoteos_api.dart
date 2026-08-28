@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -33,6 +34,35 @@ class RemoteOsApi {
           {Object? body, Map<String, String>? query}) =>
       _sendJson(method, path, body: body, query: query);
 
+  /// Sends a binary GET while retaining the current authenticated session.
+  /// Callers must consume the response stream before issuing another transfer.
+  Future<http.StreamedResponse> getStream(String path,
+      {Map<String, String>? query}) async {
+    final request = http.Request('GET', endpoint(path, query))
+      ..headers['Accept'] = 'application/octet-stream';
+    final response = await _auth
+        .authenticatedClient()
+        .send(request)
+        .timeout(const Duration(seconds: 60));
+    await _throwForStreamError(response);
+    return response;
+  }
+
+  /// Posts a single local file as multipart/form-data. This is deliberately
+  /// separate from [sendJson] because the Explorer upload endpoint requires a
+  /// streamed file part rather than a JSON payload.
+  Future<void> sendFile(String path,
+      {required File file, Map<String, String>? query}) async {
+    final request = http.MultipartRequest('POST', endpoint(path, query))
+      ..headers['Accept'] = 'application/json';
+    request.files.add(await http.MultipartFile.fromPath('file', file.path));
+    final response = await _auth
+        .authenticatedClient()
+        .send(request)
+        .timeout(const Duration(seconds: 60));
+    await _throwForStreamError(response);
+  }
+
   Future<dynamic> _sendJson(String method, String path,
       {Object? body, Map<String, String>? query}) async {
     final request = http.Request(method, endpoint(path, query))
@@ -66,6 +96,25 @@ class RemoteOsApi {
       );
     }
     return decoded;
+  }
+
+  Future<void> _throwForStreamError(http.StreamedResponse response) async {
+    if (response.statusCode >= 200 && response.statusCode < 300) return;
+    final text = await response.stream.bytesToString();
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(text);
+    } on FormatException {
+      decoded = null;
+    }
+    final map = decoded is Map ? decoded : const <String, dynamic>{};
+    throw RemoteOsApiException(
+      statusCode: response.statusCode,
+      message: map['detail']?.toString() ??
+          map['title']?.toString() ??
+          'HTTP ${response.statusCode}',
+      problemType: map['type']?.toString(),
+    );
   }
 }
 

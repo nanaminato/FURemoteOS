@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import '../../../core/network/remoteos_api.dart';
 
 /// Mirrors `RemoteOS.Protocol.Files.FileSystemEntryDto`.
@@ -7,12 +9,14 @@ class RemoteFileEntry {
       required this.path,
       required this.isDirectory,
       this.size,
-      this.lastWriteTime});
+      this.lastWriteTime,
+      this.mimeType});
   final String name;
   final String path;
   final bool isDirectory;
   final int? size;
   final DateTime? lastWriteTime;
+  final String? mimeType;
 
   factory RemoteFileEntry.fromJson(Map<String, dynamic> json) =>
       RemoteFileEntry(
@@ -24,6 +28,7 @@ class RemoteFileEntry {
         size: (json['size'] as num?)?.toInt(),
         lastWriteTime: DateTime.tryParse(
             (json['lastWriteTime'] ?? json['modifiedAt'] ?? '').toString()),
+        mimeType: json['mimeType']?.toString(),
       );
 }
 
@@ -126,7 +131,7 @@ class RemoteFileApi {
       _api.sendJson('DELETE', '/api/v1/files', query: {'path': path});
   Future<void> rename(String sourcePath, String name) =>
       _api.sendJson('POST', '/api/v1/files/rename',
-          body: {'path': sourcePath, 'newName': name});
+          body: {'sourcePath': sourcePath, 'newName': name});
   Future<void> copy(String sourcePath, String targetDirectoryPath) =>
       _api.sendJson('POST', '/api/v1/files/copy', body: {
         'sourcePath': sourcePath,
@@ -141,11 +146,28 @@ class RemoteFileApi {
       });
 
   Future<RemoteFileProperties?> properties(String path) async {
-    final body = await _api.getJson('/api/v1/files/properties',
-        query: {'path': path});
+    final body =
+        await _api.getJson('/api/v1/files/properties', query: {'path': path});
     return body is Map
         ? RemoteFileProperties.fromJson(Map<String, dynamic>.from(body))
         : null;
+  }
+
+  Future<void> upload(String targetDirectoryPath, File file) =>
+      _api.sendFile('/api/v1/files/upload',
+          file: file, query: {'path': targetDirectoryPath});
+
+  Future<void> downloadToFile(String remotePath, File destination) async {
+    final response = await _api
+        .getStream('/api/v1/files/download', query: {'path': remotePath});
+    await response.stream.pipe(destination.openWrite());
+  }
+
+  Future<List<int>> readBytes(String path) async {
+    final response =
+        await _api.getStream('/api/v1/files/content', query: {'path': path});
+    return response.stream
+        .fold<List<int>>(<int>[], (bytes, chunk) => bytes..addAll(chunk));
   }
 }
 

@@ -1,24 +1,49 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/theme_service.dart';
+import '../../core/network/remoteos_api.dart';
+import '../../features/files/data/remote_file_api.dart';
 
 /// A lean, split-pane code editor modeled after the original CodeEditor view.
 /// It keeps documents as independent tabs and is ready to receive Explorer's
 /// remote file-open activation once the file API adapter is attached.
 class CodeEditorApp extends ConsumerStatefulWidget {
-  const CodeEditorApp({super.key});
+  const CodeEditorApp({super.key, this.remotePath, this.fileName});
+  final String? remotePath;
+  final String? fileName;
 
   @override
   ConsumerState<CodeEditorApp> createState() => _CodeEditorAppState();
 }
 
 class _CodeEditorAppState extends ConsumerState<CodeEditorApp> {
-  final _controller = TextEditingController(text: _welcomeSource);
+  late final TextEditingController _controller;
   final _search = TextEditingController();
   bool _showExplorer = true;
   bool _wordWrap = true;
   double _fontSize = 14;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: _welcomeSource);
+    if (widget.remotePath != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadRemoteFile());
+    }
+  }
+
+  Future<void> _loadRemoteFile() async {
+    try {
+      final bytes = await RemoteFileApi(ref.read(remoteOsApiProvider))
+          .readBytes(widget.remotePath!);
+      if (mounted) _controller.text = utf8.decode(bytes, allowMalformed: false);
+    } catch (_) {
+      if (mounted) _controller.text = 'Unable to open remote text file.';
+    }
+  }
 
   @override
   void dispose() {
@@ -122,7 +147,7 @@ class _CodeEditorAppState extends ConsumerState<CodeEditorApp> {
             child: Row(children: [
               Icon(Icons.code_rounded, size: 16, color: palette.accent),
               const SizedBox(width: 7),
-              Text('welcome.dart',
+              Text(widget.fileName ?? 'welcome.dart',
                   style: TextStyle(fontSize: 12, color: palette.textPrimary)),
               const SizedBox(width: 12),
               Icon(Icons.close_rounded, size: 15, color: palette.textTertiary)

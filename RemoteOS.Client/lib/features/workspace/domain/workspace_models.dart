@@ -49,6 +49,7 @@ class WorkspacePreferences {
     required this.language,
     required this.region,
     required this.themePreferences,
+    this.defaultApps = const [],
   });
 
   final String wallpaperKey;
@@ -58,6 +59,7 @@ class WorkspacePreferences {
   final String language;
   final String region;
   final ThemePreferencesDto themePreferences;
+  final List<WorkspaceDefaultAppMapping> defaultApps;
 
   WorkspacePreferences copyWith({
     String? wallpaperKey,
@@ -67,6 +69,7 @@ class WorkspacePreferences {
     String? language,
     String? region,
     ThemePreferencesDto? themePreferences,
+    List<WorkspaceDefaultAppMapping>? defaultApps,
   }) =>
       WorkspacePreferences(
         wallpaperKey: wallpaperKey ?? this.wallpaperKey,
@@ -76,6 +79,7 @@ class WorkspacePreferences {
         language: language ?? this.language,
         region: region ?? this.region,
         themePreferences: themePreferences ?? this.themePreferences,
+        defaultApps: defaultApps ?? this.defaultApps,
       );
 
   factory WorkspacePreferences.fromJson(Map<String, dynamic> json) =>
@@ -94,6 +98,11 @@ class WorkspacePreferences {
             ? ThemePreferencesDto.fromJson(
                 json['themePreferences'] as Map<String, dynamic>)
             : ThemePreferencesDto.defaults,
+        defaultApps: (json['defaultApps'] as List? ?? const [])
+            .whereType<Map>()
+            .map((item) => WorkspaceDefaultAppMapping.fromJson(
+                Map<String, dynamic>.from(item)))
+            .toList(growable: false),
       );
 
   Map<String, dynamic> toJson() => {
@@ -104,5 +113,20 @@ class WorkspacePreferences {
         'language': language,
         'region': region,
         'themePreferences': themePreferences.toJson(),
+        'defaultApps': defaultApps.map((item) => item.toJson()).toList(),
       };
+}
+
+class WorkspaceDefaultAppMapping {
+  const WorkspaceDefaultAppMapping({required this.scheme, required this.appId});
+  final String scheme;
+  final String appId;
+
+  factory WorkspaceDefaultAppMapping.fromJson(Map<String, dynamic> json) =>
+      WorkspaceDefaultAppMapping(
+        scheme: (json['scheme'] ?? '').toString(),
+        appId: (json['appId'] ?? '').toString(),
+      );
+
+  Map<String, dynamic> toJson() => {'scheme': scheme, 'appId': appId};
 }

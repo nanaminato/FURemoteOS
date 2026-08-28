@@ -1,9 +1,23 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_selector/file_selector.dart';
 
 import '../../core/theme/theme_service.dart';
 import '../../core/network/remoteos_api.dart';
+import '../../core/apps/app_registry.dart';
+import '../../core/window_manager/context_menu_host.dart';
+import '../../core/window_manager/modal_manager.dart';
+import '../../core/window_manager/window_manager.dart';
+import '../../features/auth/domain/auth_models.dart';
 import '../../features/files/data/remote_file_api.dart';
+import '../../features/workspace/application/workspace_sync_coordinator.dart';
+import '../../features/workspace/domain/workspace_models.dart';
+import '../image_viewer/image_viewer_app.dart';
+import '../code_editor/code_editor_app.dart';
 
 /// File Explorer migration.  Its panes mirror the Avalonia explorer: location
 /// tree, command bar, editable breadcrumb and detail list.  The view is kept
@@ -21,15 +35,22 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
   final _search = TextEditingController();
   final _address = TextEditingController();
   bool _detailsView = true;
+  final _menu = RemoteContextMenuController();
+  final Set<String> _selectedPaths = <String>{};
+  List<String>? _clipboardPaths;
+  bool _clipboardIsCut = false;
   List<_FileEntry> _entries = const [];
   List<RemoteSpecialLocation> _specialLocations = const [];
   List<RemoteDrive> _drives = const [];
   bool _loading = false;
   String? _loadError;
+  final List<String> _history = <String>[];
+  int _historyIndex = -1;
 
   @override
   void initState() {
     super.initState();
+    _search.addListener(() => setState(() {}));
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadInitial());
   }
 
@@ -41,12 +62,41 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
   }
 
   void _navigate(String location, String path) {
+    if (path == _path && _historyIndex >= 0) return;
     setState(() {
       _location = location;
       _path = path;
       _address.text = path;
+      _selectedPaths.clear();
+      if (_historyIndex < _history.length - 1) {
+        _history.removeRange(_historyIndex + 1, _history.length);
+      }
+      _history.add(path);
+      _historyIndex = _history.length - 1;
     });
     _load(path);
+  }
+
+  void _navigateHistory(int index) {
+    if (index < 0 || index >= _history.length) return;
+    final path = _history[index];
+    setState(() {
+      _historyIndex = index;
+      _path = path;
+      _location = _fileName(path);
+      _address.text = path;
+      _selectedPaths.clear();
+    });
+    _load(path);
+  }
+
+  void _goUp() {
+    if (_path.isEmpty) return;
+    final normalized = _path.replaceAll('\\', '/');
+    final slash = normalized.lastIndexOf('/');
+    if (slash < 0) return;
+    final parent = slash == 0 ? '/' : _path.substring(0, slash);
+    _navigate(_fileName(parent), parent);
   }
 
   Future<void> _load(String path) async {
@@ -60,6 +110,8 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
       if (!mounted || path != _path) return;
       setState(() {
         _entries = result.map(_FileEntry.fromRemote).toList();
+        _selectedPaths.removeWhere(
+            (path) => !_entries.any((entry) => entry.path == path));
         _loading = false;
       });
     } catch (error) {
@@ -93,6 +145,10 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
             _path = drives.first.path;
           }
           _address.text = _path;
+          if (_historyIndex < 0) {
+            _history.add(_path);
+            _historyIndex = 0;
+          }
         });
       }
     } catch (_) {
@@ -102,27 +158,450 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
     if (mounted) _load(_path);
   }
 
+  RemoteFileApi get _api => RemoteFileApi(ref.read(remoteOsApiProvider));
+
+  bool get _hasSelection => _selectedPaths.isNotEmpty;
+
+  List<_FileEntry> get _selectedEntries => _entries
+      .where((entry) => _selectedPaths.contains(entry.path))
+      .toList(growable: false);
+
+  String _joinPath(String parent, String name) {
+    if (parent.isEmpty) return name;
+    final separator = parent.contains('\\') ? '\\' : '/';
+    return parent.endsWith(separator)
+        ? '$parent$name'
+        : '$parent$separator$name';
+  }
+
+  String _fileName(String path) {
+    final normalized = path.replaceAll('\\', '/');
+    final parts = normalized.split('/').where((part) => part.isNotEmpty);
+    return parts.isEmpty ? normalized : parts.last;
+  }
+
+  void _select(_FileEntry entry, {bool toggle = false}) {
+    setState(() {
+      if (toggle) {
+        if (!_selectedPaths.add(entry.path)) _selectedPaths.remove(entry.path);
+      } else {
+        _selectedPaths
+          ..clear()
+          ..add(entry.path);
+      }
+    });
+  }
+
+  void _copySelection({required bool cut}) {
+    if (!_hasSelection) return;
+    setState(() {
+      _clipboardPaths = _selectedPaths.toList(growable: false);
+      _clipboardIsCut = cut;
+    });
+  }
+
+  bool _canMoveEntry(_FileEntry source, _FileEntry target) {
+    if (target.type != 'Folder' || source.path == target.path) return false;
+    final sourcePath = source.path.replaceAll('\\', '/').replaceFirst(RegExp(r'/+$'), '');
+    final targetPath = target.path.replaceAll('\\', '/').replaceFirst(RegExp(r'/+$'), '');
+    return source.type != 'Folder' ||
+        !(targetPath == sourcePath || targetPath.startsWith('$sourcePath/'));
+  }
+
+  Future<void> _moveEntry(_FileEntry source, _FileEntry target) =>
+      _runOperation(() => _api.move(source.path, _joinPath(target.path, source.name)));
+
+  Widget _draggableEntry(ThemePalette palette, _FileEntry entry, Widget child) {
+    final target = entry.type != 'Folder'
+        ? child
+        : DragTarget<_FileEntry>(
+            onWillAcceptWithDetails: (details) => _canMoveEntry(details.data, entry),
+            onAcceptWithDetails: (details) => _moveEntry(details.data, entry),
+            builder: (context, candidates, _) => DecoratedBox(
+              decoration: BoxDecoration(
+                border: candidates.isEmpty
+                    ? null
+                    : Border.all(color: palette.accent, width: 2),
+              ),
+              child: child,
+            ),
+          );
+    return LongPressDraggable<_FileEntry>(
+      data: entry,
+      feedback: Material(
+        color: palette.surface,
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Text(entry.name),
+        ),
+      ),
+      childWhenDragging: Opacity(opacity: .45, child: target),
+      child: target,
+    );
+  }
+
+  Future<void> _paste() async {
+    final paths = _clipboardPaths;
+    if (paths == null || paths.isEmpty) return;
+    await _runOperation(() async {
+      for (final source in paths) {
+        final destination = _joinPath(_path, _fileName(source));
+        if (_clipboardIsCut) {
+          await _api.move(source, destination);
+        } else {
+          await _api.copy(source, destination);
+        }
+      }
+      if (_clipboardIsCut) {
+        setState(() {
+          _clipboardPaths = null;
+          _clipboardIsCut = false;
+        });
+      }
+    });
+  }
+
+  Future<void> _upload() async {
+    if (_path.isEmpty) return;
+    try {
+      final files = await openFiles();
+      if (files.isEmpty) return;
+      await _runOperation(() async {
+        for (final file in files) {
+          if (file.path.isEmpty) continue;
+          await _api.upload(_path, File(file.path));
+        }
+      });
+    } catch (error) {
+      if (mounted) _showError(error);
+    }
+  }
+
+  Future<void> _uploadFolder() async {
+    if (_path.isEmpty) return;
+    try {
+      final rootPath =
+          await getDirectoryPath(confirmButtonText: 'Select folder');
+      if (rootPath == null || rootPath.isEmpty) return;
+      final root = Directory(rootPath);
+      final directories = <Directory>[root];
+      final files = <File>[];
+      await for (final entity
+          in root.list(recursive: true, followLinks: false)) {
+        if (entity is Directory) directories.add(entity);
+        if (entity is File) files.add(entity);
+      }
+      directories.sort((a, b) => a.path.length.compareTo(b.path.length));
+      await _runOperation(() async {
+        for (final directory in directories) {
+          await _api
+              .createDirectory(_remoteUploadPath(root.path, directory.path));
+        }
+        for (final file in files) {
+          final parent = file.parent.path;
+          await _api.upload(_remoteUploadPath(root.path, parent), file);
+        }
+      });
+    } catch (error) {
+      if (mounted) _showError(error);
+    }
+  }
+
+  String _remoteUploadPath(String root, String localPath) {
+    final normalizedRoot =
+        root.replaceAll('\\', '/').replaceFirst(RegExp(r'/+$'), '');
+    final normalizedPath = localPath.replaceAll('\\', '/');
+    final relative = normalizedPath.startsWith(normalizedRoot)
+        ? normalizedPath
+            .substring(normalizedRoot.length)
+            .replaceFirst(RegExp(r'^/+'), '')
+        : _fileName(localPath);
+    final segments = <String>[_fileName(root), ...relative.split('/')]
+        .where((segment) => segment.isNotEmpty);
+    return segments.fold(_path, _joinPath);
+  }
+
+  Future<void> _download() async {
+    final entries = _selectedEntries.where((entry) => entry.type == 'File');
+    if (entries.length != 1) return;
+    final entry = entries.single;
+    try {
+      final destination = await getSaveLocation(suggestedName: entry.name);
+      if (destination == null || destination.path.isEmpty) return;
+      await _api.downloadToFile(entry.path, File(destination.path));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Saved ${entry.name}')),
+        );
+      }
+    } catch (error) {
+      if (mounted) _showError(error);
+    }
+  }
+
+  bool _isImage(_FileEntry entry) {
+    final name = entry.name.toLowerCase();
+    return const ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp']
+        .any(name.endsWith);
+  }
+
+  bool _isText(_FileEntry entry) {
+    if (entry.mimeType?.toLowerCase().startsWith('text/') == true) return true;
+    final name = entry.name.toLowerCase();
+    return const [
+      '.txt',
+      '.md',
+      '.json',
+      '.yaml',
+      '.yml',
+      '.xml',
+      '.html',
+      '.css',
+      '.js',
+      '.ts',
+      '.dart',
+      '.cs',
+      '.py',
+      '.sh',
+      '.toml',
+      '.ini',
+      '.log'
+    ].any(name.endsWith);
+  }
+
+  String? _extension(_FileEntry entry) {
+    final dot = entry.name.lastIndexOf('.');
+    return dot <= 0 ? null : entry.name.substring(dot).toLowerCase();
+  }
+
+  List<_OpenWithCandidate> _candidatesFor(_FileEntry entry) => [
+        if (_isImage(entry))
+          const _OpenWithCandidate(
+              'remoteos.imageviewer', 'Image Viewer', Icons.image_outlined),
+        if (_isText(entry))
+          const _OpenWithCandidate(
+              'remoteos.codeeditor', 'Code Editor', Icons.code_outlined),
+      ];
+
+  Future<bool> _isTextContent(_FileEntry entry) async {
+    try {
+      final bytes = await _api.readBytes(entry.path);
+      if (bytes.contains(0)) return false;
+      utf8.decode(bytes, allowMalformed: false);
+      return true;
+    } on FormatException {
+      return false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _openEntry(_FileEntry entry,
+      {_OpenWithCandidate? candidate}) async {
+    if (entry.type == 'Folder') {
+      _navigate(entry.name, entry.path);
+      return;
+    }
+    var candidates = _candidatesFor(entry);
+    if (candidates.isEmpty && await _isTextContent(entry)) {
+      candidates = const [
+        _OpenWithCandidate(
+            'remoteos.codeeditor', 'Code Editor', Icons.code_outlined),
+      ];
+    }
+    if (candidates.isEmpty) {
+      _showError(const RemoteOsApiException(
+          statusCode: 409, message: 'No compatible application is available.'));
+      return;
+    }
+    final extension = _extension(entry);
+    final mapped = extension == null
+        ? null
+        : ref
+            .read(workspaceSyncProvider)
+            .preferences
+            ?.defaultApps
+            .where((item) => item.scheme.toLowerCase() == extension)
+            .map((item) => item.appId)
+            .firstOrNull;
+    final selected = candidate ??
+        candidates.where((item) => item.appId == mapped).firstOrNull ??
+        candidates.first;
+    final appId = selected.appId == 'remoteos.imageviewer'
+        ? 'image_viewer'
+        : 'code_editor';
+    final app = ref.read(appRegistryProvider).get(appId);
+    if (app == null) return;
+    ref.read(windowManagerProvider.notifier).openApp(
+          entry: app,
+          title: entry.name,
+          child: selected.appId == 'remoteos.imageviewer'
+              ? ImageViewerApp(remotePath: entry.path, fileName: entry.name)
+              : CodeEditorApp(remotePath: entry.path, fileName: entry.name),
+        );
+  }
+
+  Future<void> _chooseOpenWith(_FileEntry entry) async {
+    final candidates = _candidatesFor(entry);
+    if (candidates.isEmpty) return _openEntry(entry);
+    final choice = await ref.read(modalManagerProvider).open<_OpenWithChoice>(
+          ownerId: RemoteWindowScope.of(context).window.id,
+          spec: ModalSpec(
+            title: 'Open with',
+            icon: Icons.apps_outlined,
+            preferredSize: const Size(440, 290),
+            child: _OpenWithDialog(candidates: candidates),
+          ),
+        );
+    if (choice == null) return;
+    final extension = _extension(entry);
+    if (choice.always && extension != null) {
+      final current = ref.read(workspaceSyncProvider).preferences;
+      if (current != null) {
+        final mappings = current.defaultApps
+            .where((mapping) => mapping.scheme.toLowerCase() != extension)
+            .toList()
+          ..add(WorkspaceDefaultAppMapping(
+              scheme: extension, appId: choice.candidate.appId));
+        ref
+            .read(workspaceSyncProvider.notifier)
+            .queuePreferences(current.copyWith(defaultApps: mappings));
+      }
+    }
+    _openEntry(entry, candidate: choice.candidate);
+  }
+
+  Future<void> _runOperation(Future<void> Function() operation) async {
+    try {
+      await operation();
+      if (mounted) await _load(_path);
+    } catch (error) {
+      if (mounted) _showError(error);
+    }
+  }
+
+  void _showError(Object error) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(error is RemoteOsApiException
+          ? error.message
+          : 'File operation failed: $error'),
+    ));
+  }
+
+  Future<void> _promptNewFolder() => _prompt(
+        title: 'New folder',
+        initialValue: 'New folder',
+        confirmLabel: 'Create',
+        onConfirmed: (name) => _runOperation(
+          () => _api.createDirectory(_joinPath(_path, name)),
+        ),
+      );
+
+  Future<void> _promptRename() {
+    final entries = _selectedEntries;
+    if (entries.length != 1) return Future.value();
+    final entry = entries.single;
+    return _prompt(
+      title: 'Rename',
+      initialValue: entry.name,
+      confirmLabel: 'Rename',
+      onConfirmed: (name) => _runOperation(() => _api.rename(entry.path, name)),
+    );
+  }
+
+  Future<void> _promptDelete() async {
+    final entries = _selectedEntries;
+    if (entries.isEmpty) return;
+    final confirmed = await _confirm(
+      'Delete ${entries.length == 1 ? entries.single.name : '${entries.length} items'}?',
+      'This permanently deletes the selected item${entries.length == 1 ? '' : 's'}.',
+    );
+    if (confirmed == true) {
+      await _runOperation(() async {
+        for (final entry in entries) {
+          await _api.delete(entry.path);
+        }
+      });
+    }
+  }
+
+  Future<void> _showProperties() async {
+    final entries = _selectedEntries;
+    if (entries.length != 1) return;
+    try {
+      final properties = await _api.properties(entries.single.path);
+      if (!mounted || properties == null) return;
+      await ref.read(modalManagerProvider).open<void>(
+            ownerId: RemoteWindowScope.of(context).window.id,
+            spec: ModalSpec(
+              title: 'Properties',
+              icon: Icons.info_outline_rounded,
+              preferredSize: const Size(460, 350),
+              child: _PropertiesDialog(properties: properties),
+            ),
+          );
+    } catch (error) {
+      if (mounted) _showError(error);
+    }
+  }
+
+  Future<void> _prompt({
+    required String title,
+    required String initialValue,
+    required String confirmLabel,
+    required Future<void> Function(String value) onConfirmed,
+  }) async {
+    final value = await ref.read(modalManagerProvider).open<String>(
+          ownerId: RemoteWindowScope.of(context).window.id,
+          spec: ModalSpec(
+            title: title,
+            icon: Icons.folder_outlined,
+            preferredSize: const Size(430, 230),
+            child: _TextPromptDialog(
+              initialValue: initialValue,
+              confirmLabel: confirmLabel,
+            ),
+          ),
+        );
+    final trimmed = value?.trim();
+    if (trimmed != null && trimmed.isNotEmpty) await onConfirmed(trimmed);
+  }
+
+  Future<bool?> _confirm(String title, String message) =>
+      ref.read(modalManagerProvider).open<bool>(
+            ownerId: RemoteWindowScope.of(context).window.id,
+            spec: ModalSpec(
+              title: title,
+              icon: Icons.delete_outline_rounded,
+              preferredSize: const Size(430, 230),
+              child: _ConfirmDialog(message: message),
+            ),
+          );
+
   @override
   Widget build(BuildContext context) {
     final palette = watchPalette(ref, context);
-    return LayoutBuilder(builder: (context, constraints) {
-      final compact = constraints.maxWidth < 680;
-      return Column(children: [
-        _commandBar(palette),
-        _addressBar(palette),
-        Expanded(
-          child: compact
-              ? _content(palette, showTree: false)
-              : Row(children: [
-                  _tree(palette),
-                  VerticalDivider(
-                      width: 1, thickness: 1, color: palette.borderSubtle),
-                  Expanded(child: _content(palette, showTree: false)),
-                ]),
-        ),
-        _statusBar(palette),
-      ]);
-    });
+    return ContextMenuHost(
+      controller: _menu,
+      child: LayoutBuilder(builder: (context, constraints) {
+        final compact = constraints.maxWidth < 680;
+        return Column(children: [
+          _commandBar(palette),
+          _addressBar(palette),
+          Expanded(
+            child: compact
+                ? _content(palette, showTree: false)
+                : Row(children: [
+                    _tree(palette),
+                    VerticalDivider(
+                        width: 1, thickness: 1, color: palette.borderSubtle),
+                    Expanded(child: _content(palette, showTree: false)),
+                  ]),
+          ),
+          _statusBar(palette),
+        ]);
+      }),
+    );
   }
 
   Widget _commandBar(ThemePalette palette) => Container(
@@ -130,14 +609,17 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
         color: palette.surface,
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Row(children: [
-          _toolButton(palette, Icons.arrow_back_rounded, 'Back'),
-          _toolButton(palette, Icons.arrow_forward_rounded, 'Forward'),
-          _toolButton(palette, Icons.arrow_upward_rounded, 'Up', onPressed: () {
-            final slash = _path.lastIndexOf('/');
-            if (slash > 0)
-              _navigate(_path.substring(0, slash).split('/').last,
-                  _path.substring(0, slash));
-          }),
+          _toolButton(palette, Icons.arrow_back_rounded, 'Back',
+              onPressed: _historyIndex > 0
+                  ? () => _navigateHistory(_historyIndex - 1)
+                  : null),
+          _toolButton(palette, Icons.arrow_forward_rounded, 'Forward',
+              onPressed:
+                  _historyIndex >= 0 && _historyIndex < _history.length - 1
+                      ? () => _navigateHistory(_historyIndex + 1)
+                      : null),
+          _toolButton(palette, Icons.arrow_upward_rounded, 'Up',
+              onPressed: _path.isEmpty ? null : _goUp),
           Container(
               width: 1,
               height: 22,
@@ -145,9 +627,28 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
               margin: const EdgeInsets.symmetric(horizontal: 6)),
           _toolButton(palette, Icons.refresh_rounded, 'Refresh',
               onPressed: () => _load(_path)),
-          _toolButton(palette, Icons.content_copy_outlined, 'Copy'),
-          _toolButton(palette, Icons.content_cut_outlined, 'Cut'),
-          _toolButton(palette, Icons.paste_outlined, 'Paste'),
+          _toolButton(palette, Icons.create_new_folder_outlined, 'New folder',
+              onPressed: _promptNewFolder),
+          _toolButton(palette, Icons.upload_file_outlined, 'Upload',
+              onPressed: _path.isEmpty ? null : _upload),
+          _toolButton(
+              palette, Icons.drive_folder_upload_outlined, 'Upload folder',
+              onPressed: _path.isEmpty ? null : _uploadFolder),
+          _toolButton(palette, Icons.download_outlined, 'Download',
+              onPressed: _selectedEntries
+                          .where((entry) => entry.type == 'File')
+                          .length ==
+                      1
+                  ? _download
+                  : null),
+          _toolButton(palette, Icons.content_copy_outlined, 'Copy',
+              onPressed:
+                  _hasSelection ? () => _copySelection(cut: false) : null),
+          _toolButton(palette, Icons.content_cut_outlined, 'Cut',
+              onPressed:
+                  _hasSelection ? () => _copySelection(cut: true) : null),
+          _toolButton(palette, Icons.paste_outlined, 'Paste',
+              onPressed: _clipboardPaths?.isNotEmpty == true ? _paste : null),
           const Spacer(),
           IconButton(
             tooltip: _detailsView ? 'Icon view' : 'Details view',
@@ -343,36 +844,44 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
               fontWeight: FontWeight.w600,
               color: palette.textSecondary)));
 
-  Widget _entryRow(ThemePalette palette, _FileEntry entry) => Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onDoubleTap: entry.type == 'Folder'
-            ? () => _navigate(entry.name, entry.path)
-            : null,
-        child: Container(
-            height: 42,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(children: [
-              Expanded(
-                  flex: 3,
-                  child: Row(children: [
-                    Icon(entry.icon,
-                        size: 19,
-                        color: entry.type == 'Folder'
-                            ? const Color(0xFFE9A23B)
-                            : palette.textSecondary),
-                    const SizedBox(width: 10),
-                    Expanded(
-                        child: Text(entry.name,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                                fontSize: 13, color: palette.textPrimary)))
-                  ])),
-              _column(entry.modified, 2, palette),
-              _column(entry.type, 2, palette),
-              _column(entry.size, 1, palette),
-            ])),
-      ));
+  Widget _entryRow(ThemePalette palette, _FileEntry entry) => ContextMenuRegion(
+      controller: _menu,
+      entries: _entryMenuEntries(entry),
+      child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => _select(entry,
+                toggle: HardwareKeyboard.instance.isControlPressed ||
+                    HardwareKeyboard.instance.isShiftPressed),
+            onLongPress: () => _select(entry, toggle: true),
+            onDoubleTap: () => _openEntry(entry),
+            child: Container(
+                height: 42,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                color: _selectedPaths.contains(entry.path)
+                    ? palette.accentMuted
+                    : Colors.transparent,
+                child: Row(children: [
+                  Expanded(
+                      flex: 3,
+                      child: Row(children: [
+                        Icon(entry.icon,
+                            size: 19,
+                            color: entry.type == 'Folder'
+                                ? const Color(0xFFE9A23B)
+                                : palette.textSecondary),
+                        const SizedBox(width: 10),
+                        Expanded(
+                            child: Text(entry.name,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                    fontSize: 13, color: palette.textPrimary)))
+                      ])),
+                  _column(entry.modified, 2, palette),
+                  _column(entry.type, 2, palette),
+                  _column(entry.size, 1, palette),
+                ])),
+          )));
 
   Widget _iconGrid(ThemePalette palette, List<_FileEntry> entries) =>
       GridView.builder(
@@ -385,29 +894,114 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
             mainAxisSpacing: 10),
         itemBuilder: (_, index) {
           final entry = entries[index];
-          return InkWell(
-              onDoubleTap: entry.type == 'Folder'
-                  ? () => _navigate(entry.name, entry.path)
-                  : null,
-              borderRadius: BorderRadius.circular(6),
-              child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(entry.icon,
-                        size: 42,
-                        color: entry.type == 'Folder'
-                            ? const Color(0xFFE9A23B)
-                            : palette.textSecondary),
-                    const SizedBox(height: 7),
-                    Text(entry.name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style:
-                            TextStyle(fontSize: 12, color: palette.textPrimary))
-                  ]));
+          return ContextMenuRegion(
+              controller: _menu,
+              entries: _entryMenuEntries(entry),
+              child: InkWell(
+                  onTap: () => _select(entry,
+                      toggle: HardwareKeyboard.instance.isControlPressed ||
+                          HardwareKeyboard.instance.isShiftPressed),
+                  onLongPress: () => _select(entry, toggle: true),
+                  onDoubleTap: () => _openEntry(entry),
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                      decoration: BoxDecoration(
+                        color: _selectedPaths.contains(entry.path)
+                            ? palette.accentMuted
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(entry.icon,
+                                size: 42,
+                                color: entry.type == 'Folder'
+                                    ? const Color(0xFFE9A23B)
+                                    : palette.textSecondary),
+                            const SizedBox(height: 7),
+                            Text(entry.name,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                    fontSize: 12, color: palette.textPrimary))
+                          ]))));
         },
       );
+
+  List<ContextMenuEntry> _entryMenuEntries(_FileEntry entry) => [
+        ContextMenuAction(
+          label: 'Open',
+          icon: Icons.open_in_new_rounded,
+          onSelected: () {
+            _select(entry);
+            _openEntry(entry);
+          },
+        ),
+        if (entry.type == 'File')
+          ContextMenuAction(
+            label: 'Open with…',
+            icon: Icons.apps_outlined,
+            enabled: _candidatesFor(entry).isNotEmpty,
+            onSelected: () {
+              _select(entry);
+              _chooseOpenWith(entry);
+            },
+          ),
+        const ContextMenuDivider(),
+        ContextMenuAction(
+          label: 'Download',
+          icon: Icons.download_outlined,
+          enabled: entry.type == 'File',
+          onSelected: () {
+            _select(entry);
+            _download();
+          },
+        ),
+        const ContextMenuDivider(),
+        ContextMenuAction(
+          label: 'Copy',
+          icon: Icons.content_copy_outlined,
+          onSelected: () {
+            _select(entry);
+            _copySelection(cut: false);
+          },
+        ),
+        ContextMenuAction(
+          label: 'Cut',
+          icon: Icons.content_cut_outlined,
+          onSelected: () {
+            _select(entry);
+            _copySelection(cut: true);
+          },
+        ),
+        ContextMenuAction(
+          label: 'Rename',
+          icon: Icons.drive_file_rename_outline,
+          onSelected: () {
+            _select(entry);
+            _promptRename();
+          },
+        ),
+        ContextMenuAction(
+          label: 'Delete',
+          icon: Icons.delete_outline_rounded,
+          onSelected: () {
+            _select(entry);
+            _promptDelete();
+          },
+        ),
+        const ContextMenuDivider(),
+        ContextMenuAction(
+          label: 'Properties',
+          icon: Icons.info_outline_rounded,
+          onSelected: () {
+            _select(entry);
+            _showProperties();
+          },
+        ),
+      ];
 
   Widget _statusBar(ThemePalette palette) => Container(
       height: 26,
@@ -423,14 +1017,15 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
 }
 
 class _FileEntry {
-  const _FileEntry(
-      this.name, this.path, this.type, this.size, this.modified, this.icon);
+  const _FileEntry(this.name, this.path, this.type, this.size, this.modified,
+      this.icon, this.mimeType);
   final String name;
   final String path;
   final String type;
   final String size;
   final String modified;
   final IconData icon;
+  final String? mimeType;
 
   factory _FileEntry.fromRemote(RemoteFileEntry entry) => _FileEntry(
         entry.name,
@@ -439,6 +1034,7 @@ class _FileEntry {
         entry.size == null ? '—' : _formatBytes(entry.size!),
         entry.lastWriteTime?.toLocal().toString().split('.').first ?? '—',
         entry.isDirectory ? Icons.folder_rounded : Icons.description_outlined,
+        entry.mimeType,
       );
 
   static String _formatBytes(int value) {
@@ -452,6 +1048,226 @@ extension on List<String> {
   String? get lastOrNull => isEmpty ? null : last;
 }
 
-extension on Iterable<RemoteSpecialLocation> {
-  RemoteSpecialLocation? get firstOrNull => isEmpty ? null : first;
+extension FirstOrNull<T> on Iterable<T> {
+  T? get firstOrNull => isEmpty ? null : first;
+}
+
+class _TextPromptDialog extends ConsumerStatefulWidget {
+  const _TextPromptDialog(
+      {required this.initialValue, required this.confirmLabel});
+  final String initialValue;
+  final String confirmLabel;
+
+  @override
+  ConsumerState<_TextPromptDialog> createState() => _TextPromptDialogState();
+}
+
+class _TextPromptDialogState extends ConsumerState<_TextPromptDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue)
+      ..selection = TextSelection(
+          baseOffset: 0, extentOffset: widget.initialValue.length);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = watchPalette(ref, context);
+    final dialogId = RemoteModalScope.of(context).windowId;
+    final modals = ref.read(modalManagerProvider);
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        TextField(
+          controller: _controller,
+          autofocus: true,
+          onSubmitted: (value) => modals.complete(dialogId, value),
+          style: TextStyle(color: palette.textPrimary),
+          decoration: const InputDecoration(labelText: 'Name'),
+        ),
+        const Spacer(),
+        Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+          TextButton(
+              onPressed: () => modals.dismiss(dialogId),
+              child: const Text('Cancel')),
+          const SizedBox(width: 8),
+          FilledButton(
+            onPressed: () => modals.complete(dialogId, _controller.text),
+            child: Text(widget.confirmLabel),
+          ),
+        ]),
+      ]),
+    );
+  }
+}
+
+class _ConfirmDialog extends ConsumerWidget {
+  const _ConfirmDialog({required this.message});
+  final String message;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final palette = watchPalette(ref, context);
+    final dialogId = RemoteModalScope.of(context).windowId;
+    final modals = ref.read(modalManagerProvider);
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(message, style: TextStyle(color: palette.textPrimary)),
+        const Spacer(),
+        Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+          TextButton(
+              onPressed: () => modals.dismiss(dialogId),
+              child: const Text('Cancel')),
+          const SizedBox(width: 8),
+          FilledButton(
+            onPressed: () => modals.complete(dialogId, true),
+            child: const Text('Delete'),
+          ),
+        ]),
+      ]),
+    );
+  }
+}
+
+class _PropertiesDialog extends ConsumerWidget {
+  const _PropertiesDialog({required this.properties});
+  final RemoteFileProperties properties;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final palette = watchPalette(ref, context);
+    final dialogId = RemoteModalScope.of(context).windowId;
+    final rows = <(String, String)>[
+      ('Name', properties.name),
+      ('Type', properties.type),
+      ('Location', properties.path),
+      (
+        'Size',
+        properties.size == null
+            ? '—'
+            : _FileEntry._formatBytes(properties.size!)
+      ),
+      (
+        'Created',
+        properties.created?.toLocal().toString().split('.').first ?? '—'
+      ),
+      (
+        'Modified',
+        properties.modified?.toLocal().toString().split('.').first ?? '—'
+      ),
+      if (properties.permissions?.isNotEmpty == true)
+        ('Permissions', properties.permissions!),
+      if (properties.attributes?.isNotEmpty == true)
+        ('Attributes', properties.attributes!),
+    ];
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        for (final row in rows)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              SizedBox(
+                  width: 90,
+                  child: Text(row.$1,
+                      style: TextStyle(color: palette.textSecondary))),
+              Expanded(
+                  child: Text(row.$2,
+                      style: TextStyle(color: palette.textPrimary))),
+            ]),
+          ),
+        const Spacer(),
+        Align(
+          alignment: Alignment.centerRight,
+          child: FilledButton(
+            onPressed: () => ref.read(modalManagerProvider).dismiss(dialogId),
+            child: const Text('Close'),
+          ),
+        ),
+      ]),
+    );
+  }
+}
+
+class _OpenWithCandidate {
+  const _OpenWithCandidate(this.appId, this.label, this.icon);
+  final String appId;
+  final String label;
+  final IconData icon;
+}
+
+class _OpenWithChoice {
+  const _OpenWithChoice(this.candidate, this.always);
+  final _OpenWithCandidate candidate;
+  final bool always;
+}
+
+class _OpenWithDialog extends ConsumerStatefulWidget {
+  const _OpenWithDialog({required this.candidates});
+  final List<_OpenWithCandidate> candidates;
+
+  @override
+  ConsumerState<_OpenWithDialog> createState() => _OpenWithDialogState();
+}
+
+class _OpenWithDialogState extends ConsumerState<_OpenWithDialog> {
+  _OpenWithCandidate? _selected;
+  bool _always = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = widget.candidates.first;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dialogId = RemoteModalScope.of(context).windowId;
+    final modals = ref.read(modalManagerProvider);
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text('Choose an application'),
+        const SizedBox(height: 10),
+        for (final candidate in widget.candidates)
+          RadioListTile<_OpenWithCandidate>(
+            value: candidate,
+            groupValue: _selected,
+            title: Text(candidate.label),
+            secondary: Icon(candidate.icon),
+            onChanged: (value) => setState(() => _selected = value),
+          ),
+        CheckboxListTile(
+          contentPadding: EdgeInsets.zero,
+          value: _always,
+          title: const Text('Always use this application'),
+          onChanged: (value) => setState(() => _always = value ?? false),
+        ),
+        const Spacer(),
+        Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+          TextButton(
+              onPressed: () => modals.dismiss(dialogId),
+              child: const Text('Cancel')),
+          const SizedBox(width: 8),
+          FilledButton(
+            onPressed: _selected == null
+                ? null
+                : () => modals.complete(
+                    dialogId, _OpenWithChoice(_selected!, _always)),
+            child: const Text('Open'),
+          ),
+        ]),
+      ]),
+    );
+  }
 }

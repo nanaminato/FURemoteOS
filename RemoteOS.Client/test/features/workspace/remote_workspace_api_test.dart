@@ -23,6 +23,9 @@ void main() {
       if (request.url.path == '/api/v1/workspaces/ws-1/preferences') {
         expect(request.method, 'PUT');
         expect(jsonDecode(request.body)['language'], 'zh-CN');
+        expect(jsonDecode(request.body)['defaultApps'], [
+          {'scheme': '.png', 'appId': 'remoteos.imageviewer'},
+        ]);
         return http.Response(jsonEncode(_preferences), 200);
       }
       if (request.url.path == '/api/v1/workspaces/ws-1/window-layouts') {
@@ -57,6 +60,10 @@ void main() {
         language: 'zh-CN',
         region: 'zh-CN',
         themePreferences: ThemePreferencesDto(),
+        defaultApps: const [
+          WorkspaceDefaultAppMapping(
+              scheme: '.png', appId: 'remoteos.imageviewer'),
+        ],
       ),
     );
     final layouts = await api.updateWindowLayouts(
@@ -67,6 +74,7 @@ void main() {
     );
 
     expect(preferences.theme, ThemeKind.dark);
+    expect(preferences.defaultApps.single.scheme, '.png');
     expect(preferences.themePreferences.paletteId, PaletteIds.nord);
     expect(layouts.windows.single.key, 'notepad');
   });
@@ -95,4 +103,7 @@ const _preferences = {
     'paletteId': 'builtin:nord',
     'customPalettes': [],
   },
+  'defaultApps': [
+    {'scheme': '.png', 'appId': 'remoteos.imageviewer'},
+  ],
 };
