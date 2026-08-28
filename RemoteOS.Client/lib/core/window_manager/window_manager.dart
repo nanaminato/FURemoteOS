@@ -7,7 +7,7 @@ import '../apps/app_registry.dart';
 import '../../core/theme/theme_service.dart';
 
 /// Window state constants.
-enum RemoteWindowState { normal, minimized, maximized }
+enum RemoteWindowState { normal, minimized, maximized, fullscreen }
 
 /// Data for a single managed window.
 class RemoteWindow {
@@ -19,6 +19,7 @@ class RemoteWindow {
 
   Rect bounds;
   Rect? restoreBounds;
+  RemoteWindowState? stateBeforeMinimize;
   final Size minimumSize;
   RemoteWindowState state;
   int zOrder;
@@ -54,6 +55,7 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
     required Widget child,
     String? title,
     Rect? initialBounds,
+    Size? initialSize,
     Size? screenSize,
   }) {
     if (!entry.allowMultipleInstances) {
@@ -68,7 +70,10 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
     }
     final id = const Uuid().v4();
     final defaultRect = initialBounds ??
-        _centerRect(entry.defaultSize, screenSize ?? const Size(1280, 720));
+        _centerRect(
+          initialSize ?? entry.defaultSize,
+          screenSize ?? const Size(1280, 720),
+        );
     final window = RemoteWindow(
       id: id,
       appId: entry.id,
@@ -115,7 +120,8 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
     }
     for (final window
         in state.where((window) => closingIds.contains(window.id))) {
-      window._modalCompletion?.complete(null);
+      final completion = window._modalCompletion;
+      if (completion != null && !completion.isCompleted) completion.complete();
     }
     state = state.where((window) => !closingIds.contains(window.id)).toList();
   }
@@ -163,7 +169,9 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
   void completeDialog<T>(String windowId, [T? value]) {
     final matches = state.where((w) => w.id == windowId);
     final dialog = matches.isEmpty ? null : matches.first;
-    dialog?._modalCompletion?.complete(value);
+    final completion = dialog?._modalCompletion;
+    if (completion != null && !completion.isCompleted)
+      completion.complete(value);
     close(windowId);
   }
 
@@ -174,7 +182,12 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
   void minimize(String windowId) {
     state = [
       for (final w in state)
-        if (w.id == windowId) w..state = RemoteWindowState.minimized else w,
+        if (w.id == windowId && w.state != RemoteWindowState.minimized)
+          w
+            ..stateBeforeMinimize = w.state
+            ..state = RemoteWindowState.minimized
+        else
+          w,
     ];
   }
 
@@ -184,7 +197,8 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
       for (final w in state)
         if (w.id == windowId)
           w
-            ..state = RemoteWindowState.normal
+            ..state = w.stateBeforeMinimize ?? RemoteWindowState.normal
+            ..stateBeforeMinimize = null
             ..zOrder = _zCounter++
         else
           w,
@@ -214,6 +228,28 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
       ..state = RemoteWindowState.maximized
       ..bounds = screenWorkArea ?? window.bounds
       ..zOrder = _zCounter++;
+  }
+
+  /// Toggle an internal window between its normal/maximized presentation and
+  /// the entire managed host work area. The host taskbar remains available.
+  void toggleFullscreen(String windowId, Rect workArea) {
+    state = [
+      for (final w in state)
+        if (w.id == windowId)
+          if (w.state == RemoteWindowState.fullscreen)
+            w
+              ..state = RemoteWindowState.normal
+              ..bounds = w.restoreBounds ?? w.bounds
+              ..zOrder = _zCounter++
+          else
+            w
+              ..restoreBounds = w.bounds
+              ..state = RemoteWindowState.fullscreen
+              ..bounds = workArea
+              ..zOrder = _zCounter++
+        else
+          w,
+    ];
   }
 
   /// Move a window to a new position.
@@ -384,6 +420,7 @@ class _RemoteWindowChromeState extends ConsumerState<RemoteWindowChrome> {
     final win = widget.window;
 
     final isMaximized = win.state == RemoteWindowState.maximized;
+    final isFullscreen = win.state == RemoteWindowState.fullscreen;
     final isMinimized = win.state == RemoteWindowState.minimized;
     if (isMinimized) return const SizedBox.shrink();
 
@@ -401,7 +438,8 @@ class _RemoteWindowChromeState extends ConsumerState<RemoteWindowChrome> {
             child: Container(
               decoration: BoxDecoration(
                 color: palette.windowFrameBackground,
-                borderRadius: BorderRadius.circular(isMaximized ? 0 : 8),
+                borderRadius:
+                    BorderRadius.circular(isMaximized || isFullscreen ? 0 : 8),
                 border: Border.all(color: palette.borderDefault, width: 1),
                 boxShadow: [
                   BoxShadow(
@@ -417,7 +455,8 @@ class _RemoteWindowChromeState extends ConsumerState<RemoteWindowChrome> {
                 children: [
                   Column(
                     children: [
-                      _buildTitleBar(palette, wm, win, isMaximized),
+                      _buildTitleBar(
+                          palette, wm, win, isMaximized, isFullscreen),
                       Divider(
                         height: 1,
                         color: palette.borderSubtle,
@@ -428,7 +467,8 @@ class _RemoteWindowChromeState extends ConsumerState<RemoteWindowChrome> {
                               RemoteWindowScope(window: win, child: win.child)),
                     ],
                   ),
-                  if (!isMaximized) _buildResizeHandles(palette, wm, win),
+                  if (!isMaximized && !isFullscreen)
+                    _buildResizeHandles(palette, wm, win),
                 ],
               ),
             ),
@@ -443,6 +483,7 @@ class _RemoteWindowChromeState extends ConsumerState<RemoteWindowChrome> {
     WindowManagerNotifier wm,
     RemoteWindow win,
     bool isMaximized,
+    bool isFullscreen,
   ) {
     return GestureDetector(
       onPanStart: (details) {
@@ -450,7 +491,7 @@ class _RemoteWindowChromeState extends ConsumerState<RemoteWindowChrome> {
         _startBounds = win.bounds;
       },
       onPanUpdate: (details) {
-        if (isMaximized) return;
+        if (isMaximized || isFullscreen) return;
         final delta = details.globalPosition - _dragStart;
         wm.move(
           win.id,
@@ -495,6 +536,17 @@ class _RemoteWindowChromeState extends ConsumerState<RemoteWindowChrome> {
               onPressed: () => wm.toggleMaximize(win.id, widget.workArea),
               tooltip:
                   isMaximized ? 'common.restore'.tr() : 'common.maximize'.tr(),
+            ),
+            _WindowButton(
+              icon: isFullscreen
+                  ? Icons.fullscreen_exit_rounded
+                  : Icons.fullscreen_rounded,
+              palette: palette,
+              hoverColor: palette.surfaceHover,
+              onPressed: () => wm.toggleFullscreen(win.id, widget.workArea),
+              tooltip: isFullscreen
+                  ? 'shell.full_screen.exit'.tr()
+                  : 'shell.full_screen.enter_tooltip'.tr(),
             ),
             _WindowButton(
               icon: Icons.close_rounded,

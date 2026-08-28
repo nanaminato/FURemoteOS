@@ -7,8 +7,51 @@
 - 已完成：`FLUTTER-001`（Desktop skeleton）。
 - 已完成：`FLUTTER-002`（Auth + REST foundation）。
 - 已完成：`FLUTTER-003`（Localization compatibility）。
-- 下一项：`FLUTTER-004`（Theme palette compatibility）。
-- 进行中的工作树改动：`FLUTTER-002` 至 `FLUTTER-003` 的认证、本地化基础层、测试与依赖更新尚未提交。
+- 已完成：`FLUTTER-004`（Theme palette compatibility）。
+- 已完成：`FLUTTER-005`（WindowService / ManagedWindowHost）。
+- 已完成：`FLUTTER-006`（ModalManager）。
+- 已完成：`FLUTTER-007`（ContextMenuHost）。
+- 已完成：`FLUTTER-008`（Shell + desktop/taskbar）。
+- 进行中：`FLUTTER-009`（Workspace preference/layout sync）。
+- 当前阻塞：`DesktopStatePatch`/Workspace Hub 的服务端实现缺失。`RemoteOS.Server` 未映射 `WorkspaceApiRoutes.Desktop`，没有 `WorkspaceHub` 类，也没有 `app.MapHub(... WorkspaceHubPath)` 注册；Flutter 无法连接或验证 Protocol 已声明的状态同步契约。需决定是否把 server 端实现纳入本次迁移范围。
+- 进行中的工作树改动：`FLUTTER-002` 至 `FLUTTER-009` 的认证、本地化、主题、窗口、modal、context menu、shell 和 workspace REST 基础层、测试与依赖更新尚未提交。
+
+## FLUTTER-009 当前实施记录
+
+- 文件：`RemoteOS.Client/lib/features/auth/domain/auth_models.dart`、`RemoteOS.Client/lib/core/auth/auth_service.dart`、`RemoteOS.Client/lib/features/workspace/domain/workspace_models.dart`、`RemoteOS.Client/lib/features/workspace/data/remote_workspace_api.dart`、`RemoteOS.Client/test/features/workspace/remote_workspace_api_test.dart`。
+- 已完成：login response 和 `AuthSessionState` 保留 Protocol `workspace.id`；Workspace REST client 覆盖 GET/PUT preferences 和 GET/PUT window-layouts，路径为 `/api/v1/workspaces/{id}/preferences` 与 `/window-layouts`；DTO 保留 workspace 主题、语言、区域、壁纸 key 和 window size 契约。`WorkspaceSyncCoordinator` 在 desktop 打开后拉取 preferences/layouts，将 theme/language 应用于 UI，并将 Settings 的语言、主题、palette、accent 变更以 350ms debounce 写回 workspace。Desktop 以 app ID 读取并应用已保存的 window size，任何非 modal 窗口变化会合并保存对应尺寸。
+- 自动验证：`flutter test test/core/window_manager/window_manager_notifier_test.dart test/features/workspace/remote_workspace_api_test.dart` 通过，覆盖 restored app size、窗口状态机与 workspace JSON/路径；`flutter build linux --debug` 成功。
+- 未完成/阻塞：尚未实现 `DesktopStatePatch`/Workspace Hub 接收、desktop icon/taskbar 恢复或发送。经检查，server 端同样缺少 `/api/v1/workspaces/{id}/desktop` endpoint、`WorkspaceHub` 和 hub registration，无法作为 Flutter 客户端的可验证依赖；不得把 FLUTTER-009 标为完成，也不得开始 FLUTTER-010，除非用户授权补齐 server 端契约实现或明确允许跳过实时同步验收。
+
+## FLUTTER-008 验收记录
+
+- 文件：`RemoteOS.Client/lib/screens/desktop/desktop_screen.dart`、`RemoteOS.Client/lib/screens/widgets/taskbar.dart`、`RemoteOS.Client/lib/screens/widgets/start_menu.dart`、`RemoteOS.Client/lib/core/window_manager/context_menu_host.dart`。
+- 行为：shell 在同一 managed host 中提供 desktop 图标、Start menu、48px taskbar、按 app 分组的窗口按钮和 internal window layer；桌面空白右键菜单可刷新或打开任务管理器/设置；taskbar 不显示 modal，点击非活动单实例会聚焦而非错误最小化。
+- 自动验证：`flutter test test/core/window_manager` 通过；使用临时 `libsecret-1-dev` headers 的 `flutter build linux --debug` 成功生成 `build/linux/x64/debug/bundle/remoteos_client`。
+
+## FLUTTER-007 验收记录
+
+- 文件：`RemoteOS.Client/lib/core/window_manager/context_menu_host.dart`、`RemoteOS.Client/test/core/window_manager/context_menu_host_test.dart`。
+- 行为：`RemoteContextMenuController` 在 managed desktop overlay 中打开 anchored menu；位置按屏幕边界 clamp，支持分隔线、禁用 action、hover/click submenu、外部点击关闭和 ESC 关闭。具体 Explorer/Git/Shell action 将在对应 feature 任务中使用 `ContextMenuRegion` 绑定。
+- 自动验证：`flutter test test/core/window_manager/context_menu_host_test.dart` 通过，覆盖 secondary-click 打开、action 完成后关闭、submenu 与 ESC。
+
+## FLUTTER-006 验收记录
+
+- 文件：`RemoteOS.Client/lib/core/window_manager/modal_manager.dart`、`RemoteOS.Client/lib/core/window_manager/window_manager.dart`、`RemoteOS.Client/lib/screens/desktop/desktop_screen.dart`、`RemoteOS.Client/lib/apps/notepad/notepad_app.dart`、`RemoteOS.Client/test/core/window_manager/modal_manager_test.dart`。
+- 行为：`ModalManager.open(ownerId, spec)` 只创建 owner-bound managed window；未知 owner 直接失败。owner 关闭时清理嵌套链，遮罩点击重新聚焦对应的顶层 modal，应用内确认框不再使用 Flutter route-level `showDialog()`。
+- 自动验证：`flutter test test/core/window_manager/modal_manager_test.dart test/core/window_manager/window_manager_notifier_test.dart` 通过；`rg` 确认 `lib` 内没有残留 `showDialog`/`AlertDialog`/`Navigator.pop` 实现。
+
+## FLUTTER-005 验收记录
+
+- 文件：`RemoteOS.Client/lib/core/window_manager/window_manager.dart`、`RemoteOS.Client/lib/screens/desktop/desktop_screen.dart`、`RemoteOS.Client/test/core/window_manager/window_manager_notifier_test.dart`。
+- 行为：同应用实例复用/聚焦、z-order、拖动和 8 边 resize、最小尺寸与可见抓取区约束、minimize/restore、maximize/restore、内部 fullscreen/restore，以及 owner 关闭时的完整 nested modal 链清理。最小化会保留最大化/全屏前的状态；完成模态框不会重复完成 Future。
+- 自动验证：`flutter test test/core/window_manager/window_manager_notifier_test.dart test/core/shell/desktop_window_shell_test.dart` 通过，覆盖状态机和既有窗口 chrome 组件。
+
+## FLUTTER-004 验收记录
+
+- 文件：`RemoteOS.Client/lib/core/theme/theme_models.dart`、`RemoteOS.Client/lib/core/theme/theme_palette_defaults.dart`、`RemoteOS.Client/lib/core/theme/theme_service.dart`、`RemoteOS.Client/test/core/theme/theme_palette_defaults_test.dart`。
+- 协议：Theme preferences 与 palette DTO 覆盖 Protocol v2 的 `lightColors`/`darkColors`，并读取 Protocol v1 的 `mode`/`colors` 以支持服务器归一化前的导入数据。自定义色仅允许 `ThemePaletteContract` 中服务器同样接受的 token；内置 `DangerMuted` 保留为 base role，不能由自定义 payload 覆盖。
+- 自动验证：`flutter test test/core/theme/theme_palette_defaults_test.dart` 通过，覆盖三个内置 palette 在明暗模式下的 required tokens、自定义 v2/强调色派生、v1 模式兼容、JSON 往返与 token 边界。
 
 ## FLUTTER-003 验收记录
 

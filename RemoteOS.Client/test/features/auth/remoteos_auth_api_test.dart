@@ -20,7 +20,7 @@ void main() {
       return http.Response(
         jsonEncode({
           'user': {'username': 'alice'},
-          'workspace': {'name': 'Alice Workspace'},
+          'workspace': {'id': 'workspace-1', 'name': 'Alice Workspace'},
           'tokens': {
             'accessToken': 'access-token',
             'refreshToken': 'refresh-token',
@@ -56,6 +56,7 @@ void main() {
     expect(result.tokens.accessToken, 'access-token');
     expect(result.tokens.refreshToken, 'refresh-token');
     expect(result.username, 'alice');
+    expect(result.workspaceId, 'workspace-1');
     expect(result.workspaceName, 'Alice Workspace');
   });
 
@@ -136,7 +137,7 @@ void main() {
 
 String _loginResponse() => jsonEncode({
       'user': {'username': 'alice'},
-      'workspace': {'name': 'Alice Workspace'},
+      'workspace': {'id': 'workspace-1', 'name': 'Alice Workspace'},
       'tokens': {
         'accessToken': 'access-token',
         'refreshToken': 'refresh-token',

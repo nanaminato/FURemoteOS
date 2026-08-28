@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:easy_localization/easy_localization.dart';
 import '../../core/theme/theme_service.dart';
+import '../../core/window_manager/modal_manager.dart';
+import '../../core/window_manager/window_manager.dart';
 
 /// A simple Notepad application with toolbar, word wrap, and font size controls.
 /// Mirrors the original Avalonia Notepad UX (minimal, like classic Windows Notepad).
@@ -290,29 +292,58 @@ class _NotepadAppState extends ConsumerState<NotepadApp> {
     );
   }
 
-  void _newDoc() {
+  Future<void> _newDoc() async {
     if (_controller.text.isNotEmpty) {
-      showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('Create new document'),
-          content: const Text('Unsaved changes will be lost. Continue?'),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text('common.cancel'.tr())),
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _controller.clear();
-              },
-              child: Text('common.ok'.tr()),
+      final confirmed = await ref.read(modalManagerProvider).open<bool>(
+            ownerId: RemoteWindowScope.of(context).window.id,
+            spec: const ModalSpec(
+              title: 'Create new document',
+              icon: Icons.note_add_outlined,
+              preferredSize: Size(460, 240),
+              child: _DiscardChangesDialog(),
             ),
-          ],
-        ),
-      );
+          );
+      if (confirmed == true) _controller.clear();
     } else {
       _controller.clear();
     }
+  }
+}
+
+class _DiscardChangesDialog extends ConsumerWidget {
+  const _DiscardChangesDialog();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final palette = watchPalette(ref, context);
+    final dialogId = RemoteModalScope.of(context).windowId;
+    final modals = ref.read(modalManagerProvider);
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Unsaved changes will be lost. Continue?',
+            style: TextStyle(color: palette.textPrimary, fontSize: 14),
+          ),
+          const Spacer(),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => modals.dismiss(dialogId),
+                child: Text('common.cancel'.tr()),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: () => modals.complete(dialogId, true),
+                child: Text('common.ok'.tr()),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }

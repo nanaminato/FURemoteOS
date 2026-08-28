@@ -5,9 +5,13 @@ import 'package:go_router/go_router.dart';
 import 'package:window_manager/window_manager.dart' as desktop_wm;
 
 import '../../core/theme/theme_service.dart';
+import '../../core/localization/language_catalog.dart';
 import '../../core/auth/auth_service.dart';
 import '../../core/apps/app_registry.dart';
 import '../../core/window_manager/window_manager.dart';
+import '../../core/window_manager/context_menu_host.dart';
+import '../../features/workspace/application/workspace_sync_coordinator.dart';
+import '../../features/workspace/domain/workspace_models.dart';
 import '../widgets/taskbar.dart';
 import '../widgets/start_menu.dart';
 
@@ -20,11 +24,15 @@ class DesktopScreen extends ConsumerStatefulWidget {
 
 class _DesktopScreenState extends ConsumerState<DesktopScreen> {
   bool _startMenuOpen = false;
+  final _desktopMenu = RemoteContextMenuController();
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _autoOpenWelcome());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _autoOpenWelcome();
+      _loadWorkspacePreferences();
+    });
   }
 
   void _autoOpenWelcome() {
@@ -33,12 +41,23 @@ class _DesktopScreenState extends ConsumerState<DesktopScreen> {
     final welcome = registry.get('welcome');
     if (welcome != null) {
       final screen = MediaQuery.of(context).size;
-      wm.openApp(
-        entry: welcome,
-        child: welcome.windowBuilder(context),
-        screenSize: screen,
-      );
+      _openManagedApp(welcome, welcome.windowBuilder(context), screen);
     }
+  }
+
+  Future<void> _loadWorkspacePreferences() async {
+    await ref.read(workspaceSyncProvider.notifier).load();
+    if (!mounted) return;
+    final preferences = ref.read(workspaceSyncProvider).preferences;
+    if (preferences == null) return;
+    ref.read(themeProvider.notifier)
+      ..setThemeKind(preferences.theme)
+      ..setPreferences(preferences.themePreferences);
+    final language = ref
+        .read(languageCatalogProvider)
+        .languages
+        .where((option) => option.localeTag == preferences.language);
+    if (language.isNotEmpty) await context.setLocale(language.first.locale);
   }
 
   void _toggleStartMenu() => setState(() => _startMenuOpen = !_startMenuOpen);
@@ -56,6 +75,9 @@ class _DesktopScreenState extends ConsumerState<DesktopScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<List<RemoteWindow>>(windowManagerProvider, (_, windows) {
+      _saveWindowLayouts(windows);
+    });
     final authState = ref.watch(authProvider);
     if (!authState.isAuthenticated) {
       // Kick unauthenticated users back to login.
@@ -82,50 +104,121 @@ class _DesktopScreenState extends ConsumerState<DesktopScreen> {
             );
             return Container(
               color: palette.appBackground,
-              child: Stack(
-                children: [
-                  _buildDesktopBackground(palette, constraints),
-                  _buildDesktopIcons(context, workArea),
-                  _buildWindowLayer(workArea),
-                  if (_startMenuOpen) _buildStartMenuScrim(),
-                  if (_startMenuOpen)
+              child: ContextMenuHost(
+                controller: _desktopMenu,
+                child: Stack(
+                  children: [
+                    ContextMenuRegion(
+                      controller: _desktopMenu,
+                      entries: _desktopMenuEntries(
+                        context,
+                        Size(constraints.maxWidth, workArea.height),
+                      ),
+                      child: _buildDesktopBackground(palette, constraints),
+                    ),
+                    _buildDesktopIcons(context, workArea),
+                    _buildWindowLayer(workArea),
+                    if (_startMenuOpen) _buildStartMenuScrim(),
+                    if (_startMenuOpen)
+                      Positioned(
+                        left: 8,
+                        bottom: taskbarHeight + 8,
+                        child: StartMenu(
+                          onAppSelected: (entry) {
+                            _openManagedApp(
+                              entry,
+                              entry.windowBuilder(context),
+                              Size(constraints.maxWidth, workArea.height),
+                            );
+                            _closeStartMenu();
+                          },
+                          onClose: _closeStartMenu,
+                          onLogout: _logout,
+                          onShutdown: _shutdown,
+                        ),
+                      ),
                     Positioned(
-                      left: 8,
-                      bottom: taskbarHeight + 8,
-                      child: StartMenu(
-                        onAppSelected: (entry) {
-                          final wm = ref.read(windowManagerProvider.notifier);
-                          wm.openApp(
-                            entry: entry,
-                            child: entry.windowBuilder(context),
-                            screenSize:
-                                Size(constraints.maxWidth, workArea.height),
-                          );
-                          _closeStartMenu();
-                        },
-                        onClose: _closeStartMenu,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      height: taskbarHeight,
+                      child: Taskbar(
+                        onStartPressed: _toggleStartMenu,
+                        isStartOpen: _startMenuOpen,
                         onLogout: _logout,
-                        onShutdown: _shutdown,
                       ),
                     ),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    height: taskbarHeight,
-                    child: Taskbar(
-                      onStartPressed: _toggleStartMenu,
-                      isStartOpen: _startMenuOpen,
-                      onLogout: _logout,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           },
         ),
       ),
     );
+  }
+
+  List<ContextMenuEntry> _desktopMenuEntries(
+    BuildContext context,
+    Size screenSize,
+  ) =>
+      [
+        ContextMenuAction(
+          label: 'Refresh',
+          icon: Icons.refresh_rounded,
+          onSelected: () => setState(() {}),
+        ),
+        const ContextMenuDivider(),
+        ContextMenuAction(
+          label: 'Task Manager',
+          icon: Icons.monitor_heart_outlined,
+          onSelected: () =>
+              _openDesktopApp(context, 'task_manager', screenSize),
+        ),
+        ContextMenuAction(
+          label: 'Settings',
+          icon: Icons.settings_outlined,
+          onSelected: () => _openDesktopApp(context, 'settings', screenSize),
+        ),
+      ];
+
+  void _openDesktopApp(BuildContext context, String appId, Size screenSize) {
+    final entry = ref.read(appRegistryProvider).get(appId);
+    if (entry == null) return;
+    _openManagedApp(entry, entry.windowBuilder(context), screenSize);
+  }
+
+  void _openManagedApp(AppRegistryEntry entry, Widget child, Size screenSize) {
+    final layout = ref
+        .read(workspaceSyncProvider)
+        .layouts
+        .windows
+        .where((item) => item.key == entry.id);
+    final size =
+        layout.isEmpty ? null : Size(layout.first.width, layout.first.height);
+    ref.read(windowManagerProvider.notifier).openApp(
+          entry: entry,
+          child: child,
+          initialSize: size,
+          screenSize: screenSize,
+        );
+  }
+
+  void _saveWindowLayouts(List<RemoteWindow> windows) {
+    final sizes = <String, WorkspaceWindowSize>{};
+    for (final window in windows.where((item) => !item.isModal)) {
+      final bounds = window.restoreBounds ?? window.bounds;
+      sizes[window.appId] = WorkspaceWindowSize(
+        key: window.appId,
+        width: bounds.width.clamp(240, 3840).toDouble(),
+        height: bounds.height.clamp(160, 2160).toDouble(),
+      );
+    }
+    if (sizes.isNotEmpty) {
+      ref
+          .read(workspaceSyncProvider.notifier)
+          .queueLayouts(WorkspaceWindowLayouts(windows: sizes.values.toList()));
+    }
   }
 
   Widget _buildDesktopBackground(
@@ -171,11 +264,10 @@ class _DesktopScreenState extends ConsumerState<DesktopScreen> {
             entry: entry,
             palette: palette,
             onOpen: () {
-              final wm = ref.read(windowManagerProvider.notifier);
-              wm.openApp(
-                entry: entry,
-                child: entry.windowBuilder(context),
-                screenSize: Size(workArea.width, workArea.height),
+              _openManagedApp(
+                entry,
+                entry.windowBuilder(context),
+                Size(workArea.width, workArea.height),
               );
             },
           );
@@ -195,6 +287,7 @@ class _DesktopScreenState extends ConsumerState<DesktopScreen> {
           for (final window in sorted) ...[
             if (window.isModal)
               _ModalBlocker(
+                  dialogId: window.id,
                   owner: sorted
                           .where((item) => item.id == window.modalOwnerId)
                           .isEmpty
@@ -219,18 +312,19 @@ class _DesktopScreenState extends ConsumerState<DesktopScreen> {
 
 /// Input shield for a modal owner. It is placed immediately below its dialog,
 /// leaving other top-level windows usable just like the original desktop.
-class _ModalBlocker extends StatelessWidget {
-  const _ModalBlocker({required this.owner});
+class _ModalBlocker extends ConsumerWidget {
+  const _ModalBlocker({required this.owner, required this.dialogId});
   final RemoteWindow? owner;
+  final String dialogId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (owner == null) return const SizedBox.shrink();
     return Positioned.fromRect(
       rect: owner!.bounds,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () {},
+        onTap: () => ref.read(windowManagerProvider.notifier).focus(dialogId),
         child: ColoredBox(color: Colors.black.withOpacity(0.16)),
       ),
     );

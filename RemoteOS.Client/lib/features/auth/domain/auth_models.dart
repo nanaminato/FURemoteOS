@@ -49,11 +49,13 @@ class LoginResult {
   const LoginResult({
     required this.tokens,
     required this.username,
+    required this.workspaceId,
     required this.workspaceName,
   });
 
   final AuthTokens tokens;
   final String? username;
+  final String? workspaceId;
   final String? workspaceName;
 
   factory LoginResult.fromJson(Map<String, dynamic> json) {
@@ -69,6 +71,8 @@ class LoginResult {
       tokens: AuthTokens.fromJson(tokens),
       username:
           user is Map<String, dynamic> ? user['username'] as String? : null,
+      workspaceId:
+          workspace is Map<String, dynamic> ? workspace['id'] as String? : null,
       workspaceName: workspace is Map<String, dynamic>
           ? workspace['name'] as String?
           : null,

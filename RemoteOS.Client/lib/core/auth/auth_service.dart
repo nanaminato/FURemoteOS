@@ -27,6 +27,7 @@ class AuthSessionState {
     this.errorMessage,
     this.serverUrl,
     this.username,
+    this.workspaceId,
     this.workspaceName,
     this.accessToken,
     this.refreshToken,
@@ -38,6 +39,7 @@ class AuthSessionState {
   final String? errorMessage;
   final String? serverUrl;
   final String? username;
+  final String? workspaceId;
   final String? workspaceName;
   final String? accessToken;
   final String? refreshToken;
@@ -179,6 +181,7 @@ class AuthNotifier extends StateNotifier<AuthSessionState> {
         state: AuthState.authenticated,
         serverUrl: serverUri.toString(),
         username: result.username ?? username,
+        workspaceId: result.workspaceId,
         workspaceName: result.workspaceName,
         accessToken: result.tokens.accessToken,
         refreshToken: result.tokens.refreshToken,
@@ -247,6 +250,7 @@ class AuthNotifier extends StateNotifier<AuthSessionState> {
         state: AuthState.authenticated,
         serverUrl: current.serverUrl,
         username: current.username,
+        workspaceId: current.workspaceId,
         workspaceName: current.workspaceName,
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,

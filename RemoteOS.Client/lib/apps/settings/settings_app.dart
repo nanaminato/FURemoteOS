@@ -7,6 +7,7 @@ import '../../../core/theme/theme_models.dart';
 import '../../../core/theme/theme_palette_defaults.dart';
 import '../../../core/auth/auth_service.dart';
 import '../../../core/localization/language_catalog.dart';
+import '../../../features/workspace/application/workspace_sync_coordinator.dart';
 
 /// A fully functional Settings app with:
 /// - Theme mode (Light/Dark/System)
@@ -305,6 +306,12 @@ class _SettingsAppState extends ConsumerState<SettingsApp>
       onSelected: (_) {
         setState(() {});
         context.setLocale(locale);
+        final current = ref.read(workspaceSyncProvider).preferences;
+        if (current != null) {
+          ref
+              .read(workspaceSyncProvider.notifier)
+              .queuePreferences(current.copyWith(language: language.localeTag));
+        }
       },
     );
   }
@@ -334,7 +341,7 @@ class _SettingsAppState extends ConsumerState<SettingsApp>
                     Icons.light_mode_outlined,
                     'settings.theme_mode.light'.tr(),
                     themeState.kind,
-                    themeNotifier),
+                    () => _setThemeKind(ThemeKind.light)),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -344,7 +351,7 @@ class _SettingsAppState extends ConsumerState<SettingsApp>
                     Icons.dark_mode_outlined,
                     'settings.theme_mode.dark'.tr(),
                     themeState.kind,
-                    themeNotifier),
+                    () => _setThemeKind(ThemeKind.dark)),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -354,7 +361,7 @@ class _SettingsAppState extends ConsumerState<SettingsApp>
                     Icons.brightness_auto_outlined,
                     'settings.theme_mode.system'.tr(),
                     themeState.kind,
-                    themeNotifier),
+                    () => _setThemeKind(ThemeKind.system)),
               ),
             ],
           ),
@@ -373,15 +380,15 @@ class _SettingsAppState extends ConsumerState<SettingsApp>
                   PaletteIds.remoteosBlue,
                   'settings.palette.remoteos_blue'.tr(),
                   prefs.paletteId,
-                  themeNotifier),
+                  () => _setPalette(PaletteIds.remoteosBlue)),
               _paletteTile(p, PaletteIds.nord, 'settings.palette.nord'.tr(),
-                  prefs.paletteId, themeNotifier),
+                  prefs.paletteId, () => _setPalette(PaletteIds.nord)),
               _paletteTile(
                   p,
                   PaletteIds.catppuccin,
                   'settings.palette.catppuccin'.tr(),
                   prefs.paletteId,
-                  themeNotifier),
+                  () => _setPalette(PaletteIds.catppuccin)),
             ],
           ),
         ]),
@@ -394,15 +401,21 @@ class _SettingsAppState extends ConsumerState<SettingsApp>
             spacing: 10,
             runSpacing: 10,
             children: [
-              _accentOption(p, '#0078D4', prefs.accentOverride, themeNotifier),
-              _accentOption(p, '#8B5CF6', prefs.accentOverride, themeNotifier),
-              _accentOption(p, '#EC4899', prefs.accentOverride, themeNotifier),
-              _accentOption(p, '#10B981', prefs.accentOverride, themeNotifier),
-              _accentOption(p, '#F59E0B', prefs.accentOverride, themeNotifier),
-              _accentOption(p, '#EF4444', prefs.accentOverride, themeNotifier),
+              _accentOption(p, '#0078D4', prefs.accentOverride,
+                  () => _setAccent('#0078D4')),
+              _accentOption(p, '#8B5CF6', prefs.accentOverride,
+                  () => _setAccent('#8B5CF6')),
+              _accentOption(p, '#EC4899', prefs.accentOverride,
+                  () => _setAccent('#EC4899')),
+              _accentOption(p, '#10B981', prefs.accentOverride,
+                  () => _setAccent('#10B981')),
+              _accentOption(p, '#F59E0B', prefs.accentOverride,
+                  () => _setAccent('#F59E0B')),
+              _accentOption(p, '#EF4444', prefs.accentOverride,
+                  () => _setAccent('#EF4444')),
               const SizedBox(width: 8),
               TextButton.icon(
-                onPressed: () => themeNotifier.setAccentOverride(null),
+                onPressed: () => _setAccent(null),
                 icon: Icon(Icons.refresh_rounded,
                     size: 16, color: p.textSecondary),
                 label: Text('Reset',
@@ -415,19 +428,41 @@ class _SettingsAppState extends ConsumerState<SettingsApp>
     );
   }
 
+  void _setThemeKind(ThemeKind kind) {
+    ref.read(themeProvider.notifier).setThemeKind(kind);
+    _queueTheme();
+  }
+
+  void _setPalette(String paletteId) {
+    ref.read(themeProvider.notifier).setPaletteId(paletteId);
+    _queueTheme();
+  }
+
+  void _setAccent(String? accent) {
+    ref.read(themeProvider.notifier).setAccentOverride(accent);
+    _queueTheme();
+  }
+
+  void _queueTheme() {
+    final current = ref.read(themeProvider);
+    ref
+        .read(workspaceSyncProvider.notifier)
+        .queueTheme(current.kind, current.preferences);
+  }
+
   Widget _themeModeTile(
     ThemePalette p,
     ThemeKind kind,
     IconData icon,
     String label,
     ThemeKind selected,
-    ThemeNotifier notifier,
+    VoidCallback onSelected,
   ) {
     final isSelected = selected == kind;
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => notifier.setThemeKind(kind),
+        onTap: onSelected,
         borderRadius: BorderRadius.circular(8),
         child: Container(
           padding: const EdgeInsets.all(14),
@@ -463,7 +498,7 @@ class _SettingsAppState extends ConsumerState<SettingsApp>
     String paletteId,
     String name,
     String currentId,
-    ThemeNotifier notifier,
+    VoidCallback onSelected,
   ) {
     final selected = paletteId == currentId;
     final sample = ThemePaletteDefaults.resolve(
@@ -473,7 +508,7 @@ class _SettingsAppState extends ConsumerState<SettingsApp>
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => notifier.setPaletteId(paletteId),
+        onTap: onSelected,
         borderRadius: BorderRadius.circular(8),
         child: Container(
           width: 180,
@@ -568,7 +603,7 @@ class _SettingsAppState extends ConsumerState<SettingsApp>
   }
 
   Widget _accentOption(
-      ThemePalette p, String hex, String? current, ThemeNotifier notifier) {
+      ThemePalette p, String hex, String? current, VoidCallback onSelected) {
     final selected =
         current != null && current.toUpperCase() == hex.toUpperCase();
     final color =
@@ -576,7 +611,7 @@ class _SettingsAppState extends ConsumerState<SettingsApp>
     return Tooltip(
       message: hex,
       child: GestureDetector(
-        onTap: () => notifier.setAccentOverride(hex),
+        onTap: onSelected,
         child: Container(
           width: 38,
           height: 38,

@@ -140,7 +140,15 @@ class Taskbar extends ConsumerWidget {
   Widget _buildAppIcons(ThemePalette palette, List<RemoteWindow> windows,
       WindowManagerNotifier wm) {
     final grouped = <String, List<RemoteWindow>>{};
-    for (final w in windows) {
+    final appWindows = windows.where((window) => !window.isModal).toList();
+    final activeWindow = appWindows
+        .where((window) => window.state != RemoteWindowState.minimized)
+        .fold<RemoteWindow?>(
+            null,
+            (active, window) => active == null || window.zOrder > active.zOrder
+                ? window
+                : active);
+    for (final w in appWindows) {
       grouped.putIfAbsent(w.appId, () => []).add(w);
     }
     return ListView.separated(
@@ -159,11 +167,15 @@ class Taskbar extends ConsumerWidget {
             if (list.length == 1) {
               if (list.first.state == RemoteWindowState.minimized) {
                 wm.restore(list.first.id);
-              } else {
+              } else if (activeWindow?.id == list.first.id) {
                 wm.minimize(list.first.id);
+              } else {
+                wm.focus(list.first.id);
               }
             } else {
-              wm.focus(list.last.id);
+              final top = list.reduce((current, item) =>
+                  item.zOrder > current.zOrder ? item : current);
+              wm.focus(top.id);
             }
           },
           child: Container(

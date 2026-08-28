@@ -21,6 +21,7 @@ class ThemePaletteDto {
   final String name;
   final Map<String, String>? lightColors;
   final Map<String, String>? darkColors;
+
   /// Protocol v1 import compatibility. The server normalizes it to v2.
   final String? mode;
   final Map<String, String>? colors;
@@ -108,7 +109,8 @@ class ThemePreferencesDto {
         'styleId': styleId,
         'paletteId': paletteId,
         'accentOverride': accentOverride,
-        'customPalettes': customPalettes.map((palette) => palette.toJson()).toList(),
+        'customPalettes':
+            customPalettes.map((palette) => palette.toJson()).toList(),
       };
 }
 
