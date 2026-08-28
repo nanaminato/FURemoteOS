@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show Platform;
+import 'dart:io' show File, Platform;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/auth/data/remoteos_auth_api.dart';
@@ -62,7 +62,7 @@ class SavedLoginProfile {
   final String serverUrl;
   final String username;
 
-  /// The secret itself is held by the operating-system credential store.
+  /// The secret itself is held by the local credential file.
   /// SharedPreferences keeps only this non-sensitive UI hint.
   final bool hasSavedPassword;
   final DateTime lastUsed;
@@ -90,7 +90,7 @@ class AuthNotifier extends StateNotifier<AuthSessionState> {
   AuthNotifier({http.Client? httpClient, CredentialStore? credentialStore})
       : _httpClient = httpClient,
         _ownsHttpClient = httpClient == null,
-        _credentialStore = credentialStore ?? const SecureCredentialStore(),
+        _credentialStore = credentialStore ?? FileCredentialStore(),
         super(const AuthSessionState());
 
   static const _prefsServerKey = 'auth.remembered.server';
@@ -374,8 +374,9 @@ class AuthNotifier extends StateNotifier<AuthSessionState> {
       AuthenticatedHttpClient(this, _client);
 }
 
-/// Small seam around the platform keychain so authentication can be tested
-/// without a platform channel. Passwords must never be stored in preferences.
+/// Small seam around credential persistence so authentication can be tested
+/// without touching the file system. Passwords must never be stored in
+/// preferences.
 abstract interface class CredentialStore {
   const CredentialStore();
 
@@ -384,20 +385,72 @@ abstract interface class CredentialStore {
   Future<void> delete(String key);
 }
 
-class SecureCredentialStore implements CredentialStore {
-  const SecureCredentialStore();
+/// File-backed credential store. Secrets are kept as JSON in the user's
+/// application-support directory instead of a platform keychain, avoiding the
+/// native ATL dependency of `flutter_secure_storage` on Windows.
+class FileCredentialStore implements CredentialStore {
+  FileCredentialStore();
 
-  static const _storage = FlutterSecureStorage();
+  static const _fileName = 'remoteos_credentials.json';
+  final Map<String, String> _entries = <String, String>{};
+  bool _loaded = false;
+  Future<void>? _io;
+
+  /// Serializes mutations so concurrent writes cannot interleave.
+  Future<T> _synchronized<T>(Future<T> Function() action) {
+    final previous = _io;
+    final run = previous == null ? action() : previous.then((_) => action());
+    _io = run.then((_) {}, onError: (_) {});
+    return run;
+  }
+
+  Future<File> _file() async {
+    final dir = await getApplicationSupportDirectory();
+    return File('${dir.path}${Platform.pathSeparator}$_fileName');
+  }
+
+  Future<void> _load() async {
+    if (_loaded) return;
+    final file = await _file();
+    if (await file.exists()) {
+      try {
+        final decoded = jsonDecode(await file.readAsString());
+        if (decoded is Map<String, dynamic>) {
+          decoded.forEach((key, value) {
+            if (value is String) _entries[key] = value;
+          });
+        }
+      } on FormatException {
+        // Treat a corrupt file as empty rather than blocking sign-in.
+      }
+    }
+    _loaded = true;
+  }
+
+  Future<void> _flush() async {
+    final file = await _file();
+    await file.parent.create(recursive: true);
+    await file.writeAsString(jsonEncode(_entries));
+  }
 
   @override
-  Future<String?> read(String key) => _storage.read(key: key);
+  Future<String?> read(String key) => _synchronized(() async {
+        await _load();
+        return _entries[key];
+      });
 
   @override
-  Future<void> write(String key, String value) =>
-      _storage.write(key: key, value: value);
+  Future<void> write(String key, String value) => _synchronized(() async {
+        await _load();
+        _entries[key] = value;
+        await _flush();
+      });
 
   @override
-  Future<void> delete(String key) => _storage.delete(key: key);
+  Future<void> delete(String key) => _synchronized(() async {
+        await _load();
+        if (_entries.remove(key) != null) await _flush();
+      });
 }
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthSessionState>(
