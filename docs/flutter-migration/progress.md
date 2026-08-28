@@ -13,7 +13,8 @@
 - 已完成：`FLUTTER-007`（ContextMenuHost）。
 - 已完成：`FLUTTER-008`（Shell + desktop/taskbar）。
 - 已完成：`FLUTTER-009`（Workspace preference/layout sync）。
-- 进行中：`FLUTTER-010`（Explorer baseline；核心文件操作已验证，尚未验收）。
+- 已完成：`FLUTTER-010`（Explorer baseline）。
+- 已完成：`FLUTTER-011`（SignalR 终端传输 + UI）。
 - 进行中的工作树改动：`FLUTTER-002` 至 `FLUTTER-009` 的认证、本地化、主题、窗口、modal、context menu、shell 和 workspace REST 基础层、测试与依赖更新尚未提交。
 
 ## FLUTTER-009 验收记录
@@ -35,7 +36,14 @@
 - 已完成（本轮）：目录上传使用 `file_selector` 的原生目录选择器，在所选目录根创建同名远程目录及所有子目录后，逐文件上传到相对目标目录；符号链接不会被递归跟随。这对应 Avalonia 的 `BuildUploadPlan`/`UploadSourcesAsync` 的目录树语义，仍由服务端写权限约束。
 - 已完成（本轮）：远程条目可通过长按拖放到另一文件夹来移动；目标高亮仅在目标为文件夹且不会将目录移入自身/后代时出现，提交时调用既有 `move` API。主机文件剪贴板使用 `pasteboard 0.5.0`（Linux/Windows 原生文件列表）读取路径后上传文件或目录；目录选择与剪贴板目录共用同一递归上传计划，均创建同名根目录、跳过符号链接并保留相对树。空剪贴板或文本剪贴板不会被错误地当作文件。
 - 自动验证（本轮）：新增 `test/features/files/remote_file_api_test.dart`，覆盖 `DirectoryDto.directories/files`、properties、rename 的 `sourcePath`、copy/move 的 `destinationPath` 与 MIME 映射；同 `test/features/workspace/remote_workspace_api_test.dart` 一起通过。运行 `flutter build linux --debug` 成功生成 `build/linux/x64/debug/bundle/remoteos_client`。`flutter analyze lib/apps/explorer/explorer_app.dart lib/features/files/data/remote_file_api.dart` 仍因宿主传给 Flutter analysis server 的 LSP 输入截断而报 `FormatException: Unexpected end of input`；与此前记录一致，待 CI/普通终端复验。
-- 尚未完成：Avalonia Explorer 的“在当前目录打开内置终端”。Flutter Terminal 目前没有接收远程工作目录的 activation 参数，不能仅打开一个无关目录的终端来冒充等价行为。恢复时先在 `terminal_app.dart` 实现该 activation，再从 Explorer 提供仅目录/当前目录可用的命令；随后可完成 `FLUTTER-010`，在此之前不得开始 `FLUTTER-011`。不要基于 Protocol 中未被 Avalonia 使用的端点新增功能。
+- 已完成（后续轮）：Explorer 现在可从当前目录工具栏或任意文件夹的上下文菜单打开 Terminal，并将远程路径作为 `StartTerminalRequest.workingDirectory` 传给服务端；不会对根/特殊位置伪造目录终端。
+
+## FLUTTER-011 验收记录
+
+- Avalonia 输入：`Apps/Terminal/SignalRTerminalTransport.cs`、`TerminalHubConnection.cs` 与 `TerminalViewModel.cs`。对齐的协议为 `/hubs/terminals` 的 `Start`、`Input`、`Resize`、`Close`，以及服务端事件 `OnOutput`、`OnProcessExited`；关闭窗口只 detach，显式“Terminate remote session”才调用 `Close` 释放 PTY。
+- Flutter 实现：`lib/apps/terminal/terminal_app.dart` 已移除所有本地 mock command。使用 `signalr_hub` 建立带 access-token 的 Hub 连接，向 `Start` 传递初始列/行和可选 working directory；将 `byte[]` 的 JSON Base64 表示与 UTF-8 I/O 转换，实时处理窗口 resize。`xterm2` 负责客户端 VT/xterm 渲染和键盘输入，避免把 ANSI/PTTY 原始流错误地当作普通文本。
+- Explorer 对齐：`lib/apps/explorer/explorer_app.dart` 通过当前目录工具栏和文件夹菜单创建 `TerminalApp(workingDirectory: ...)`；不新增 Avalonia 中不存在的会话管理、自动重连或额外终端功能。
+- 自动验证：`flutter build linux --debug` 于 2026-08-28 成功。仍需在可访问认证 Server 的环境中做手动端到端验证（连接、输入、ANSI 输出、resize、detach/terminate）；`flutter analyze` 仍受宿主 LSP 输入截断的既有 `FormatException` 影响。
 
 ## FLUTTER-008 验收记录
 

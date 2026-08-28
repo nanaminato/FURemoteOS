@@ -19,6 +19,7 @@ import '../../features/workspace/application/workspace_sync_coordinator.dart';
 import '../../features/workspace/domain/workspace_models.dart';
 import '../image_viewer/image_viewer_app.dart';
 import '../code_editor/code_editor_app.dart';
+import '../terminal/terminal_app.dart';
 
 /// File Explorer migration.  Its panes mirror the Avalonia explorer: location
 /// tree, command bar, editable breadcrumb and detail list.  The view is kept
@@ -494,6 +495,16 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
     _openEntry(entry, candidate: choice.candidate);
   }
 
+  void _openTerminalHere(String workingDirectory) {
+    final app = ref.read(appRegistryProvider).get('terminal');
+    if (app == null) return;
+    ref.read(windowManagerProvider.notifier).openApp(
+          entry: app,
+          title: 'Terminal',
+          child: TerminalApp(workingDirectory: workingDirectory),
+        );
+  }
+
   Future<void> _runOperation(Future<void> Function() operation) async {
     try {
       await operation();
@@ -675,6 +686,8 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
           _toolButton(
               palette, Icons.content_paste_go_outlined, 'Paste host files',
               onPressed: _path.isEmpty ? null : _pasteHostFiles),
+          _toolButton(palette, Icons.terminal_outlined, 'Terminal',
+              onPressed: _path.isEmpty ? null : () => _openTerminalHere(_path)),
           const Spacer(),
           IconButton(
             tooltip: _detailsView ? 'Icon view' : 'Details view',
@@ -980,6 +993,12 @@ class _ExplorerAppState extends ConsumerState<ExplorerApp> {
               _select(entry);
               _chooseOpenWith(entry);
             },
+          ),
+        if (entry.type == 'Folder')
+          ContextMenuAction(
+            label: 'Open terminal here',
+            icon: Icons.terminal_outlined,
+            onSelected: () => _openTerminalHere(entry.path),
           ),
         const ContextMenuDivider(),
         ContextMenuAction(
