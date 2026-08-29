@@ -74,6 +74,31 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('rebuilds the retained overlay entry when its child changes',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: DesktopWindowShell(
+          child: Text('login'),
+        ),
+      ),
+    );
+    expect(find.text('login'), findsOneWidget);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: DesktopWindowShell(
+          child: Text('desktop'),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('login'), findsNothing);
+    expect(find.text('desktop'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('managed windows lay out resize handles in their bounded overlay',
       (tester) async {
     final window = RemoteWindow(

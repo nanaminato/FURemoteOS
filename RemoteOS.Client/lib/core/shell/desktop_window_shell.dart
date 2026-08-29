@@ -30,12 +30,24 @@ class _DesktopWindowShellState extends State<DesktopWindowShell>
   bool _isMaximized = false;
   bool _isFullScreen = false;
   bool _isTogglingFullScreen = false;
+  late final OverlayEntry _shellEntry;
 
   @override
   void initState() {
     super.initState();
+    _shellEntry = OverlayEntry(builder: _buildShellContent);
     windowManager.addListener(this);
     _loadWindowState();
+  }
+
+  @override
+  void didUpdateWidget(covariant DesktopWindowShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Overlay.initialEntries are consumed only during the Overlay's initial
+    // mount.  Explicitly rebuild the retained entry so a new Router child
+    // (for example after login changes the theme) is not left outside the
+    // rendered overlay tree.
+    if (oldWidget.child != widget.child) _shellEntry.markNeedsBuild();
   }
 
   Future<void> _loadWindowState() async {
@@ -103,7 +115,7 @@ class _DesktopWindowShellState extends State<DesktopWindowShell>
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget _buildShellContent(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final titleColor =
         Theme.of(context).textTheme.bodyMedium?.color ?? colorScheme.onSurface;
@@ -111,103 +123,102 @@ class _DesktopWindowShellState extends State<DesktopWindowShell>
     // MaterialApp.builder is above the Navigator's Overlay.  The custom
     // title-bar controls are siblings of that Navigator, so they need their
     // own Overlay for Tooltip (and future popup) support.
-    return Overlay(
-      initialEntries: [
-        OverlayEntry(
-          builder: (context) => Focus(
-            autofocus: true,
-            child: CallbackShortcuts(
-              bindings: {
-                const SingleActivator(LogicalKeyboardKey.f11):
-                    _toggleFullScreen,
-                if (_isFullScreen)
-                  const SingleActivator(LogicalKeyboardKey.escape):
-                      _toggleFullScreen,
-              },
-              // The shell is outside Navigator/Scaffold, so it must supply
-              // its own Material for the title-bar InkWell controls.
-              child: Material(
-                color: colorScheme.surface,
-                child: Column(
-                  children: [
-                    if (!_isFullScreen)
-                      SizedBox(
-                        height: _titleBarHeight,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: DragToMoveArea(
-                                child: GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onDoubleTap: _toggleMaximize,
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          Icons.desktop_windows_rounded,
-                                          size: 17,
-                                          color: colorScheme.primary,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          'RemoteOS',
-                                          style: TextStyle(
-                                            color: titleColor,
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
+    return Focus(
+      autofocus: true,
+      child: CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.f11): _toggleFullScreen,
+          if (_isFullScreen)
+            const SingleActivator(LogicalKeyboardKey.escape): _toggleFullScreen,
+        },
+        // The shell is outside Navigator/Scaffold, so it must supply
+        // its own Material for the title-bar InkWell controls.
+        child: Material(
+          color: colorScheme.surface,
+          child: Column(
+            children: [
+              if (!_isFullScreen)
+                SizedBox(
+                  height: _titleBarHeight,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: DragToMoveArea(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onDoubleTap: _toggleMaximize,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.desktop_windows_rounded,
+                                    size: 17,
+                                    color: colorScheme.primary,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'RemoteOS',
+                                    style: TextStyle(
+                                      color: titleColor,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
-                                ),
+                                ],
                               ),
                             ),
-                            _WindowControlButton(
-                              tooltip: 'common.minimize'.tr(),
-                              icon: Icons.remove_rounded,
-                              onPressed: windowManager.minimize,
-                            ),
-                            _WindowControlButton(
-                              tooltip: (_isMaximized
-                                      ? 'common.restore'
-                                      : 'common.maximize')
-                                  .tr(),
-                              icon: _isMaximized
-                                  ? Icons.filter_none_rounded
-                                  : Icons.crop_square_rounded,
-                              onPressed: _toggleMaximize,
-                            ),
-                            _WindowControlButton(
-                              tooltip: _isFullScreen
-                                  ? 'shell.full_screen.exit'.tr()
-                                  : 'shell.full_screen.enter_tooltip'.tr(),
-                              icon: _isFullScreen
-                                  ? Icons.fullscreen_exit_rounded
-                                  : Icons.fullscreen_rounded,
-                              onPressed: _toggleFullScreen,
-                            ),
-                            _WindowControlButton(
-                              tooltip: 'common.close'.tr(),
-                              icon: Icons.close_rounded,
-                              isCloseButton: true,
-                              onPressed: widget.onCloseRequested ??
-                                  windowManager.close,
-                            ),
-                          ],
+                          ),
                         ),
                       ),
-                    Expanded(child: widget.child),
-                  ],
+                      _WindowControlButton(
+                        tooltip: 'common.minimize'.tr(),
+                        icon: Icons.remove_rounded,
+                        onPressed: windowManager.minimize,
+                      ),
+                      _WindowControlButton(
+                        tooltip: (_isMaximized
+                                ? 'common.restore'
+                                : 'common.maximize')
+                            .tr(),
+                        icon: _isMaximized
+                            ? Icons.filter_none_rounded
+                            : Icons.crop_square_rounded,
+                        onPressed: _toggleMaximize,
+                      ),
+                      _WindowControlButton(
+                        tooltip: _isFullScreen
+                            ? 'shell.full_screen.exit'.tr()
+                            : 'shell.full_screen.enter_tooltip'.tr(),
+                        icon: _isFullScreen
+                            ? Icons.fullscreen_exit_rounded
+                            : Icons.fullscreen_rounded,
+                        onPressed: _toggleFullScreen,
+                      ),
+                      _WindowControlButton(
+                        tooltip: 'common.close'.tr(),
+                        icon: Icons.close_rounded,
+                        isCloseButton: true,
+                        onPressed:
+                            widget.onCloseRequested ?? windowManager.close,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ),
+              Expanded(child: widget.child),
+            ],
           ),
         ),
-      ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Overlay(
+      initialEntries: [_shellEntry],
     );
   }
 }
