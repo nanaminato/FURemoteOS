@@ -1,10 +1,14 @@
+import 'dart:io';
+
 import 'package:easy_localization/easy_localization.dart';
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/theme_models.dart';
 import '../../../core/theme/theme_palette_defaults.dart';
 import '../../../core/theme/theme_service.dart';
+import '../../../features/auth/domain/auth_models.dart';
 import '../../../features/workspace/application/workspace_sync_coordinator.dart';
 import '../dialogs/settings_dialogs.dart';
 import '../models.dart';
@@ -28,6 +32,36 @@ class SettingsPersonalizationPage extends ConsumerStatefulWidget {
 
 class _SettingsPersonalizationPageState
     extends ConsumerState<SettingsPersonalizationPage> {
+  bool _uploadingWallpaper = false;
+
+  Future<void> _chooseWallpaper() async {
+    final image = await openFile(
+      acceptedTypeGroups: const [
+        XTypeGroup(
+          label: 'Images',
+          extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'],
+        ),
+      ],
+    );
+    if (image == null || image.path.isEmpty || !mounted) return;
+
+    setState(() => _uploadingWallpaper = true);
+    try {
+      await ref
+          .read(workspaceSyncProvider.notifier)
+          .uploadWallpaper(File(image.path));
+    } catch (error) {
+      if (!mounted) return;
+      final reason = error is RemoteOsApiException
+          ? error.message
+          : 'settings.wallpaper.upload_failed'.tr(args: ['unknown error']);
+      final message = 'settings.wallpaper.upload_failed'.tr(args: [reason]);
+      showInfoSnack(context, message);
+    } finally {
+      if (mounted) setState(() => _uploadingWallpaper = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeState = ref.watch(themeProvider);
@@ -64,7 +98,7 @@ class _SettingsPersonalizationPageState
             title: 'settings.theme'.tr(),
             subtitle: 'settings.theme.description'.tr()),
         const SizedBox(height: 20),
-        _wallpaperSection(widget.palette, wallpaperKey, ctrl),
+        _wallpaperSection(widget.palette, wallpaperKey),
         const SizedBox(height: 20),
         _themeModeSection(widget.palette, themeState.kind, ctrl),
         const SizedBox(height: 20),
@@ -85,8 +119,7 @@ class _SettingsPersonalizationPageState
         .toList(growable: false);
   }
 
-  Widget _wallpaperSection(
-      ThemePalette p, String wallpaperKey, SettingsController ctrl) {
+  Widget _wallpaperSection(ThemePalette p, String wallpaperKey) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -121,10 +154,7 @@ class _SettingsPersonalizationPageState
               const SizedBox(width: 180),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () {
-                    ctrl.setImageMirrorStatus(
-                        'todo: custom wallpaper file picker');
-                  },
+                  onPressed: _uploadingWallpaper ? null : _chooseWallpaper,
                   icon: const Icon(Icons.image_search_rounded, size: 16),
                   label: Text('settings.wallpaper.choose_image'.tr(),
                       style: const TextStyle(fontSize: 12)),

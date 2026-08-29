@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -107,6 +108,25 @@ class WorkspaceSyncCoordinator extends StateNotifier<WorkspaceSyncState> {
     if (current == null) return;
     queuePreferences(
         current.copyWith(theme: kind, themePreferences: themePreferences));
+  }
+
+  /// Upload a custom desktop image. Unlike ordinary preference changes this
+  /// request is immediate: the server stores the blob and updates WallpaperKey
+  /// atomically, so no client can observe a reference to an absent image.
+  Future<void> uploadWallpaper(File file) async {
+    final workspaceId = _auth.current.workspaceId;
+    if (!_auth.current.isAuthenticated || workspaceId == null) {
+      throw StateError('Not signed in to a workspace.');
+    }
+
+    _pendingPreferenceWrite?.cancel();
+    _pendingPreferenceWrite = null;
+    final version = ++_preferencesVersion;
+    _preferencesDirty = false;
+    final saved = await _api.uploadWallpaper(workspaceId, file);
+    if (mounted && version == _preferencesVersion) {
+      state = WorkspaceSyncState(preferences: saved, layouts: state.layouts);
+    }
   }
 
   void queueLayouts(WorkspaceWindowLayouts layouts) {

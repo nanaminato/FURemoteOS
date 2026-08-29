@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -77,6 +78,42 @@ void main() {
     expect(preferences.defaultApps.single.scheme, '.png');
     expect(preferences.themePreferences.paletteId, PaletteIds.nord);
     expect(layouts.windows.single.key, 'notepad');
+  });
+
+  test('uploads wallpaper multipart data and reads returned preferences',
+      () async {
+    final client = MockClient((request) async {
+      if (request.url.path == '/api/v1/auth/login') {
+        return http.Response(jsonEncode(_loginResponse), 200);
+      }
+      expect(request.headers['authorization'], 'Bearer access');
+      expect(request.method, 'POST');
+      expect(request.url.path, '/api/v1/workspaces/ws-1/wallpaper');
+      expect(
+          request.headers['content-type'], startsWith('multipart/form-data'));
+      return http.Response(
+          jsonEncode({
+            ..._preferences,
+            'wallpaperKey': 'custom:9b0464f46c7b44b0904c47cfafb70812',
+          }),
+          200);
+    });
+    final auth = AuthNotifier(httpClient: client);
+    addTearDown(auth.dispose);
+    await auth.login(
+      serverUrl: 'https://remoteos.test',
+      username: 'alice',
+      password: 'password',
+    );
+    final file =
+        File('${Directory.systemTemp.path}/remoteos-wallpaper-test.png');
+    await file.writeAsBytes(const [137, 80, 78, 71]);
+    addTearDown(() => file.delete());
+
+    final preferences = await RemoteWorkspaceApi(RemoteOsApi(auth))
+        .uploadWallpaper('ws-1', file);
+
+    expect(preferences.wallpaperKey, 'custom:9b0464f46c7b44b0904c47cfafb70812');
   });
 }
 

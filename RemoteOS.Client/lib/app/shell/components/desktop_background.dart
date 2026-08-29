@@ -7,18 +7,62 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/theme_service.dart';
 
 class DesktopBackground extends StatelessWidget {
-  const DesktopBackground({super.key, required this.palette});
+  const DesktopBackground({
+    super.key,
+    required this.palette,
+    this.wallpaperKey,
+    this.serverUrl,
+    this.workspaceId,
+    this.accessToken,
+  });
 
   final ThemePalette palette;
+  final String? wallpaperKey;
+  final String? serverUrl;
+  final String? workspaceId;
+  final String? accessToken;
+
+  DecorationImage? get _wallpaperImage {
+    final key = wallpaperKey;
+    final server = serverUrl;
+    final workspace = workspaceId;
+    final token = accessToken;
+    if (key == null ||
+        !key.startsWith('custom:') ||
+        server == null ||
+        workspace == null ||
+        token == null) {
+      return null;
+    }
+    final blobId = key.substring('custom:'.length);
+    if (blobId.isEmpty) return null;
+    final uri = Uri.parse(server)
+        .resolve('api/v1/workspaces/$workspace/wallpaper/$blobId');
+    return DecorationImage(
+      image: NetworkImage(uri.toString(),
+          headers: {'Authorization': 'Bearer $token'}),
+      fit: BoxFit.cover,
+      onError: (_, __) {},
+    );
+  }
+
+  List<Color> get _backgroundColors => switch (wallpaperKey) {
+        'builtin:aurora' => const [Color(0xFF083344), Color(0xFF14532D)],
+        'builtin:sand' => const [Color(0xFFB45309), Color(0xFF78350F)],
+        'builtin:night' => const [Color(0xFF111827), Color(0xFF312E81)],
+        'builtin:gradient' => const [Color(0xFF0F766E), Color(0xFF1D4ED8)],
+        _ => [palette.appBackground, palette.shellBackground],
+      };
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
+        image: _wallpaperImage,
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [palette.appBackground, palette.shellBackground],
+          colors: _backgroundColors,
         ),
       ),
       child: CustomPaint(painter: _DesktopPatternPainter(palette)),

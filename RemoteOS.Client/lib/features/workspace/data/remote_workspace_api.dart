@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import '../../../core/network/remoteos_api.dart';
 import '../domain/workspace_models.dart';
 
@@ -22,6 +24,17 @@ class RemoteWorkspaceApi {
       _route(workspaceId, 'preferences'),
       body: preferences.toJson(),
     );
+    return WorkspacePreferences.fromJson(_map(json));
+  }
+
+  /// Uploads a local image and atomically makes it the workspace wallpaper.
+  /// The server returns the updated preferences only after the blob is stored.
+  Future<WorkspacePreferences> uploadWallpaper(
+    String workspaceId,
+    File file,
+  ) async {
+    final json =
+        await _api.sendFile(_route(workspaceId, 'wallpaper'), file: file);
     return WorkspacePreferences.fromJson(_map(json));
   }
 

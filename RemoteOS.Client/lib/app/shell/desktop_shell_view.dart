@@ -28,6 +28,7 @@ import '../../../core/runtime/desktop_runtime.dart';
 import '../../../core/theme/theme_service.dart';
 import '../../../core/window_manager/context_menu_host.dart';
 import '../../../core/window_manager/window_manager.dart';
+import '../../../features/workspace/application/workspace_sync_coordinator.dart';
 import 'components/desktop_background.dart';
 import 'components/desktop_icon.dart';
 import 'components/desktop_start_menu.dart';
@@ -267,7 +268,16 @@ class _DesktopShellViewState extends ConsumerState<DesktopShellView> {
                         child: ContextMenuRegion(
                           controller: _desktopMenu,
                           entries: _menuEntries(context, workAreaSize),
-                          child: DesktopBackground(palette: palette),
+                          child: DesktopBackground(
+                            palette: palette,
+                            wallpaperKey: ref
+                                .watch(workspaceSyncProvider)
+                                .preferences
+                                ?.wallpaperKey,
+                            serverUrl: authState.serverUrl,
+                            workspaceId: authState.workspaceId,
+                            accessToken: authState.accessToken,
+                          ),
                         ),
                       ),
                       _IconsColumn(

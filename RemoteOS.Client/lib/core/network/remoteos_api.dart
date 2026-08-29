@@ -86,16 +86,36 @@ class RemoteOsApi {
   /// Posts a single local file as multipart/form-data. This is deliberately
   /// separate from [sendJson] because the Explorer upload endpoint requires a
   /// streamed file part rather than a JSON payload.
-  Future<void> sendFile(String path,
+  Future<dynamic> sendFile(String path,
       {required File file, Map<String, String>? query}) async {
     final request = http.MultipartRequest('POST', endpoint(path, query))
       ..headers['Accept'] = 'application/json';
     request.files.add(await http.MultipartFile.fromPath('file', file.path));
-    final response = await _auth
+    final streamed = await _auth
         .authenticatedClient()
         .send(request)
         .timeout(const Duration(seconds: 60));
-    await _throwForStreamError(response);
+    final response = await http.Response.fromStream(streamed);
+    dynamic decoded;
+    if (response.body.trim().isNotEmpty) {
+      try {
+        decoded = jsonDecode(response.body);
+      } on FormatException {
+        decoded = response.body;
+      }
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final map = decoded is Map ? decoded : const <String, dynamic>{};
+      throw RemoteOsApiException(
+        statusCode: response.statusCode,
+        message: map['message']?.toString() ??
+            map['detail']?.toString() ??
+            map['title']?.toString() ??
+            'HTTP ${response.statusCode}',
+        problemType: map['type']?.toString(),
+      );
+    }
+    return decoded;
   }
 
   Future<dynamic> _sendJson(String method, String path,
@@ -124,7 +144,8 @@ class RemoteOsApi {
       final map = decoded is Map ? decoded : const <String, dynamic>{};
       throw RemoteOsApiException(
         statusCode: response.statusCode,
-        message: map['detail']?.toString() ??
+        message: map['message']?.toString() ??
+            map['detail']?.toString() ??
             map['title']?.toString() ??
             'HTTP ${response.statusCode}',
         problemType: map['type']?.toString(),
@@ -145,7 +166,8 @@ class RemoteOsApi {
     final map = decoded is Map ? decoded : const <String, dynamic>{};
     throw RemoteOsApiException(
       statusCode: response.statusCode,
-      message: map['detail']?.toString() ??
+      message: map['message']?.toString() ??
+          map['detail']?.toString() ??
           map['title']?.toString() ??
           'HTTP ${response.statusCode}',
       problemType: map['type']?.toString(),
