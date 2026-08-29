@@ -35,7 +35,7 @@ class _SettingsPersonalizationPageState
     final isDark = themeState.resolveBrightness(context) == Brightness.dark;
     final resolved = ThemePaletteDefaults.resolve(prefs, isDark);
     final selectedIsCustom = prefs.paletteId.startsWith('custom:');
-    final paletteChoices = <PaletteChoice>[
+    final paletteChoices = uniquePaletteChoices([
       PaletteChoice(PaletteIds.remoteosBlue,
           'settings.palette.remoteos_blue'.tr(), false),
       PaletteChoice(PaletteIds.nord, 'settings.palette.nord'.tr(), false),
@@ -43,7 +43,7 @@ class _SettingsPersonalizationPageState
           PaletteIds.catppuccin, 'settings.palette.catppuccin'.tr(), false),
       for (final cp in prefs.customPalettes)
         PaletteChoice('custom:${cp.id}', cp.name, true),
-    ];
+    ]);
     final selectedChoiceId = paletteChoices.any((c) => c.id == prefs.paletteId)
         ? prefs.paletteId
         : PaletteIds.remoteosBlue;
