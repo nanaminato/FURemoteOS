@@ -8,9 +8,9 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../core/theme/theme_service.dart';
-import '../application/notepad_view_model.dart';
-import '../domain/notepad_ui_state.dart';
+import '../../../../../core/theme/theme_service.dart';
+import '../../application/notepad_view_model.dart';
+import '../../domain/notepad_ui_state.dart';
 
 // ---------- Menu bar ----------
 

@@ -6,8 +6,6 @@
 
 import 'package:flutter/material.dart';
 
-import '../../workspace/domain/workspace_models.dart';
-
 /// Type of a listed entry.  Mirrors `FileSystemEntryDto.IsDirectory`.
 enum FileItemKind { folder, file }
 

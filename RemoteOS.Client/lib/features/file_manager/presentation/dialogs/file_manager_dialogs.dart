@@ -4,16 +4,15 @@
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/theme_service.dart';
-import '../../../core/window_manager/context_menu_host.dart';
-import '../../../core/window_manager/modal_manager.dart';
-import '../../../core/window_manager/window_manager.dart';
-import '../../files/data/remote_file_api.dart';
-import '../application/file_manager_view_model.dart';
-import '../domain/file_manager_models.dart';
+import '../../../../../core/theme/theme_service.dart';
+import '../../../../../core/window_manager/context_menu_host.dart';
+import '../../../../../core/window_manager/modal_manager.dart';
+import '../../../../../core/window_manager/window_manager.dart';
+import '../../../../features/files/data/remote_file_api.dart';
+import '../../application/file_manager_view_model.dart';
+import '../../domain/file_manager_models.dart';
 
 // ---- Text input dialog (new-folder / rename) ----
 
@@ -310,105 +309,113 @@ class _FmOpenWithDialogState extends ConsumerState<FmOpenWithDialog> {
 
 // ---- Context menu builder ----
 
+/// Builds the right-click entry menu using RemoteOS typed [ContextMenuEntry]
+/// items ([ContextMenuAction] + [ContextMenuDivider]) consumed by
+/// [RemoteContextMenuController.show].  Avalonia previously rendered
+/// MenuItemButton widgets directly; AGENTS.md § 19 keeps menu actions as
+/// ViewModel-owned *intent* descriptors so the View owns positioning.
 List<ContextMenuEntry> buildFileManagerContextMenu({
   required FileManagerViewModel vm,
   required FileItem? entry,
   required bool isPickerMode,
 }) {
+  final s = vm.state.value;
   final entries = <ContextMenuEntry>[];
   if (entry != null && !isPickerMode) {
     entries
-      ..add(MenuItemButton(
-        leadingIcon: const Icon(Icons.open_in_new_outlined, size: 16),
-        onPressed: () => vm.openEntry(entry),
-        child: Text('common.open'.tr(),
-            style: const TextStyle(fontSize: 13)),
+      ..add(ContextMenuAction(
+        icon: Icons.open_in_new_outlined,
+        label: 'common.open'.tr(),
+        onSelected: () => vm.openEntry(entry),
       ))
-      ..add(MenuItemButton(
-        leadingIcon: const Icon(Icons.apps_outlined, size: 16),
-        onPressed: () => vm.chooseOpenWith(entry),
-        child: Text('explorer.open_with'.tr(),
-            style: const TextStyle(fontSize: 13)),
+      ..add(ContextMenuAction(
+        icon: Icons.apps_outlined,
+        label: 'explorer.open_with'.tr(),
+        onSelected: () => vm.chooseOpenWith(entry),
       ))
-      ..add(const MenuItemButton(child: Divider(height: 1)))
-      ..add(MenuItemButton(
-        leadingIcon: const Icon(Icons.content_cut_outlined, size: 16),
-        onPressed: vm.state.value.hasSelection
-            ? () => vm.cutCommand.run()
-            : null,
-        child: Text('common.cut'.tr(), style: const TextStyle(fontSize: 13)),
+      ..add(const ContextMenuDivider())
+      ..add(ContextMenuAction(
+        icon: Icons.content_cut_outlined,
+        label: 'common.cut'.tr(),
+        enabled: s.hasSelection,
+        onSelected: () {
+          if (s.hasSelection) vm.cutCommand.run();
+        },
       ))
-      ..add(MenuItemButton(
-        leadingIcon: const Icon(Icons.content_copy_outlined, size: 16),
-        onPressed: vm.state.value.hasSelection
-            ? () => vm.copyCommand.run()
-            : null,
-        child: Text('common.copy'.tr(), style: const TextStyle(fontSize: 13)),
+      ..add(ContextMenuAction(
+        icon: Icons.content_copy_outlined,
+        label: 'common.copy'.tr(),
+        enabled: s.hasSelection,
+        onSelected: () {
+          if (s.hasSelection) vm.copyCommand.run();
+        },
       ))
-      ..add(MenuItemButton(
-        leadingIcon: const Icon(Icons.drive_file_rename_outlined, size: 16),
-        onPressed: vm.state.value.hasSelection
-            ? () => vm.renameCommand.runAsync()
-            : null,
-        child: Text('common.rename'.tr(), style: const TextStyle(fontSize: 13)),
+      ..add(ContextMenuAction(
+        icon: Icons.edit_outlined,
+        label: 'common.rename'.tr(),
+        enabled: s.hasSelection,
+        onSelected: () {
+          if (s.hasSelection) vm.renameCommand.runAsync();
+        },
       ))
-      ..add(MenuItemButton(
-        leadingIcon: const Icon(Icons.delete_outline_rounded, size: 16),
-        onPressed: vm.state.value.hasSelection
-            ? () => vm.deleteCommand.runAsync()
-            : null,
-        child: Text('common.delete'.tr(), style: const TextStyle(fontSize: 13)),
+      ..add(ContextMenuAction(
+        icon: Icons.delete_outline_rounded,
+        label: 'common.delete'.tr(),
+        enabled: s.hasSelection,
+        onSelected: () {
+          if (s.hasSelection) vm.deleteCommand.runAsync();
+        },
       ))
-      ..add(const MenuItemButton(child: Divider(height: 1)))
-      ..add(MenuItemButton(
-        leadingIcon: const Icon(Icons.download_outlined, size: 16),
-        onPressed: vm.state.value.hasSelection && !entry.isFolder
-            ? () => vm.downloadCommand.runAsync()
-            : null,
-        child: Text('explorer.download'.tr(),
-            style: const TextStyle(fontSize: 13)),
+      ..add(const ContextMenuDivider())
+      ..add(ContextMenuAction(
+        icon: Icons.download_outlined,
+        label: 'explorer.download'.tr(),
+        enabled: s.hasSelection && !entry.isFolder,
+        onSelected: () {
+          if (s.hasSelection && !entry.isFolder) vm.downloadCommand.runAsync();
+        },
       ))
-      ..add(MenuItemButton(
-        leadingIcon: const Icon(Icons.info_outline_rounded, size: 16),
-        onPressed: vm.state.value.hasSelection
-            ? () => vm.propertiesCommand.runAsync()
-            : null,
-        child: Text('explorer.properties'.tr(),
-            style: const TextStyle(fontSize: 13)),
+      ..add(ContextMenuAction(
+        icon: Icons.info_outline_rounded,
+        label: 'explorer.properties'.tr(),
+        enabled: s.hasSelection,
+        onSelected: () {
+          if (s.hasSelection) vm.propertiesCommand.runAsync();
+        },
       ));
   }
   if (!isPickerMode) {
+    if (entries.isNotEmpty) entries.add(const ContextMenuDivider());
     entries
-      ..add(const MenuItemButton(child: Divider(height: 1)))
-      ..add(MenuItemButton(
-        leadingIcon: const Icon(Icons.create_new_folder_outlined, size: 16),
-        onPressed: vm.state.value.currentPath.isNotEmpty
-            ? () => vm.newFolderCommand.runAsync()
-            : null,
-        child: Text('explorer.new_folder'.tr(),
-            style: const TextStyle(fontSize: 13)),
+      ..add(ContextMenuAction(
+        icon: Icons.create_new_folder_outlined,
+        label: 'explorer.new_folder'.tr(),
+        enabled: s.currentPath.isNotEmpty,
+        onSelected: () {
+          if (s.currentPath.isNotEmpty) vm.newFolderCommand.runAsync();
+        },
       ))
-      ..add(MenuItemButton(
-        leadingIcon: const Icon(Icons.content_paste_outlined, size: 16),
-        onPressed: vm.state.value.hasClipboard
-            ? () => vm.pasteCommand.runAsync()
-            : null,
-        child: Text('common.paste'.tr(), style: const TextStyle(fontSize: 13)),
+      ..add(ContextMenuAction(
+        icon: Icons.content_paste_outlined,
+        label: 'common.paste'.tr(),
+        enabled: s.hasClipboard,
+        onSelected: () {
+          if (s.hasClipboard) vm.pasteCommand.runAsync();
+        },
       ))
-      ..add(const MenuItemButton(child: Divider(height: 1)))
-      ..add(MenuItemButton(
-        leadingIcon: const Icon(Icons.terminal_outlined, size: 16),
-        onPressed: vm.state.value.currentPath.isNotEmpty
-            ? () => vm.openTerminal?.call(vm.state.value.currentPath)
-            : null,
-        child: Text('explorer.terminal'.tr(),
-            style: const TextStyle(fontSize: 13)),
+      ..add(const ContextMenuDivider())
+      ..add(ContextMenuAction(
+        icon: Icons.terminal_outlined,
+        label: 'explorer.terminal'.tr(),
+        enabled: s.currentPath.isNotEmpty && vm.openTerminal != null,
+        onSelected: () {
+          if (s.currentPath.isNotEmpty) vm.openTerminal?.call(s.currentPath);
+        },
       ))
-      ..add(MenuItemButton(
-        leadingIcon: const Icon(Icons.refresh_rounded, size: 16),
-        onPressed: () => vm.refreshCommand.runAsync(),
-        child: Text('common.refresh'.tr(),
-            style: const TextStyle(fontSize: 13)),
+      ..add(ContextMenuAction(
+        icon: Icons.refresh_rounded,
+        label: 'common.refresh'.tr(),
+        onSelected: () => vm.refreshCommand.runAsync(),
       ));
   }
   return entries;

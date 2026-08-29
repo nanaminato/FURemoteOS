@@ -13,11 +13,11 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:watch_it/watch_it.dart' as watch_it;
 
-import '../../app/dependency_injection.dart' as app_di;
-import '../../apps/explorer/explorer_picker.dart';
-import '../../core/theme/theme_service.dart';
-import '../../core/window_manager/modal_manager.dart';
-import '../../core/window_manager/window_manager.dart';
+import '../../../../app/dependency_injection.dart' as app_di;
+import '../../../../apps/explorer/explorer_picker.dart';
+import '../../../../core/theme/theme_service.dart';
+import '../../../../core/window_manager/modal_manager.dart';
+import '../../../../core/window_manager/window_manager.dart';
 import '../application/notepad_view_model.dart';
 import '../domain/notepad_models.dart';
 import '../domain/notepad_ui_state.dart';
@@ -348,7 +348,7 @@ class _NotepadViewState extends ConsumerState<NotepadView> {
   @override
   Widget build(BuildContext context) {
     final palette = watchPalette(ref, context);
-    return watch_it.ValueListenableBuilder(
+    return ValueListenableBuilder(
       valueListenable: _vm.state,
       builder: (context, NotepadUiState s, _) {
         // Synchronize external text update (e.g. open-path result) that

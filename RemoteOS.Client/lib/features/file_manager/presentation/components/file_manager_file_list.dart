@@ -8,10 +8,10 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../core/theme/theme_service.dart';
-import '../application/file_manager_view_model.dart';
-import '../domain/file_manager_models.dart';
-import '../domain/file_manager_ui_state.dart';
+import '../../../../core/theme/theme_service.dart';
+import '../../application/file_manager_view_model.dart';
+import '../../domain/file_manager_models.dart';
+import '../../domain/file_manager_ui_state.dart';
 
 class FileManagerFileList extends StatelessWidget {
   const FileManagerFileList({

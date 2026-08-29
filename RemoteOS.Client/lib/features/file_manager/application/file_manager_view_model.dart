@@ -13,19 +13,22 @@
 // Dialogs + pickers + file-selection native helpers are requested through
 // explicit callback hooks set by the View — never `BuildContext`.
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:command_it/command_it.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../../app/dependency_injection.dart' as app_di;
 import '../../../core/commands/base_view_model.dart';
 import '../../../core/network/remoteos_api.dart';
+import '../../auth/domain/auth_models.dart';
 import '../../files/data/remote_file_api.dart';
 import '../data/file_manager_repository.dart';
 import '../domain/file_manager_models.dart';
 import '../domain/file_manager_ui_state.dart';
-import '../../explorer/explorer_picker.dart';
+import '../../../../apps/explorer/explorer_picker.dart';
 
 // ---- Callback hook signatures ----
 
@@ -59,7 +62,7 @@ FileManagerViewModel createFileManagerViewModel({
   ExplorerPickerOptions? picker,
 }) {
   return FileManagerViewModel(
-    repository: getService<FileManagerRepository>(),
+    repository: app_di.getService<FileManagerRepository>(),
     picker: picker,
   );
 }
@@ -111,7 +114,7 @@ class FileManagerViewModel extends ViewModel {
   FmOpenTerminalAsync? openTerminal;
   FmShowPropertiesAsync? showPropertiesAsync;
   FmConfirmPickerAsync? confirmPicker;
-  FmCancelPickerAsync? cancelPicker;
+  FmCancelPickerAsync? onCancelPicker;
 
   // ---- Commands ----
 
@@ -723,7 +726,7 @@ class FileManagerViewModel extends ViewModel {
   void commitPicker() {
     final s = _s;
     if (!s.isPickerMode) return;
-    final picker = s.pickerOptions!;
+    final pickerOptions = s.pickerOptions!;
     final List<String> selected;
     if (s.isFolderPickerMode) {
       final folders = s
@@ -779,7 +782,7 @@ class FileManagerViewModel extends ViewModel {
     confirmPicker?.call(selected);
   }
 
-  void cancelPicker() => cancelPicker?.call();
+  void cancelPicker() => onCancelPicker?.call();
 
   // ---- Helpers ----
 

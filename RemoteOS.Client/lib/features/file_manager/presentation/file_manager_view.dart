@@ -7,6 +7,7 @@
 //   * composes the chrome (toolbar + address bar + side rail + list + status
 //     bar / picker footer) and reacts to tree/list/user gestures.
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart';
@@ -14,24 +15,24 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pasteboard/pasteboard.dart';
-import 'package:watch_it/watch_it.dart' as watch_it;
 
-import '../../app/dependency_injection.dart' as app_di;
-import '../../apps/code_editor/code_editor_app.dart';
-import '../../apps/image_viewer/image_viewer_app.dart';
-import '../../apps/terminal/terminal_app.dart';
-import '../../core/apps/app_registry.dart';
-import '../../core/theme/theme_service.dart';
-import '../../core/window_manager/context_menu_host.dart';
-import '../../core/window_manager/modal_manager.dart';
-import '../../core/window_manager/window_manager.dart';
-import '../../features/files/data/remote_file_api.dart';
-import '../../features/workspace/application/workspace_sync_coordinator.dart';
-import '../../features/workspace/domain/workspace_models.dart';
+import '../../../../app/dependency_injection.dart' as app_di;
+import '../../../../apps/code_editor/code_editor_app.dart';
+import '../../../../apps/image_viewer/image_viewer_app.dart';
+import '../../../../apps/terminal/terminal_app.dart';
+import '../../../../core/apps/app_registry.dart';
+import '../../../../core/theme/theme_service.dart';
+import '../../../../core/window_manager/context_menu_host.dart';
+import '../../../../core/window_manager/modal_manager.dart';
+import '../../../../core/window_manager/window_manager.dart';
+import '../../../../features/auth/domain/auth_models.dart';
+import '../../../../features/files/data/remote_file_api.dart';
+import '../../../../features/workspace/application/workspace_sync_coordinator.dart';
+import '../../../../features/workspace/domain/workspace_models.dart';
 import '../application/file_manager_view_model.dart';
 import '../domain/file_manager_models.dart';
 import '../domain/file_manager_ui_state.dart';
-import '../../explorer/explorer_picker.dart';
+import '../../../../apps/explorer/explorer_picker.dart';
 import 'components/file_manager_chrome.dart';
 import 'components/file_manager_file_list.dart';
 import 'dialogs/file_manager_dialogs.dart';
@@ -57,9 +58,10 @@ class _FileManagerViewState extends ConsumerState<FileManagerView> {
   final _search = TextEditingController();
   final _address = TextEditingController();
   final _pickerName = TextEditingController();
+  final _addressFocusNode = FocusNode();
+  final _pickerNameFocusNode = FocusNode();
   final _menu = RemoteContextMenuController();
   bool _hooksInstalled = false;
-  FileItem? _contextMenuEntry;
 
   @override
   void initState() {
@@ -90,6 +92,8 @@ class _FileManagerViewState extends ConsumerState<FileManagerView> {
     _search.dispose();
     _address.dispose();
     _pickerName.dispose();
+    _addressFocusNode.dispose();
+    _pickerNameFocusNode.dispose();
     _vm.dispose();
     super.dispose();
   }
@@ -97,17 +101,16 @@ class _FileManagerViewState extends ConsumerState<FileManagerView> {
   void _installStateBridge() {
     _vm.state.addListener(() {
       final s = _vm.state.value;
-      // Address bar: keep in sync unless the user is editing it.
-      if (_address.text != s.currentPath &&
-          !FocusScope.of(context).isFirstFocus &&
-          !(Focus.of(context).isFirstFocus &&
-              Focus.of(context).focusedChild?.context?.widget is EditableText)) {
+      // Address bar / picker-name text fields: stay in sync with ViewModel
+      // state *unless* the user is actively editing that specific field.
+      // ARCHITECTURE.md § 8 keeps focus handling in the View.  We gate on
+      // individual field focus rather than legacy Focus.isFirstFocus /
+      // focusedChild to remain compatible with Flutter 3.33+ APIs.
+      if (!_addressFocusNode.hasFocus && _address.text != s.currentPath) {
         _address.text = s.currentPath;
       }
-      // Picker name: sync only when user isn't actively typing into the box.
-      final pickerFocus = Focus.of(context).focusedChild?.context?.widget
-          is EditableText;
-      if (pickerFocus != true && _pickerName.text != s.pickerEntryName) {
+      if (!_pickerNameFocusNode.hasFocus &&
+          _pickerName.text != s.pickerEntryName) {
         _pickerName.text = s.pickerEntryName;
       }
     });
@@ -133,7 +136,7 @@ class _FileManagerViewState extends ConsumerState<FileManagerView> {
     final picker = _vm.state.value.pickerOptions;
     if (picker != null) {
       _vm.confirmPicker = picker.onConfirm;
-      _vm.cancelPicker = picker.onCancel;
+      _vm.onCancelPicker = picker.onCancel;
     }
   }
 
@@ -287,11 +290,9 @@ class _FileManagerViewState extends ConsumerState<FileManagerView> {
   // ---- Context menu ----
 
   void _onContextMenuRequested(FileItem entry, Offset position) {
-    _contextMenuEntry = entry;
     _menu.show(
-      context: context,
-      position: position,
-      entries: buildFileManagerContextMenu(
+      position,
+      buildFileManagerContextMenu(
         vm: _vm,
         entry: entry,
         isPickerMode: _vm.state.value.isPickerMode,
@@ -300,11 +301,9 @@ class _FileManagerViewState extends ConsumerState<FileManagerView> {
   }
 
   void _onBlankContextMenu(TapUpDetails details) {
-    _contextMenuEntry = null;
     _menu.show(
-      context: context,
-      position: details.globalPosition,
-      entries: buildFileManagerContextMenu(
+      details.globalPosition,
+      buildFileManagerContextMenu(
         vm: _vm,
         entry: null,
         isPickerMode: _vm.state.value.isPickerMode,
@@ -327,7 +326,7 @@ class _FileManagerViewState extends ConsumerState<FileManagerView> {
   @override
   Widget build(BuildContext context) {
     final palette = watchPalette(ref, context);
-    return watch_it.ValueListenableBuilder(
+    return ValueListenableBuilder(
       valueListenable: _vm.state,
       builder: (context, FileManagerUiState s, _) {
         return ContextMenuHost(
@@ -335,7 +334,6 @@ class _FileManagerViewState extends ConsumerState<FileManagerView> {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final compact = constraints.maxWidth < 680;
-              final showTree = !compact;
               final picker = s.isPickerMode;
               return Column(
                 children: [
@@ -349,6 +347,7 @@ class _FileManagerViewState extends ConsumerState<FileManagerView> {
                     vm: _vm,
                     addressController: _address,
                     searchController: _search,
+                    addressFocusNode: _addressFocusNode,
                   ),
                   Expanded(
                     child: GestureDetector(
@@ -372,6 +371,7 @@ class _FileManagerViewState extends ConsumerState<FileManagerView> {
                       state: s,
                       vm: _vm,
                       nameController: _pickerName,
+                      nameFocusNode: _pickerNameFocusNode,
                     )
                   else
                     FileManagerStatusBar(state: s),

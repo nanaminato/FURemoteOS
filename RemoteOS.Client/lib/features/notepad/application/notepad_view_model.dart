@@ -14,6 +14,7 @@ import 'package:command_it/command_it.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../../../app/dependency_injection.dart' as app_di;
 import '../../../core/commands/base_view_model.dart';
 import '../../files/text_file_encodings.dart';
 import '../../workspace/application/workspace_sync_coordinator.dart';
@@ -47,8 +48,8 @@ typedef SaveDefaultEncodingAsync = Future<void> Function(String encoding);
 
 /// ViewModel factory so get_it can inject dependencies.
 NotepadViewModel createNotepadViewModel() => NotepadViewModel(
-      repository: getService<TextFileRepository>(),
-      workspaceSync: getService<WorkspaceSyncCoordinator>(),
+      repository: app_di.getService<TextFileRepository>(),
+      workspaceSync: app_di.getService<WorkspaceSyncCoordinator>(),
     );
 
 class NotepadViewModel extends ViewModel {
@@ -67,7 +68,7 @@ class NotepadViewModel extends ViewModel {
 
     // Seed the initial state from the workspace preferences (Avalonia reads
     // them once at construction time in the NotepadViewModel ctor).
-    final preferences = _workspaceSync.preferences;
+    final preferences = _workspaceSync.debugPreferencesSnapshot();
     final stored = preferences?.notepadDefaultEncoding;
     final defaultEncoding = TextFileEncodings.isSupported(stored)
         ? stored!
@@ -221,7 +222,7 @@ class NotepadViewModel extends ViewModel {
   }
 
   Future<void> _persistDefaultEncoding(String encoding) async {
-    final current = _workspaceSync.preferences;
+    final current = _workspaceSync.debugPreferencesSnapshot();
     if (current == null) return;
     _workspaceSync
         .queuePreferences(current.copyWith(notepadDefaultEncoding: encoding));

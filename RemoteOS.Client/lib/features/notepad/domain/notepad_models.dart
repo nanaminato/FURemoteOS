@@ -3,6 +3,7 @@
 // Types here describe stable domain concepts used by the repository and the
 // ViewModel.  They intentionally have zero Flutter UI imports.
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 /// Snapshot used for undo/redo history.  A snapshot records the textual

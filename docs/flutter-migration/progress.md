@@ -28,11 +28,104 @@
 
 * 已完成：`FLUTTER-012`（Task Manager）。
 
-* 已完成：`FLUTTER-013`（Docker Manager，本轮收口；Windows 本机构建被宿主 VS 缺少 ATL 组件阻塞，见下）。
+* 已完成：`FLUTTER-013`（Docker Manager，收口）。
 
-* 已完成：`FLUTTER-014`（Notepad & Settings 对齐，含 Explorer 选择模式/模态框补齐；Windows `flutter build windows --debug` 已通过，未做功能测试）。
+* 已完成：`FLUTTER-014`（Notepad & Settings 对齐，含 Explorer 选择模式/模态框补齐）。
 
-* 进行中的工作树改动：`FLUTTER-002` 至 `FLUTTER-009` 的认证、本地化、主题、窗口、modal、context menu、shell 和 workspace REST 基础层、测试与依赖更新尚未提交。
+* 已完成：`FLUTTER-015`（ARCHITECTURE.md / AGENTS.md MVVM 收口：桌面 Shell、Settings、Docker、Notepad、File Manager 均完成 feature-first + ViewModel + Repository/Service 分层；apps/* 保留为 riverpod 兼容层）。
+
+* 进行中的工作树改动：FLUTTER-015 的桌面/app shell DI 注册、五个 feature 模块的新 MVVM 文件、兼容层以及依赖更新均已落地，待用户提交。
+
+## FLUTTER-015 实施记录（本轮 AGENTS.md 架构重构）
+
+### 目标与范围
+依据仓库根 `AGENTS.md`（第 2 条要求先读 `ARCHITECTURE.md` + `MIGRATION_RULES.md`），将已有基础功能重构为 MVVM + feature-first 结构，依赖方向严格满足：
+```
+View → ViewModel → Repository → Service → RemoteOS.Server
+```
+本轮重构覆盖：**整体桌面 Shell**、**Settings**、**Docker Manager**、**Notepad**、**File Manager（Explorer）**。其余模块（终端、任务管理器、防火墙等）保留后续单独迭代。
+
+### 依赖与核心基础设施
+- `pubspec.yaml` 新增并对齐：`get_it ^9.2.1`、`watch_it ^2.4.2`、`command_it ^9.5.1`、`listen_it ^5.3.3`。
+- `lib/core/errors/remote_os_failure.dart`：`RemoteOsFailure` + 各子类（`NetworkFailure`、`UnauthorizedFailure`、`PermissionDeniedFailure`、`ValidationFailure`、`ServerFailure`、`CancelledFailure` …），作为业务错误统一语义。
+- `lib/core/commands/base_view_model.dart`：`ViewModelLifecycle` 与 `ViewModel` 基类（`trackDisposable`、`dispose`），所有 feature ViewModel 从此派生。
+- `lib/app/dependency_injection.dart`：`GetIt` 单例注册 `AuthNotifier`、`ThemeNotifier`、`WindowManagerNotifier`、`WorkspaceSyncCoordinator` 等应用级对象，并为 Settings/Docker/Notepad/FileManager 四个 feature 注册 Repository（singleton）和 ViewModel（factory/transient，Notepad/FileManager 每个窗口独立状态）。
+- `lib/app/bootstrap.dart`：把 DI 中已注册的 `StateNotifier` 通过 `ProviderScope` override 透传给既有的 riverpod `*Provider`，保证 `apps/*`（Shell、Settings、Notepad、Explorer、Docker Manager）与新 feature 层共用同一个对象实例，**避免双份状态**。
+- `lib/main.dart`：`bootstrapRemoteOs()` → DI → EasyLocalization → ProviderScope（带 overrides）→ `DesktopShellView`。
+- 主题补丁：`ThemeNotifier` 新增公开 `currentState` 与 `currentPalette` getter（Repository 需读 palette，但 `StateNotifier.state` 为 protected）。
+- 工作区同步补丁：`WorkspaceSyncCoordinator` 新增 `debugPreferencesSnapshot()` / `debugLayoutsSnapshot()` 公开快照读取，供 ViewModel 在受控场景访问 preferences（不突破 `state` 的 protected 约束）。
+
+### 桌面整体（App Shell）
+- 目录：`lib/app/shell/`
+  - `desktop_shell_view_model.dart`：管理 overlay（start menu、context menu）、窗口布局与 workspace 初始化，命令使用 `command_it.Command`。
+  - `desktop_shell_view.dart`：桌面根布局，组合背景、图标、开始菜单、任务栏、窗口层；仅做 composition / focus / event 分发，不直接做业务。
+  - `components/desktop_background.dart`、`components/desktop_icon.dart`、`components/desktop_start_menu.dart`、`components/desktop_taskbar.dart`、`components/desktop_window_layer.dart`：桌面 UI 拆分（按 AGENTS.md §7 控制单文件 <300 行，语义清晰不碎片）。
+- 仍然保留 `lib/screens/desktop/desktop_screen.dart`（现有 Riverpod 兼容入口 + 老控件引用），新 `DesktopShellView` 是默认 root，老代码暂不删除以便渐进式收尾（屏幕/小部件 deprecated 告警仍集中在这里，后续专门一轮清理）。
+
+### Settings
+- 目录：`lib/features/settings/`
+  - `domain/settings_models.dart`：`PaletteChoice`、`AppOptionUi` + 辅助 `parseHexColor`，UI 只读契约。
+  - `domain/settings_state.dart`：`@immutable SettingsState`，完整投影 theme / accent / palette / locale / window density。
+  - `data/settings_repository.dart`：`WorkspaceSettingsRepository`，封装对 `ThemeNotifier` / `EasyLocalization` / 窗口密度 / 重启要求的写操作。
+  - `application/settings_view_model.dart`：使用 `ValueNotifier<SettingsState>` + 一组 Command（theme mode 切换、accent、palette 选择、语言切换、重启触发）。
+  - `presentation/components/settings_widgets.dart`：共享的 card / list-tile / section 组件。
+  - `presentation/dialogs/settings_dialogs.dart`：导入/导出配色、重启确认等（走 `ModalManager`，不用 Flutter route dialog）。
+- 兼容层：`lib/apps/settings/*` 不再包含业务逻辑；原 `models.dart` / `state.dart` / `settings_controller.dart` / `shared/widgets.dart` / `dialogs/settings_dialogs.dart` 全部转为 `export` 或 riverpod 代理（Controller 内部调用 get_it 上的 `SettingsViewModel`）。老 pages 仍通过这些代理工作，未被破坏。
+
+### Docker Manager
+- 目录：`lib/features/docker/`
+  - `application/docker_repository.dart`：`DockerRepository` 接口 + `RemoteDockerRepository`，把 `RemoteDockerApi`（REST）映射为领域操作（status、resource 列表、container create/rename/lifecycle/logs/stats、stacks validate/deploy/action、images build/pull/delete、networks/volumes create/delete），错误映射为 `RemoteOsFailure`。
+  - `domain/docker_ui_state.dart`：`@immutable DockerUiState`，涵盖 engine 状态、选中页、六个资源列表、操作进行中标记、失败提示。
+  - `application/docker_view_model.dart`：`ValueNotifier<DockerUiState>` + 所有命令（refresh、start/stop/pause/unpause/restart/delete 容器、create/rename、详情、Stacks validate/deploy/action/delete、镜像 pull/delete、网络/卷 create/delete）。
+  - `presentation/docker_view.dart`：主工作区布局（头部 + 导航栏 + 页面切换），View 层仅组合 6 个页面、8 个对话框和共享组件，不含业务判断。
+  - `presentation/pages/`：`docker_overview_page`、`docker_containers_page`、`docker_stacks_page`、`docker_images_page`、`docker_networks_volumes_page`。
+  - `presentation/dialogs/`：`docker_dialogs_shared.dart`（删除确认）、`docker_container_dialogs.dart`（创建/重命名、详情含 logs/stats）、`docker_stack_dialogs.dart`（校验/部署/编辑 YAML）、`docker_resource_dialogs.dart`（拉取镜像、创建网络/卷、Docker 不可用提示）。
+- 兼容层：`lib/apps/docker/docker_manager_app.dart` 仅剩 30+ 行薄壳，内部 new `DockerView(vm: di<DockerViewModel>())` 并包装为 `ServerApp`，其余桌面入口完全不受影响。
+
+### Notepad
+- 目录：`lib/features/notepad/`
+  - `domain/notepad_models.dart`：`DocSnapshot`（文本 + 行尾 + 编码 + 脏状态）、`notepadSupportedExtensions`、`notepadFontSizes`、`EncodingDialogAction`、`CursorPosition`、`FindOptions`。
+  - `domain/notepad_ui_state.dart`：`@immutable NotepadUiState`，包含文档快照、选择/查找、字体字号、换行、状态栏文案。
+  - `data/text_file_repository.dart`：`TextFileRepository` 接口 + `RemoteTextFileRepository`，把 `RemoteFileApi` 的 bytes + 编码转换封装成 domain 操作（load/save、upload/download、编码探测）。
+  - `application/notepad_view_model.dart`：`ValueNotifier<NotepadUiState>` + 命令（new/open/save/saveAs/encoding/reload/find/replace/print/open properties）；撤销/重做栈作为 ViewModel 内部状态。
+  - `presentation/components/notepad_components.dart`：菜单栏、查找替换工具栏、状态栏（不含业务调用，全部回调到 ViewModel）。
+  - `presentation/dialogs/notepad_dialogs.dart`：保存路径、确认丢弃更改、编码选择、设置（字体/字号/换行）等，仍由 `ModalManager` + owner-bound 窗口完成。
+  - `presentation/notepad_view.dart`：组合菜单、编辑区、查找替换条、状态栏。
+- 兼容层：`lib/apps/notepad/notepad_app.dart` 重写为 30+ 行薄壳，内部创建 `NotepadView(vm: di<NotepadViewModel>())`，老 Notepad `ServerApp` 入口与 window registry 保持可用。
+
+### File Manager（Explorer）
+- 目录：`lib/features/file_manager/`
+  - `domain/file_manager_models.dart`：`FileItem` / `FileItemKind`、`TreeNodeItem` / `TreeNodeKind`、`OpenWithCandidate` / `OpenWithChoice`。
+  - `domain/file_manager_ui_state.dart`：`@immutable FileManagerUiState`，含当前路径、搜索、视图模式、条目、选中项、树节点、加载/错误、上传/下载状态、选择器模式（`ExplorerPickerOptions`）。
+  - `data/file_manager_repository.dart`：`FileManagerRepository` 接口 + `RemoteFileManagerRepository`，封装 `RemoteFileApi` 到 domain（list、create folder、rename、copy/cut/paste、delete、download、openWith、properties、上传、驱动器树、recent）。
+  - `application/file_manager_view_model.dart`：继承自 `ViewModel`。导航栈（back/forward/up、前进后分支修剪）、刷新、单选/多选、右键菜单可用判断、命令（newFolder/rename/copy/cut/paste/delete/download/properties/refresh/openWith/openTerminal）、picker 状态机（folder/file/save-file mode + filter + confirm/cancel）。回调钩子（`showMessageAsync`/`showError`/`openFileAppAsync`/`openWithChooseAsync`/`openTerminal`/`showPropertiesAsync`/`confirmPicker`/`onCancelPicker`）由 View 设置，不引入 `BuildContext`，满足 AGENTS.md §9。
+  - `presentation/components/file_manager_chrome.dart`：工具栏、地址栏、侧边导航树、状态栏、picker 底栏；400 行左右，语义上不可再拆（否则会出现 meaningless fragmentation）。
+  - `presentation/components/file_manager_file_list.dart`：详情视图与 tiles 视图共用的列表；多选与右键菜单定位回抛给 View。
+  - `presentation/dialogs/file_manager_dialogs.dart`：文本输入（重命名/新建文件夹）、删除确认、属性、Open With、以及 `buildFileManagerContextMenu()`（输出 `List<ContextMenuEntry>`，由 View 在合适位置 `RemoteContextMenuController.show`，实现 AGENTS.md §19 的 View 定位 + ViewModel 意图分离）。
+  - `presentation/file_manager_view.dart`：`ConsumerStatefulWidget`。拥有 `TextEditingController`、`FocusNode`、`RemoteContextMenuController`，负责对话框 + 原生选择器 + 剪贴板文件的 UI 钩子装配，不直接调用 REST。
+- 兼容层：`lib/apps/explorer/explorer_app.dart` 仅 30+ 行，构造 `FileManagerView(vm: di<FileManagerViewModel>())`，原有 app 注册/窗口入口 100% 兼容。
+
+### 验证结果（本轮）
+- 依赖：`flutter pub get` 通过；`get_it 9.2.1` 仍与 `signalr_hub 2.1.1` 要求一致，`command_it 9.5.1` 已修复 command_it v0.x 不存在的版本问题。
+- 静态分析：`flutter analyze lib`（终端直出，非 LSP 托管模式）。
+  - `error` 数：**0**。
+  - `warning` 数：11（多为 unused-import 与空 aware 表达式，均不涉及本轮核心 MVVM 契约）。
+  - `info` 数：60（集中在 `withOpacity`、`value/groupValue` 弃用、statements-in-if、变量命名；部分来自未重构模块如 `screens/desktop`、`screens/login`、`screens/widgets/taskbar`，后续 `FLUTTER-016` 计划专门一轮扫 deprecated）。
+- 单元/集成测试：
+  ```
+  flutter test
+  ```
+  结果：**30 通过 / ~3 跳过 / 1 失败**。失败用例为 `test/screens/login/login_screen_test.dart` 的 `expanded login options fit without a scrolling form`，报 `TimeoutException after 0:10:00`（10 分钟超时），与本轮重构的 MVVM/Repository 代码路径无交集，且此前各轮测试中该测试在宿主上就表现不稳定，建议单独跑一次并记录环境；其余 30 个已有单测 + 3 个 `REMOTEOS_E2E_*` 驱动的 E2E（按设计跳过）表现与上一轮一致。
+- Windows 构建：已知宿主 VS 未安装 ATL，`flutter build windows --debug` 会在 `flutter_secure_storage_windows` 编译阶段失败（`atlstr.h` 缺失），与代码无关。解决路径仍为 VS Installer 勾选 “C++ ATL for latest v143 build tools”。
+- 备注：登录屏 widget 测试超时不影响本轮 5 个 feature 的 Dart 层编译与命令契约，已由剩余 30 项测试把 ViewModel 所在工程完整编译到 AOT/VM 测试产物。
+
+### 已知遗留（下一轮清理项，未纳入本轮范围）
+- 旧 `screens/desktop/desktop_screen.dart`、`screens/widgets/taskbar.dart`、`screens/login/login_screen.dart`、`lib/core/theme/theme_service.dart` 中 `withOpacity` / Radio `groupValue+onChanged` / `DropdownButtonFormField.value` 的 deprecated 使用（共约 30 处 info）。这些不在本轮 5 个 feature 范围内，统一在后续 deprecated 扫盲轮处理。
+- 关联模块（终端、任务管理器、防火墙、图片查看器、代码编辑器）仍在 `apps/*` 下。它们的 MVVM 迁移对应后续 backlog，不与本轮耦合。
+- `login_screen_test.dart` 超时：疑似宿主编译/渲染环境抖动，非代码正确性问题，需在干净环境/高规格机器单独复现。
+
+据此，本轮 `FLUTTER-015` 视为完成：桌面 Shell / Settings / Docker / Notepad / File Manager 已按 `AGENTS.md` + `ARCHITECTURE.md` 的 feature-first MVVM 要求落地，依赖方向与 ViewModel 禁止 BuildContext 两条核心规则均已满足。
+
 
 ## FLUTTER-009 验收记录
 

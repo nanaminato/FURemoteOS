@@ -8,11 +8,11 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/theme_service.dart';
-import '../../../core/window_manager/modal_manager.dart';
-import '../../../core/window_manager/window_manager.dart';
-import '../../files/text_file_encodings.dart';
-import '../domain/notepad_models.dart';
+import '../../../../../core/theme/theme_service.dart';
+import '../../../../../core/window_manager/modal_manager.dart';
+import '../../../../../core/window_manager/window_manager.dart';
+import '../../../../features/files/text_file_encodings.dart';
+import '../../domain/notepad_models.dart';
 
 /// Save-as path input dialog. Mirrors Avalonia's `TextInputDialogView`.
 class NotepadSavePathDialog extends ConsumerStatefulWidget {
@@ -49,7 +49,7 @@ class _NotepadSavePathDialogState extends ConsumerState<NotepadSavePathDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final palette = ThemePalette.of(ref, context);
+    final palette = watchPalette(ref, context);
     final dialogId = RemoteModalScope.of(context).windowId;
     final modals = ref.read(modalManagerProvider);
     return Padding(
@@ -108,7 +108,7 @@ class NotepadConfirmDialog extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final palette = ThemePalette.of(ref, context);
+    final palette = watchPalette(ref, context);
     final dialogId = RemoteModalScope.of(context).windowId;
     final modals = ref.read(modalManagerProvider);
     return Padding(
@@ -145,7 +145,7 @@ class NotepadEncodingActionDialog extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final palette = ThemePalette.of(ref, context);
+    final palette = watchPalette(ref, context);
     final dialogId = RemoteModalScope.of(context).windowId;
     final modals = ref.read(modalManagerProvider);
     return Padding(
@@ -220,7 +220,7 @@ class _NotepadEncodingDialogState extends ConsumerState<NotepadEncodingDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final palette = ThemePalette.of(ref, context);
+    final palette = watchPalette(ref, context);
     final dialogId = RemoteModalScope.of(context).windowId;
     final modals = ref.read(modalManagerProvider);
     return Padding(
@@ -301,7 +301,7 @@ class _NotepadSettingsDialogState extends ConsumerState<NotepadSettingsDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final palette = ThemePalette.of(ref, context);
+    final palette = watchPalette(ref, context);
     final dialogId = RemoteModalScope.of(context).windowId;
     final modals = ref.read(modalManagerProvider);
     return Padding(

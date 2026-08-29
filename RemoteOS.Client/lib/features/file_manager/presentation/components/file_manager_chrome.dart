@@ -5,11 +5,11 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/theme_service.dart';
-import '../application/file_manager_view_model.dart';
-import '../domain/file_manager_models.dart';
-import '../domain/file_manager_ui_state.dart';
-import '../../explorer/explorer_picker.dart';
+import '../../../../core/theme/theme_service.dart';
+import '../../application/file_manager_view_model.dart';
+import '../../domain/file_manager_models.dart';
+import '../../domain/file_manager_ui_state.dart';
+import '../../../../apps/explorer/explorer_picker.dart';
 
 // ---------- Toolbar (edit actions) ----------
 
@@ -155,12 +155,14 @@ class FileManagerAddressBar extends StatelessWidget {
     required this.vm,
     required this.addressController,
     required this.searchController,
+    this.addressFocusNode,
   });
 
   final FileManagerUiState state;
   final FileManagerViewModel vm;
   final TextEditingController addressController;
   final TextEditingController searchController;
+  final FocusNode? addressFocusNode;
 
   @override
   Widget build(BuildContext context) {
@@ -175,6 +177,7 @@ class FileManagerAddressBar extends StatelessWidget {
         Expanded(
           child: TextField(
             controller: addressController,
+            focusNode: addressFocusNode,
             style: TextStyle(color: palette.textPrimary, fontSize: 13),
             onSubmitted: (value) {
               if (value.trim().isEmpty) return;
@@ -408,11 +411,13 @@ class FileManagerPickerFooter extends StatelessWidget {
     required this.state,
     required this.vm,
     required this.nameController,
+    this.nameFocusNode,
   });
 
   final FileManagerUiState state;
   final FileManagerViewModel vm;
   final TextEditingController nameController;
+  final FocusNode? nameFocusNode;
 
   @override
   Widget build(BuildContext context) {
@@ -438,6 +443,7 @@ class FileManagerPickerFooter extends StatelessWidget {
         Expanded(
           child: TextField(
             controller: nameController,
+            focusNode: nameFocusNode,
             style: TextStyle(color: palette.textPrimary),
             onChanged: (value) => vm.setPickerEntryName(value),
             decoration: const InputDecoration(isDense: true),

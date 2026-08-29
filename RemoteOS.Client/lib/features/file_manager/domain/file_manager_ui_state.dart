@@ -6,8 +6,8 @@
 
 import 'package:flutter/foundation.dart';
 
-import '../../explorer/explorer_picker.dart';
-import '../domain/file_manager_models.dart';
+import '../../../apps/explorer/explorer_picker.dart';
+import 'file_manager_models.dart';
 
 @immutable
 class FileManagerUiState {
