@@ -303,6 +303,12 @@ class _DesktopShellViewState extends ConsumerState<DesktopShellView> {
                           onStartPressed: _vm.toggleStartMenu,
                           onLogout: _handleLogout,
                           overlayNotifier: _vm.overlay,
+                          contextMenuController: _desktopMenu,
+                          onOpenTaskManager: () => _handleAppById(
+                            context,
+                            workAreaSize,
+                            'task_manager',
+                          ),
                         ),
                       ),
                     ],
@@ -323,11 +329,6 @@ class _DesktopShellViewState extends ConsumerState<DesktopShellView> {
           onSelected: () => _vm.refreshCommand.run(null),
         ),
         const ContextMenuDivider(),
-        ContextMenuAction(
-          label: 'Task Manager',
-          icon: Icons.monitor_heart_outlined,
-          onSelected: () => _handleAppById(context, workArea, 'task_manager'),
-        ),
         ContextMenuAction(
           label: 'Settings',
           icon: Icons.settings_outlined,

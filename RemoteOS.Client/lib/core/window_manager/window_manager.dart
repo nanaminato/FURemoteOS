@@ -254,21 +254,14 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
 
     // 3) Raise the chain in root-first order so internal z-order is preserved:
     // root < level-1 modal < ... < topmost, all above unrelated windows.
-    // Produce a new list so StateNotifier fires a change notification.
-    final chainIds = <String>{for (final w in activeChain) w.id};
-    final updated = <RemoteWindow>[];
-    // Emit unrelated windows first in their existing order.
-    for (final w in list) {
-      if (chainIds.contains(w.id)) continue;
-      updated.add(w);
-    }
-    // Append the chain with sequentially bumped z values. The view sorts
-    // windows by zOrder so root < level-1 < ... < topmost renders correctly.
+    // Keep the state-list order intact: it represents application launch
+    // order for taskbar grouping, while the window layer sorts by [zOrder].
     for (final w in activeChain) {
       w.zOrder = _zCounter++;
-      updated.add(w);
     }
-    state = updated;
+    // Publish a new list after mutating z values so listeners rebuild, without
+    // making the taskbar icons jump whenever a window receives focus.
+    state = list;
   }
 
   /// Close a window.

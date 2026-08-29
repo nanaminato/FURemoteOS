@@ -324,6 +324,23 @@ void main() {
     });
   });
 
+  test('focusing a window preserves taskbar launch order', () {
+    final manager = WindowManagerNotifier();
+    final first = window(id: 'first');
+    final second = window(id: 'second');
+    final third = window(id: 'third');
+    manager.state = [first, second, third];
+
+    manager.focus(first.id);
+    manager.focus(second.id);
+
+    expect(
+      manager.state.map((item) => item.id),
+      ['first', 'second', 'third'],
+    );
+    expect(second.zOrder, greaterThan(first.zOrder));
+  });
+
   group('showDialog lifts owner chain (same semantics as focus)', () {
     RemoteWindow plain(String id) => RemoteWindow(
           id: id,

@@ -14,6 +14,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/auth/auth_service.dart';
 import '../../../../core/theme/theme_service.dart';
+import '../../../../core/window_manager/context_menu_host.dart';
 import '../../../../core/window_manager/window_manager.dart';
 import '../desktop_shell_view_model.dart';
 
@@ -23,11 +24,15 @@ class DesktopTaskbar extends ConsumerWidget {
     required this.onStartPressed,
     required this.onLogout,
     required this.overlayNotifier,
+    required this.contextMenuController,
+    required this.onOpenTaskManager,
   });
 
   final VoidCallback onStartPressed;
   final VoidCallback onLogout;
   final ValueNotifier<DesktopOverlay> overlayNotifier;
+  final RemoteContextMenuController contextMenuController;
+  final VoidCallback onOpenTaskManager;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -40,50 +45,60 @@ class DesktopTaskbar extends ConsumerWidget {
       valueListenable: overlayNotifier,
       builder: (context, overlay, _) {
         final isStartOpen = overlay == DesktopOverlay.startMenu;
-        return Container(
-          height: 48,
-          decoration: BoxDecoration(
-            color: palette.taskbarBackground,
-            border:
-                Border(top: BorderSide(color: palette.borderSubtle, width: 1)),
-            boxShadow: [
-              BoxShadow(
-                color: palette.shadow.withValues(alpha: 0.6),
-                blurRadius: 8,
-                offset: const Offset(0, -2),
-              ),
-            ],
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Row(
-            children: [
-              _buildStartButton(palette, isStartOpen),
-              const SizedBox(width: 4),
-              _buildSearchBox(palette),
-              const SizedBox(width: 4),
-              VerticalDivider(
-                  width: 1,
-                  color: palette.borderSubtle,
-                  thickness: 1,
-                  indent: 10,
-                  endIndent: 10),
-              const SizedBox(width: 4),
-              Expanded(child: _buildAppIcons(palette, windows, wm)),
-              const SizedBox(width: 4),
-              VerticalDivider(
-                  width: 1,
-                  color: palette.borderSubtle,
-                  thickness: 1,
-                  indent: 10,
-                  endIndent: 10),
-              const SizedBox(width: 8),
-              _buildTrayIcons(palette),
-              const SizedBox(width: 8),
-              _buildClock(palette),
-              const SizedBox(width: 8),
-              _buildConnectionButton(context, palette, authState),
-              const SizedBox(width: 8),
-            ],
+        return ContextMenuRegion(
+          controller: contextMenuController,
+          entries: [
+            ContextMenuAction(
+              label: 'app.task_manager'.tr(),
+              icon: Icons.monitor_heart_outlined,
+              onSelected: onOpenTaskManager,
+            ),
+          ],
+          child: Container(
+            height: 48,
+            decoration: BoxDecoration(
+              color: palette.taskbarBackground,
+              border: Border(
+                  top: BorderSide(color: palette.borderSubtle, width: 1)),
+              boxShadow: [
+                BoxShadow(
+                  color: palette.shadow.withValues(alpha: 0.6),
+                  blurRadius: 8,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              children: [
+                _buildStartButton(palette, isStartOpen),
+                const SizedBox(width: 4),
+                _buildSearchBox(palette),
+                const SizedBox(width: 4),
+                VerticalDivider(
+                    width: 1,
+                    color: palette.borderSubtle,
+                    thickness: 1,
+                    indent: 10,
+                    endIndent: 10),
+                const SizedBox(width: 4),
+                Expanded(child: _buildAppIcons(palette, windows, wm)),
+                const SizedBox(width: 4),
+                VerticalDivider(
+                    width: 1,
+                    color: palette.borderSubtle,
+                    thickness: 1,
+                    indent: 10,
+                    endIndent: 10),
+                const SizedBox(width: 8),
+                _buildTrayIcons(palette),
+                const SizedBox(width: 8),
+                _buildClock(palette),
+                const SizedBox(width: 8),
+                _buildConnectionButton(context, palette, authState),
+                const SizedBox(width: 8),
+              ],
+            ),
           ),
         );
       },
@@ -158,6 +173,8 @@ class DesktopTaskbar extends ConsumerWidget {
 
   Widget _buildAppIcons(ThemePalette palette, List<RemoteWindow> windows,
       WindowManagerNotifier wm) {
+    // Focus updates z-order only, so this grouping remains in app-launch
+    // order while the window layer independently renders the active window.
     final grouped = <String, List<RemoteWindow>>{};
     final appWindows = windows.where((window) => !window.isModal).toList();
     final activeWindow = appWindows
