@@ -16,6 +16,7 @@ import '../../system_monitor/data/performance_hub.dart';
 import '../../system_monitor/data/remote_system_monitor_api.dart';
 import '../data/repositories/remote_task_repository.dart';
 import '../domain/task_repository.dart';
+import '../domain/task_performance_item.dart';
 import '../domain/task_ui_state.dart';
 
 /// Factory used by the app shell to construct a transient VM.
@@ -59,6 +60,19 @@ class TaskManagerViewModel extends ViewModel {
   // Command instances still provide `canRun`/`isRunning` execution state.
 
   bool canRefreshProcesses() => !_s.isLoading;
+
+  List<TaskPerformanceItem> get performanceItems =>
+      buildTaskPerformanceItems(_s.info, _s.snapshot, _s.history);
+
+  TaskPerformanceItem? get selectedPerformanceItem {
+    for (final item in performanceItems) {
+      if (item.key == _s.selectedPerformanceKey) return item;
+    }
+    return performanceItems.isEmpty ? null : performanceItems.first;
+  }
+
+  void selectPerformanceItem(TaskPerformanceItem item) => _mutate(
+      (s) => s.copyWith(selectedPerformanceKey: item.key));
 
   // ---- Computed helpers for resource-specific history values ----
 

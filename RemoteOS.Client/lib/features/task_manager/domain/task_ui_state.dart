@@ -20,6 +20,7 @@ class TaskManagerUiState {
     required this.history,
     required this.selectedResource,
     required this.selectedResourceId,
+    required this.selectedPerformanceKey,
     required this.processes,
     required this.selectedProcessId,
     required this.processFilter,
@@ -37,6 +38,7 @@ class TaskManagerUiState {
         history: [],
         selectedResource: PerformanceResource.cpu,
         selectedResourceId: null,
+        selectedPerformanceKey: 'cpu:cpu',
         processes: null,
         selectedProcessId: null,
         processFilter: '',
@@ -53,6 +55,7 @@ class TaskManagerUiState {
   final List<PerformanceSnapshot> history;
   final PerformanceResource selectedResource;
   final String? selectedResourceId;
+  final String selectedPerformanceKey;
   final ProcessPage? processes;
   final int? selectedProcessId;
   final String processFilter;
@@ -84,6 +87,7 @@ class TaskManagerUiState {
     PerformanceResource? selectedResource,
     String? selectedResourceId,
     bool clearSelectedResourceId = false,
+    String? selectedPerformanceKey,
     ProcessPage? processes,
     int? selectedProcessId,
     bool clearSelectedProcess = false,
@@ -104,6 +108,7 @@ class TaskManagerUiState {
       selectedResourceId: clearSelectedResourceId
           ? null
           : (selectedResourceId ?? this.selectedResourceId),
+      selectedPerformanceKey: selectedPerformanceKey ?? this.selectedPerformanceKey,
       processes: processes ?? this.processes,
       selectedProcessId: clearSelectedProcess
           ? null

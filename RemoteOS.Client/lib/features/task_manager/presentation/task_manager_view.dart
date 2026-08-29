@@ -5,6 +5,7 @@ import '../../../core/theme/theme_service.dart';
 import '../application/task_manager_view_model.dart';
 import '../domain/task_ui_state.dart';
 import 'components/task_manager_components.dart';
+import 'components/task_manager_performance_workspace.dart';
 
 /// Desktop task manager shell. It preserves Avalonia's two top-level tabs;
 /// each page owns a dense desktop workspace rather than a mobile card layout.
@@ -56,8 +57,8 @@ class _TaskManagerViewState extends State<TaskManagerView> {
           const Expanded(child: Center(child: CircularProgressIndicator()))
         else
           Expanded(
-              child: state.tabIndex == 0
-                  ? PerformanceWorkspace(vm: widget.vm)
+                child: state.tabIndex == 0
+                    ? AvaloniaPerformanceWorkspace(vm: widget.vm)
                   : ProcessWorkspace(vm: widget.vm)),
       ]),
     );
