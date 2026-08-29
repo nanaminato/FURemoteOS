@@ -29,8 +29,8 @@ class DesktopWindowLayer extends ConsumerWidget {
                         .where((item) => item.id == window.modalOwnerId)
                         .isEmpty
                     ? null
-                    : sorted.firstWhere(
-                        (item) => item.id == window.modalOwnerId),
+                    : sorted
+                        .firstWhere((item) => item.id == window.modalOwnerId),
               ),
             RemoteWindowChrome(window: window, workArea: workArea),
           ],
@@ -52,8 +52,7 @@ class _ModalBlocker extends ConsumerWidget {
       rect: owner!.bounds,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () =>
-            ref.read(windowManagerProvider.notifier).focus(dialogId),
+        onTap: () => ref.read(windowManagerProvider.notifier).focus(dialogId),
         child: ColoredBox(color: Colors.black.withValues(alpha: 0.16)),
       ),
     );

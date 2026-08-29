@@ -37,7 +37,10 @@ class ModularAssetLoader extends AssetLoader {
 
     // Load the fallback locale first so every shipped key exists, then overlay
     // the active locale on top.
-    final localesToLoad = <String>{LanguageCatalog.fallbackLocaleTag, localeName};
+    final localesToLoad = <String>{
+      LanguageCatalog.fallbackLocaleTag,
+      localeName
+    };
     for (final tag in localesToLoad) {
       if (!activeCatalog.isBuiltIn(tag)) continue;
       final definedKeys = <String>{};

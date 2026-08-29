@@ -36,8 +36,7 @@ class NetworksPage extends StatelessWidget {
         const SizedBox(height: 12),
         HintText('docker.networks_hint'.tr(), palette),
         const SizedBox(height: 12),
-        OutlinedButton(
-            onPressed: onCreate, child: Text('common.create'.tr())),
+        OutlinedButton(onPressed: onCreate, child: Text('common.create'.tr())),
         const SizedBox(height: 12),
         Divider(height: 1, color: palette.borderSubtle),
         const SizedBox(height: 12),
@@ -92,8 +91,7 @@ class VolumesPage extends StatelessWidget {
         const SizedBox(height: 12),
         HintText('docker.volumes_hint'.tr(), palette),
         const SizedBox(height: 12),
-        OutlinedButton(
-            onPressed: onCreate, child: Text('common.create'.tr())),
+        OutlinedButton(onPressed: onCreate, child: Text('common.create'.tr())),
         const SizedBox(height: 12),
         Divider(height: 1, color: palette.borderSubtle),
         const SizedBox(height: 12),

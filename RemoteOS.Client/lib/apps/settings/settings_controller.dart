@@ -64,7 +64,8 @@ class SettingsController extends StateNotifier<SettingsState> {
   // -------------------------------------------------------------------------
 
   void bootstrap() {
-    vm.bootstrapCommand.run();
+    // ignore: discarded_futures
+    vm.bootstrapCommand();
     state = vm.state.value;
   }
 

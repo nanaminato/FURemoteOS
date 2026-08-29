@@ -82,8 +82,8 @@ class _DockerViewState extends ConsumerState<DockerView> {
 
   // ---- Dialog plumbing ---------------------------------------------------
 
-  Future<void> _openDialog(String title, IconData icon, Size size,
-          Widget child) =>
+  Future<void> _openDialog(
+          String title, IconData icon, Size size, Widget child) =>
       ref.read(modalManagerProvider).open<void>(
           ownerId: _ownerId,
           spec: ModalSpec(
@@ -95,11 +95,8 @@ class _DockerViewState extends ConsumerState<DockerView> {
       const Size(720, 690),
       CreateContainerDialog(vm: _vm));
 
-  Future<void> _showDeployStack() => _openDialog(
-      'docker.stack.deploy'.tr(),
-      Icons.account_tree_outlined,
-      const Size(760, 550),
-      StackDialog(vm: _vm));
+  Future<void> _showDeployStack() => _openDialog('docker.stack.deploy'.tr(),
+      Icons.account_tree_outlined, const Size(760, 550), StackDialog(vm: _vm));
 
   Future<void> _showEditStack(String name, String composeYaml) => _openDialog(
       'docker.stack.edit'.tr(),
@@ -107,17 +104,11 @@ class _DockerViewState extends ConsumerState<DockerView> {
       const Size(760, 550),
       StackDialog(vm: _vm, initialName: name, initialYaml: composeYaml));
 
-  Future<void> _showPullImage() => _openDialog(
-      'docker.image.pull'.tr(),
-      Icons.download_outlined,
-      const Size(470, 230),
-      PullImageDialog(vm: _vm));
+  Future<void> _showPullImage() => _openDialog('docker.image.pull'.tr(),
+      Icons.download_outlined, const Size(470, 230), PullImageDialog(vm: _vm));
 
-  Future<void> _showCreateNetwork() => _openDialog(
-      'common.create'.tr(),
-      Icons.hub_outlined,
-      const Size(470, 280),
-      CreateNetworkDialog(vm: _vm));
+  Future<void> _showCreateNetwork() => _openDialog('common.create'.tr(),
+      Icons.hub_outlined, const Size(470, 280), CreateNetworkDialog(vm: _vm));
 
   Future<void> _showCreateVolume() => _openDialog(
       'common.create'.tr(),

@@ -1,4 +1,4 @@
-﻿import 'package:easy_localization/easy_localization.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -56,8 +56,10 @@ class SettingsDeveloperPage extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 8),
-          SettingsInfoRow(palette: palette,
-              label: 'settings.endpoint'.tr(), value: devEndpoint),
+          SettingsInfoRow(
+              palette: palette,
+              label: 'settings.endpoint'.tr(),
+              value: devEndpoint),
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Row(
@@ -70,8 +72,8 @@ class SettingsDeveloperPage extends ConsumerWidget {
                 ),
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: palette.surfaceSunken,
                       borderRadius: BorderRadius.circular(4),
@@ -101,8 +103,8 @@ class SettingsDeveloperPage extends ConsumerWidget {
           ),
         ]),
         const SizedBox(height: 16),
-        SettingsSectionTitle(palette: palette,
-            title: 'settings.network_inspector.title'.tr()),
+        SettingsSectionTitle(
+            palette: palette, title: 'settings.network_inspector.title'.tr()),
         const SizedBox(height: 8),
         SettingsCard(palette: palette, children: [
           Row(
@@ -126,8 +128,8 @@ class SettingsDeveloperPage extends ConsumerWidget {
               FilledButton.icon(
                 onPressed: state.devModeEnabled
                     ? () {
-                        showInfoSnack(context,
-                            'settings.network_inspector.opening'.tr(),
+                        showInfoSnack(
+                            context, 'settings.network_inspector.opening'.tr(),
                             onFallback: () => ctrl.setImageMirrorStatus(
                                 'settings.network_inspector.opening'.tr()));
                       }

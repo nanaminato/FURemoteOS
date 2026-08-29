@@ -1,4 +1,4 @@
-﻿import 'package:easy_localization/easy_localization.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -30,8 +30,8 @@ class SettingsNetworkPage extends ConsumerWidget {
             title: 'settings.page.network'.tr(),
             subtitle: 'settings.network.description'.tr()),
         const SizedBox(height: 20),
-        SettingsSectionTitle(palette: palette,
-            title: 'settings.network.connection'.tr()),
+        SettingsSectionTitle(
+            palette: palette, title: 'settings.network.connection'.tr()),
         const SizedBox(height: 8),
         SettingsCard(palette: palette, children: [
           SettingsInfoRow(
@@ -42,12 +42,16 @@ class SettingsNetworkPage extends ConsumerWidget {
                 : 'settings.value.not_connected'.tr(),
             valueColor: connected ? palette.success : palette.textTertiary,
           ),
-          SettingsInfoRow(palette: palette,
-              label: 'settings.server'.tr(), value: auth.serverUrl ?? '—'),
-          SettingsInfoRow(palette: palette,
+          SettingsInfoRow(
+              palette: palette,
+              label: 'settings.server'.tr(),
+              value: auth.serverUrl ?? '—'),
+          SettingsInfoRow(
+              palette: palette,
               label: 'settings.workspace'.tr(),
               value: auth.workspaceName ?? '—'),
-          SettingsInfoRow(palette: palette,
+          SettingsInfoRow(
+              palette: palette,
               label: 'settings.network.latency'.tr(),
               value: state.networkLatencyText.isEmpty
                   ? 'settings.network.not_tested'.tr()
@@ -75,8 +79,8 @@ class SettingsNetworkPage extends ConsumerWidget {
           ),
         ]),
         const SizedBox(height: 20),
-        SettingsSectionTitle(palette: palette,
-            title: 'settings.network.addresses'.tr()),
+        SettingsSectionTitle(
+            palette: palette, title: 'settings.network.addresses'.tr()),
         const SizedBox(height: 8),
         SettingsCard(palette: palette, children: [
           Row(
@@ -90,9 +94,8 @@ class SettingsNetworkPage extends ConsumerWidget {
                         TextStyle(color: palette.textSecondary, fontSize: 12)),
               ),
               OutlinedButton.icon(
-                onPressed: !state.networkAddrLoading
-                    ? ctrl.refreshAddresses
-                    : null,
+                onPressed:
+                    !state.networkAddrLoading ? ctrl.refreshAddresses : null,
                 icon: state.networkAddrLoading
                     ? const SizedBox(
                         width: 14,

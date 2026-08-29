@@ -106,16 +106,13 @@ class FileManagerUiState {
   bool get isPickerMode => pickerOptions != null;
 
   ExplorerPickerMode? get pickerMode => pickerOptions?.mode;
-  bool get isFolderPickerMode =>
-      pickerMode == ExplorerPickerMode.selectFolder;
+  bool get isFolderPickerMode => pickerMode == ExplorerPickerMode.selectFolder;
   bool get isFilePickerMode =>
       isPickerMode &&
       pickerMode != ExplorerPickerMode.selectFolder &&
       pickerMode != ExplorerPickerMode.saveFile;
-  bool get isSaveFilePickerMode =>
-      pickerMode == ExplorerPickerMode.saveFile;
-  bool get isMultiFilePickerMode =>
-      pickerMode == ExplorerPickerMode.openFiles;
+  bool get isSaveFilePickerMode => pickerMode == ExplorerPickerMode.saveFile;
+  bool get isMultiFilePickerMode => pickerMode == ExplorerPickerMode.openFiles;
   bool get allowMultipleFiles =>
       isMultiFilePickerMode ||
       (isFilePickerMode && (pickerOptions?.allowMultiple ?? false));
@@ -182,9 +179,8 @@ class FileManagerUiState {
       statusText: statusText ?? this.statusText,
       history: history ?? this.history,
       historyIndex: historyIndex ?? this.historyIndex,
-      clipboardPaths: clearClipboardPaths
-          ? null
-          : (clipboardPaths ?? this.clipboardPaths),
+      clipboardPaths:
+          clearClipboardPaths ? null : (clipboardPaths ?? this.clipboardPaths),
       clipboardIsCut: clipboardIsCut ?? this.clipboardIsCut,
       pickerOptions: pickerOptions ?? this.pickerOptions,
       pickerEntryName: pickerEntryName ?? this.pickerEntryName,

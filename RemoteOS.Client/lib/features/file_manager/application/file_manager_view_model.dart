@@ -71,7 +71,7 @@ class FileManagerViewModel extends ViewModel {
   FileManagerViewModel({
     required FileManagerRepository repository,
     ExplorerPickerOptions? picker,
-  })  : _repository = repository {
+  }) : _repository = repository {
     state = ValueNotifier<FileManagerUiState>(
         FileManagerUiState.initial(picker: picker));
     trackDisposable(state);
@@ -118,15 +118,13 @@ class FileManagerViewModel extends ViewModel {
 
   // ---- Commands ----
 
-  late final loadRootCommand =
-      Command.createAsyncNoParamNoResult(loadRoot);
+  late final loadRootCommand = Command.createAsyncNoParamNoResult(loadRoot);
   late final navigateBackCommand =
       Command.createSyncNoParamNoResult(navigateBack);
   late final navigateForwardCommand =
       Command.createSyncNoParamNoResult(navigateForward);
   late final goUpCommand = Command.createSyncNoParamNoResult(goUp);
-  late final newFolderCommand =
-      Command.createAsyncNoParamNoResult(newFolder);
+  late final newFolderCommand = Command.createAsyncNoParamNoResult(newFolder);
   late final renameCommand = Command.createAsyncNoParamNoResult(renameSelected);
   late final deleteCommand = Command.createAsyncNoParamNoResult(deleteSelected);
   late final copyCommand = Command.createSyncNoParamNoResult(copySelection);
@@ -142,8 +140,7 @@ class FileManagerViewModel extends ViewModel {
       Command.createAsyncNoParamNoResult(downloadSelected);
   late final propertiesCommand =
       Command.createAsyncNoParamNoResult(showSelectedProperties);
-  late final refreshCommand =
-      Command.createAsyncNoParamNoResult(refresh);
+  late final refreshCommand = Command.createAsyncNoParamNoResult(refresh);
   late final confirmPickerCommand =
       Command.createSyncNoParamNoResult(commitPicker);
 
@@ -208,9 +205,7 @@ class FileManagerViewModel extends ViewModel {
         if (e.isFolder) return false;
         return filter.matches(e.name) || filter.patterns.contains('*');
       }).toList(growable: false);
-      name = files.isEmpty
-          ? ''
-          : files.map((e) => '"${e.name}"').join(' ');
+      name = files.isEmpty ? '' : files.map((e) => '"${e.name}"').join(' ');
     } else {
       final files = selection.where((e) {
         if (e.isFolder) return false;
@@ -231,16 +226,16 @@ class FileManagerViewModel extends ViewModel {
     if (s.isSaveFilePickerMode) {
       return s.pickerEntryName.trim().isNotEmpty && s.currentPath.isNotEmpty;
     }
-    if (s.pickerEntryName.trim().isNotEmpty && !s.allowMultipleFiles) return true;
+    if (s.pickerEntryName.trim().isNotEmpty && !s.allowMultipleFiles)
+      return true;
     if (s.allowMultipleFiles) {
       final f = s.pickerSelectedFilter;
       return s.selectedEntries().any((e) =>
-          !e.isFolder &&
-          (f.matches(e.name) || f.patterns.contains('*')));
+          !e.isFolder && (f.matches(e.name) || f.patterns.contains('*')));
     }
     final f = s.pickerSelectedFilter;
-    return s.selectedEntries().any((e) =>
-        !e.isFolder && (f.matches(e.name) || f.patterns.contains('*')));
+    return s.selectedEntries().any(
+        (e) => !e.isFolder && (f.matches(e.name) || f.patterns.contains('*')));
   }
 
   bool isSelectableForPicker(FileItem entry) {
@@ -330,9 +325,10 @@ class FileManagerViewModel extends ViewModel {
       final drives = results[1] as List<RemoteDrive>;
 
       final home = specials.where((s) {
-        final name = s.name.toLowerCase();
-        return name == 'home';
-      }).firstOrNull ?? (specials.isNotEmpty ? specials.first : null);
+            final name = s.name.toLowerCase();
+            return name == 'home';
+          }).firstOrNull ??
+          (specials.isNotEmpty ? specials.first : null);
 
       final nodes = <TreeNodeItem>[];
 
@@ -604,7 +600,9 @@ class FileManagerViewModel extends ViewModel {
         ? 'This permanently deletes ${selection.single.name}.'
         : 'This permanently deletes ${selection.length} items.';
     final ok = await requestConfirmAsync?.call(
-      selection.length == 1 ? 'Delete ${selection.single.name}?' : 'Delete ${selection.length} items?',
+      selection.length == 1
+          ? 'Delete ${selection.single.name}?'
+          : 'Delete ${selection.length} items?',
       message,
       'Delete',
     );
@@ -639,8 +637,10 @@ class FileManagerViewModel extends ViewModel {
 
   bool canMoveEntry(FileItem source, FileItem target) {
     if (!target.isFolder || source.path == target.path) return false;
-    final sp = source.path.replaceAll('\\', '/').replaceFirst(RegExp(r'/+$'), '');
-    final tp = target.path.replaceAll('\\', '/').replaceFirst(RegExp(r'/+$'), '');
+    final sp =
+        source.path.replaceAll('\\', '/').replaceFirst(RegExp(r'/+$'), '');
+    final tp =
+        target.path.replaceAll('\\', '/').replaceFirst(RegExp(r'/+$'), '');
     if (!source.isFolder) return true;
     return !(tp == sp || tp.startsWith('$sp/'));
   }
@@ -689,8 +689,7 @@ class FileManagerViewModel extends ViewModel {
     }
     if (candidates.isEmpty) {
       showError?.call(const RemoteOsApiException(
-          statusCode: 409,
-          message: 'No compatible application is available.'));
+          statusCode: 409, message: 'No compatible application is available.'));
       return;
     }
     await openFileAppAsync?.call(entry, candidate ?? candidates.first);
@@ -736,7 +735,9 @@ class FileManagerViewModel extends ViewModel {
           .toList(growable: false);
       selected = folders.isNotEmpty
           ? folders
-          : (s.currentPath.isEmpty ? const <String>[] : <String>[s.currentPath]);
+          : (s.currentPath.isEmpty
+              ? const <String>[]
+              : <String>[s.currentPath]);
     } else if (s.isSaveFilePickerMode) {
       final typed = s.pickerEntryName.trim();
       if (typed.isEmpty || s.currentPath.isEmpty) return;
@@ -774,8 +775,7 @@ class FileManagerViewModel extends ViewModel {
           _resolveTypedName(s.currentPath, s.pickerEntryName.trim()),
         ];
       } else {
-        selected =
-            files.length > 1 ? <String>[files.first] : files;
+        selected = files.length > 1 ? <String>[files.first] : files;
       }
     }
     if (selected.isEmpty) return;
@@ -843,8 +843,23 @@ class FileManagerViewModel extends ViewModel {
     if (entry.mimeType?.toLowerCase().startsWith('text/') == true) return true;
     final name = entry.name.toLowerCase();
     return const [
-      '.txt', '.md', '.json', '.yaml', '.yml', '.xml', '.html', '.css',
-      '.js', '.ts', '.dart', '.cs', '.py', '.sh', '.toml', '.ini', '.log',
+      '.txt',
+      '.md',
+      '.json',
+      '.yaml',
+      '.yml',
+      '.xml',
+      '.html',
+      '.css',
+      '.js',
+      '.ts',
+      '.dart',
+      '.cs',
+      '.py',
+      '.sh',
+      '.toml',
+      '.ini',
+      '.log',
     ].any(name.endsWith);
   }
 

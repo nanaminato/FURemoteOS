@@ -29,17 +29,16 @@ class OverviewPage extends StatelessWidget {
       child: child);
 
   @override
-  Widget build(BuildContext context) => Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+  Widget build(BuildContext context) =>
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Expanded(
               child: _card(Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                 Text('docker.engine'.tr(),
-                    style: TextStyle(
-                        fontSize: 12, color: palette.textSecondary)),
+                    style:
+                        TextStyle(fontSize: 12, color: palette.textSecondary)),
                 const SizedBox(height: 6),
                 Text(vm.engineVersion,
                     style: TextStyle(
@@ -48,8 +47,8 @@ class OverviewPage extends StatelessWidget {
                         color: palette.textPrimary)),
                 const SizedBox(height: 6),
                 Text(vm.enginePlatform,
-                    style: TextStyle(
-                        fontSize: 13, color: palette.textSecondary)),
+                    style:
+                        TextStyle(fontSize: 13, color: palette.textSecondary)),
               ]))),
           const SizedBox(width: 18),
           Expanded(
@@ -57,8 +56,8 @@ class OverviewPage extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                 Text('docker.running_containers'.tr(),
-                    style: TextStyle(
-                        fontSize: 12, color: palette.textSecondary)),
+                    style:
+                        TextStyle(fontSize: 12, color: palette.textSecondary)),
                 const SizedBox(height: 6),
                 Text('${vm.runningContainerCount}',
                     style: TextStyle(
@@ -67,8 +66,8 @@ class OverviewPage extends StatelessWidget {
                         color: palette.textPrimary)),
                 const SizedBox(height: 6),
                 Text('docker.running_hint'.tr(),
-                    style: TextStyle(
-                        fontSize: 13, color: palette.textSecondary)),
+                    style:
+                        TextStyle(fontSize: 13, color: palette.textSecondary)),
               ]))),
         ]),
         const SizedBox(height: 18),

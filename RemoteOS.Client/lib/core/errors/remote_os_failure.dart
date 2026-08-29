@@ -60,7 +60,8 @@ final class ServerFailure extends RemoteOsFailure {
 
 /// Operation is valid but not supported in this server/client combination.
 final class UnsupportedOperationFailure extends RemoteOsFailure {
-  const UnsupportedOperationFailure({super.message, super.cause, super.stackTrace});
+  const UnsupportedOperationFailure(
+      {super.message, super.cause, super.stackTrace});
 }
 
 /// Explicit cancellation (e.g. user dismissed a dialog mid-flight).

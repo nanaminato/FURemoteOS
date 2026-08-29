@@ -1,4 +1,4 @@
-﻿{
+{
     "Strings":  {
                     "app.welcome":  "欢迎",
                     "app.notepad":  "记事本",
@@ -17,6 +17,7 @@
                     "app.git_client":  "Git 客户端",
                     "app.port_forwarding":  "端口转发",
                     "app.process_guardian":  "进程守护",
-                    "app.app_installer":  "应用安装器"
+                    "app.app_installer":  "应用安装器",
+                    "apps.desktop_unknown":  "未知应用"
                 }
 }

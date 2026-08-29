@@ -114,8 +114,7 @@ class SettingsViewModel extends ViewModel {
     _repository.queueTheme(_theme, _workspace);
   }
 
-  Future<String> importTheme() =>
-      _repository.importTheme(_theme, _workspace);
+  Future<String> importTheme() => _repository.importTheme(_theme, _workspace);
   Future<String> exportTheme() => _repository.exportTheme(_theme);
 
   Future<bool> deleteTheme(
@@ -196,7 +195,8 @@ class SettingsViewModel extends ViewModel {
       networkAddrLoading: false,
       networkAddrStatus: addresses.isEmpty
           ? 'settings.network.no_addresses'.tr()
-          : 'settings.network.addresses_found'.tr(args: ['${addresses.length}']),
+          : 'settings.network.addresses_found'
+              .tr(args: ['${addresses.length}']),
     );
   }
 
@@ -237,8 +237,8 @@ class SettingsViewModel extends ViewModel {
         entry: entry,
         child: entry.windowBuilder(ctx),
       );
-      state.value = state.value
-          .copyWith(appsActionStatus: 'settings.apps.opened'.tr(args: [displayName]));
+      state.value = state.value.copyWith(
+          appsActionStatus: 'settings.apps.opened'.tr(args: [displayName]));
     } catch (_) {
       state.value = state.value
           .copyWith(appsActionStatus: 'settings.apps.not_launchable'.tr());
@@ -371,8 +371,8 @@ class SettingsViewModel extends ViewModel {
     final appOptions = state.value.appOptions;
     if (scheme.startsWith('.')) {
       final declared = appOptions
-          .where((a) => a.extensions
-              .any((e) => e.toLowerCase() == scheme.toLowerCase()))
+          .where((a) =>
+              a.extensions.any((e) => e.toLowerCase() == scheme.toLowerCase()))
           .toList();
       if (declared.isNotEmpty) return declared;
       return appOptions.where((a) => a.extensions.isNotEmpty).toList();
@@ -440,9 +440,8 @@ class SettingsViewModel extends ViewModel {
 
   void regeneratePairingToken() {
     final rand = List.generate(
-        8,
-        (i) =>
-            '0123456789ABCDEF'[(DateTime.now().microsecond + i) % 16]).join();
+            8, (i) => '0123456789ABCDEF'[(DateTime.now().microsecond + i) % 16])
+        .join();
     state.value = state.value.copyWith(devPairingToken: 'R0-$rand-A1B2');
   }
 

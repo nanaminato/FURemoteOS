@@ -1,4 +1,4 @@
-﻿{
+{
     "Strings":  {
                     "app.welcome":  "Welcome",
                     "app.notepad":  "Notepad",
@@ -17,6 +17,7 @@
                     "app.git_client":  "Git Client",
                     "app.port_forwarding":  "Port Forwarding",
                     "app.process_guardian":  "Process Guardian",
-                    "app.app_installer":  "App Installer"
+                    "app.app_installer":  "App Installer",
+                    "apps.desktop_unknown":  "Unknown App"
                 }
 }

@@ -66,8 +66,7 @@ class _FileManagerViewState extends ConsumerState<FileManagerView> {
   @override
   void initState() {
     super.initState();
-    _vm = widget.vm ??
-        app_di.di<FileManagerViewModel>(param1: widget.picker);
+    _vm = widget.vm ?? app_di.di<FileManagerViewModel>(param1: widget.picker);
     _search.addListener(() => setState(() {}));
     unawaited(_vm.loadRootCommand.runAsync());
   }
@@ -124,8 +123,7 @@ class _FileManagerViewState extends ConsumerState<FileManagerView> {
         () => getDirectoryPath(confirmButtonText: 'Select folder');
     _vm.requestClipboardFilesAsync = Pasteboard.files;
     _vm.requestLocalSaveFileAsync = (suggested) async {
-      final location =
-          await getSaveLocation(suggestedName: suggested);
+      final location = await getSaveLocation(suggestedName: suggested);
       return location?.path;
     };
     _vm.showError = _showError;
@@ -224,7 +222,8 @@ class _FileManagerViewState extends ConsumerState<FileManagerView> {
 
   // ---- Open-with dispatch + app opening ----
 
-  Future<void> _openFileApp(FileItem entry, OpenWithCandidate? candidate) async {
+  Future<void> _openFileApp(
+      FileItem entry, OpenWithCandidate? candidate) async {
     final defaultAppId = _resolveDefaultApp(entry, candidate);
     if (defaultAppId == null) return;
     final registry = ref.read(appRegistryProvider);
@@ -338,8 +337,7 @@ class _FileManagerViewState extends ConsumerState<FileManagerView> {
               return Column(
                 children: [
                   picker
-                      ? FileManagerToolbar(
-                          state: s, vm: _vm, pickerMode: true)
+                      ? FileManagerToolbar(state: s, vm: _vm, pickerMode: true)
                       : FileManagerToolbar(
                           state: s, vm: _vm, pickerMode: false),
                   FileManagerAddressBar(

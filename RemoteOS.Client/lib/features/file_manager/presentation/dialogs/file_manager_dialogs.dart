@@ -28,8 +28,7 @@ class FmTextPromptDialog extends ConsumerStatefulWidget {
   final String confirmLabel;
 
   @override
-  ConsumerState<FmTextPromptDialog> createState() =>
-      _FmTextPromptDialogState();
+  ConsumerState<FmTextPromptDialog> createState() => _FmTextPromptDialogState();
 }
 
 class _FmTextPromptDialogState extends ConsumerState<FmTextPromptDialog> {
@@ -179,15 +178,17 @@ class FmPropertiesDialog extends ConsumerWidget {
               final (label, value) = rows[i];
               return Padding(
                 padding: const EdgeInsets.only(bottom: 10),
-                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  SizedBox(
-                      width: 100,
-                      child: Text(label,
-                          style: TextStyle(color: palette.textSecondary))),
-                  Expanded(
-                      child: Text(value,
-                          style: TextStyle(color: palette.textPrimary))),
-                ]),
+                child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                          width: 100,
+                          child: Text(label,
+                              style: TextStyle(color: palette.textSecondary))),
+                      Expanded(
+                          child: Text(value,
+                              style: TextStyle(color: palette.textPrimary))),
+                    ]),
               );
             },
           ),
@@ -259,7 +260,8 @@ class _FmOpenWithDialogState extends ConsumerState<FmOpenWithDialog> {
                   onTap: () => setState(() => _selected = i),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: sel ? palette.accent.withValues(alpha: 0.12) : null,
+                      color:
+                          sel ? palette.accent.withValues(alpha: 0.12) : null,
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(
                           color: sel

@@ -33,8 +33,7 @@ class CreateContainerDialog extends ConsumerStatefulWidget {
       _CreateContainerDialogState();
 }
 
-class _CreateContainerDialogState
-    extends ConsumerState<CreateContainerDialog> {
+class _CreateContainerDialogState extends ConsumerState<CreateContainerDialog> {
   final name = TextEditingController();
   final image = TextEditingController();
   final ports = TextEditingController();
@@ -98,24 +97,26 @@ class _CreateContainerDialogState
                     DialogLabel(
                         'docker.container.section.identity'.tr(), palette),
                     const SizedBox(height: 6),
-                    Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Expanded(
-                          child: TextField(
-                              controller: name,
-                              onChanged: (_) => setState(() {}),
-                              decoration: InputDecoration(
-                                  labelText: 'docker.container.name'.tr(),
-                                  isDense: true))),
-                      const SizedBox(width: 10),
-                      Expanded(
-                          child: TextField(
-                              controller: image,
-                              onChanged: (_) => setState(() {}),
-                              decoration: InputDecoration(
-                                  hintText: 'nginx:latest',
-                                  labelText: 'docker.container.image'.tr(),
-                                  isDense: true))),
-                    ]),
+                    Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                              child: TextField(
+                                  controller: name,
+                                  onChanged: (_) => setState(() {}),
+                                  decoration: InputDecoration(
+                                      labelText: 'docker.container.name'.tr(),
+                                      isDense: true))),
+                          const SizedBox(width: 10),
+                          Expanded(
+                              child: TextField(
+                                  controller: image,
+                                  onChanged: (_) => setState(() {}),
+                                  decoration: InputDecoration(
+                                      hintText: 'nginx:latest',
+                                      labelText: 'docker.container.image'.tr(),
+                                      isDense: true))),
+                        ]),
                     const SizedBox(height: 12),
                     DialogLabel(
                         'docker.container.section.runtime'.tr(), palette),
@@ -123,10 +124,10 @@ class _CreateContainerDialogState
                     Row(children: [
                       Expanded(
                           child: DropdownButtonFormField<String>(
-                              initialValue: widget.vm.availableNetworks
-                                      .contains(network)
-                                  ? network
-                                  : widget.vm.availableNetworks.firstOrNull,
+                              initialValue:
+                                  widget.vm.availableNetworks.contains(network)
+                                      ? network
+                                      : widget.vm.availableNetworks.firstOrNull,
                               items: [
                                 for (final value in widget.vm.availableNetworks)
                                   DropdownMenuItem(
@@ -142,12 +143,13 @@ class _CreateContainerDialogState
                           child: DropdownButtonFormField<String>(
                               initialValue: restartPolicy,
                               items: [
-                                for (final value in DockerViewModel.restartPolicies)
+                                for (final value
+                                    in DockerViewModel.restartPolicies)
                                   DropdownMenuItem(
                                       value: value, child: Text(value))
                               ],
-                              onChanged: (value) => setState(
-                                  () => restartPolicy = value ?? 'no'),
+                              onChanged: (value) =>
+                                  setState(() => restartPolicy = value ?? 'no'),
                               decoration: InputDecoration(
                                   labelText: 'docker.container.restart'.tr(),
                                   isDense: true))),
@@ -156,32 +158,32 @@ class _CreateContainerDialogState
                     DialogLabel(
                         'docker.container.section.connectivity'.tr(), palette),
                     const SizedBox(height: 6),
-                    Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Expanded(
-                          child: TextField(
-                              controller: ports,
-                              onChanged: (_) => setState(() {}),
-                              decoration: InputDecoration(
-                                  hintText: '8080:80',
-                                  labelText: 'docker.container.ports'.tr(),
-                                  isDense: true))),
-                      const SizedBox(width: 10),
-                      Expanded(
-                          child: TextField(
-                              controller: mounts,
-                              onChanged: (_) => setState(() {}),
-                              decoration: InputDecoration(
-                                  hintText: 'volume:/data',
-                                  labelText: 'docker.container.mounts'.tr(),
-                                  isDense: true))),
-                    ]),
+                    Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                              child: TextField(
+                                  controller: ports,
+                                  onChanged: (_) => setState(() {}),
+                                  decoration: InputDecoration(
+                                      hintText: '8080:80',
+                                      labelText: 'docker.container.ports'.tr(),
+                                      isDense: true))),
+                          const SizedBox(width: 10),
+                          Expanded(
+                              child: TextField(
+                                  controller: mounts,
+                                  onChanged: (_) => setState(() {}),
+                                  decoration: InputDecoration(
+                                      hintText: 'volume:/data',
+                                      labelText: 'docker.container.mounts'.tr(),
+                                      isDense: true))),
+                        ]),
                     const SizedBox(height: 12),
                     DialogLabel(
-                        'docker.container.section.configuration'.tr(),
-                        palette),
+                        'docker.container.section.configuration'.tr(), palette),
                     const SizedBox(height: 6),
-                    DialogLabel(
-                        'docker.container.environment'.tr(), palette),
+                    DialogLabel('docker.container.environment'.tr(), palette),
                     const SizedBox(height: 4),
                     TextField(
                         controller: environment,
@@ -189,8 +191,7 @@ class _CreateContainerDialogState
                         decoration: const InputDecoration(
                             hintText: 'KEY=value', isDense: true)),
                     const SizedBox(height: 10),
-                    DialogLabel(
-                        'docker.container.arguments'.tr(), palette),
+                    DialogLabel('docker.container.arguments'.tr(), palette),
                     const SizedBox(height: 4),
                     TextField(
                         controller: arguments,
@@ -239,8 +240,7 @@ class _EditContainerDialogState extends ConsumerState<EditContainerDialog> {
   }
 
   Future<void> _submit() async {
-    final ok =
-        await widget.vm.tryUpdateContainer(widget.container, name.text);
+    final ok = await widget.vm.tryUpdateContainer(widget.container, name.text);
     if (ok && mounted) {
       completeCurrentDialog(ref, context, true);
     }
@@ -259,17 +259,17 @@ class _EditContainerDialogState extends ConsumerState<EditContainerDialog> {
                       child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                        HintText('docker.container.edit_hint'.tr(), palette),
-                        const SizedBox(height: 10),
-                        DialogLabel('docker.container.name'.tr(), palette),
-                        const SizedBox(height: 4),
-                        TextField(
-                            controller: name,
-                            onChanged: (_) => setState(() {}),
-                            decoration: const InputDecoration(isDense: true)),
-                        const SizedBox(height: 8),
-                        DialogLabel(widget.container.image, palette),
-                      ]))),
+                    HintText('docker.container.edit_hint'.tr(), palette),
+                    const SizedBox(height: 10),
+                    DialogLabel('docker.container.name'.tr(), palette),
+                    const SizedBox(height: 4),
+                    TextField(
+                        controller: name,
+                        onChanged: (_) => setState(() {}),
+                        decoration: const InputDecoration(isDense: true)),
+                    const SizedBox(height: 8),
+                    DialogLabel(widget.container.image, palette),
+                  ]))),
               const SizedBox(height: 12),
               DialogFooter(actions: [
                 FilledButton(
@@ -304,8 +304,8 @@ class ContainerDetailsDialog extends ConsumerWidget {
           padding: const EdgeInsets.all(20),
           child: Column(children: [
             Expanded(
-                child: Center(
-                    child: HintText('docker.not_found'.tr(), palette))),
+                child:
+                    Center(child: HintText('docker.not_found'.tr(), palette))),
             DialogFooter(actions: [
               OutlinedButton(
                   onPressed: () =>
@@ -314,13 +314,12 @@ class ContainerDetailsDialog extends ConsumerWidget {
             ]),
           ]));
     }
-    Widget field(String label, String value) => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              DialogLabel(label, palette),
-              const SizedBox(height: 2),
-              ReadOnlyBlock(text: value, palette: palette, minHeight: 30),
-            ]);
+    Widget field(String label, String value) =>
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          DialogLabel(label, palette),
+          const SizedBox(height: 2),
+          ReadOnlyBlock(text: value, palette: palette, minHeight: 30),
+        ]);
     Widget section(String label, String value,
             {double minHeight = 44, bool mono = false}) =>
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -349,48 +348,46 @@ class ContainerDetailsDialog extends ConsumerWidget {
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                    field('docker.container.name'.tr(), details.name),
-                    const SizedBox(height: 6),
-                    field('docker.container.id'.tr(), details.id),
-                    const SizedBox(height: 6),
-                    field('docker.container.image'.tr(), details.image),
-                    const SizedBox(height: 6),
-                    field('docker.table.state'.tr(), details.state),
-                    const SizedBox(height: 6),
-                    field('docker.table.status'.tr(), details.status),
-                    const SizedBox(height: 6),
-                    field('docker.container.created_at'.tr(), details.created),
-                    const SizedBox(height: 6),
-                    field('docker.container.restart'.tr(), details.restartPolicy),
-                    const SizedBox(height: 6),
-                    field('docker.container.working_directory'.tr(),
-                        details.workingDirectory),
-                    const SizedBox(height: 6),
-                    field('docker.container.command'.tr(), details.command),
-                    section('docker.container.ports'.tr(),
-                        details.ports.join('\n')),
-                    section('docker.container.networks'.tr(),
-                        details.networks.join('\n')),
-                    section('docker.container.mounts'.tr(),
-                        details.mounts.join('\n'),
-                        minHeight: 72),
-                    section('docker.container.environment'.tr(),
-                        details.environment.join('\n'),
-                        minHeight: 92,
-                        mono: true),
-                    section(
-                        'docker.container.labels'.tr(),
-                        details.labels.entries
-                            .map((label) => '${label.key}=${label.value}')
-                            .join('\n'),
-                        minHeight: 92,
-                        mono: true),
-                  ]))),
+                field('docker.container.name'.tr(), details.name),
+                const SizedBox(height: 6),
+                field('docker.container.id'.tr(), details.id),
+                const SizedBox(height: 6),
+                field('docker.container.image'.tr(), details.image),
+                const SizedBox(height: 6),
+                field('docker.table.state'.tr(), details.state),
+                const SizedBox(height: 6),
+                field('docker.table.status'.tr(), details.status),
+                const SizedBox(height: 6),
+                field('docker.container.created_at'.tr(), details.created),
+                const SizedBox(height: 6),
+                field('docker.container.restart'.tr(), details.restartPolicy),
+                const SizedBox(height: 6),
+                field('docker.container.working_directory'.tr(),
+                    details.workingDirectory),
+                const SizedBox(height: 6),
+                field('docker.container.command'.tr(), details.command),
+                section(
+                    'docker.container.ports'.tr(), details.ports.join('\n')),
+                section('docker.container.networks'.tr(),
+                    details.networks.join('\n')),
+                section(
+                    'docker.container.mounts'.tr(), details.mounts.join('\n'),
+                    minHeight: 72),
+                section('docker.container.environment'.tr(),
+                    details.environment.join('\n'),
+                    minHeight: 92, mono: true),
+                section(
+                    'docker.container.labels'.tr(),
+                    details.labels.entries
+                        .map((label) => '${label.key}=${label.value}')
+                        .join('\n'),
+                    minHeight: 92,
+                    mono: true),
+              ]))),
           const SizedBox(height: 12),
           DialogFooter(actions: [
             OutlinedButton(
-                onPressed: () async =>
-                    copyToClipboard(vm.containerDetailsText),
+                onPressed: () async => copyToClipboard(vm.containerDetailsText),
                 child: Text('common.copy'.tr())),
             OutlinedButton(
                 onPressed: () =>

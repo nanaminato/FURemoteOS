@@ -36,8 +36,9 @@ class _DesktopIconState extends State<DesktopIcon> {
         width: 88,
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
         decoration: BoxDecoration(
-          color:
-              _selected ? widget.palette.desktopIconSelected : Colors.transparent,
+          color: _selected
+              ? widget.palette.desktopIconSelected
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
             color: _selected
@@ -65,7 +66,8 @@ class _DesktopIconState extends State<DesktopIcon> {
                 height: 1.2,
                 shadows: [
                   Shadow(
-                    color: widget.palette.shellBackground.withValues(alpha: 0.9),
+                    color:
+                        widget.palette.shellBackground.withValues(alpha: 0.9),
                     offset: const Offset(0, 1),
                     blurRadius: 2,
                   ),

@@ -63,8 +63,8 @@ class _NotepadSavePathDialogState extends ConsumerState<NotepadSavePathDialog> {
           TextField(
             controller: _controller,
             autofocus: true,
-            onSubmitted: (value) => modals.complete(
-                dialogId, value.trim().isEmpty ? null : value),
+            onSubmitted: (value) =>
+                modals.complete(dialogId, value.trim().isEmpty ? null : value),
             style: TextStyle(color: palette.textPrimary),
             decoration: const InputDecoration(labelText: 'Path'),
           ),
@@ -178,8 +178,7 @@ class NotepadEncodingActionDialog extends ConsumerWidget {
     );
   }
 
-  Widget _actionTile(
-      ThemePalette palette, String label, VoidCallback onTap) {
+  Widget _actionTile(ThemePalette palette, String label, VoidCallback onTap) {
     return Material(
       color: Colors.transparent,
       child: InkWell(

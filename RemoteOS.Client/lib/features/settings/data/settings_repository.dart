@@ -200,7 +200,8 @@ class WorkspaceSettingsRepository implements SettingsRepository {
         .firstWhere((c) => c?.id == id, orElse: () => null);
     if (palette == null) return '';
     try {
-      await Clipboard.setData(ClipboardData(text: jsonEncode(palette.toJson())));
+      await Clipboard.setData(
+          ClipboardData(text: jsonEncode(palette.toJson())));
       return 'settings.theme_export.copied'.tr(args: [palette.name]);
     } catch (_) {
       return 'settings.theme_export.failed'.tr();
@@ -220,10 +221,8 @@ class WorkspaceSettingsRepository implements SettingsRepository {
         .cast<ThemePaletteDto?>()
         .firstWhere((c) => c?.id == id, orElse: () => null);
     if (palette == null) return false;
-    final ok = await confirm(
-        'settings.theme_delete.confirmation.title'.tr(),
-        'settings.theme_delete.confirmation.message'
-            .tr(args: [palette.name]));
+    final ok = await confirm('settings.theme_delete.confirmation.title'.tr(),
+        'settings.theme_delete.confirmation.message'.tr(args: [palette.name]));
     if (ok != true) return false;
     final remaining =
         prefs.customPalettes.where((p) => p.id != id).toList(growable: false);
@@ -257,8 +256,8 @@ class WorkspaceSettingsRepository implements SettingsRepository {
       }
       return (
         ok: false,
-        text: 'settings.network.test_failed'
-            .tr(args: ['HTTP ${resp.statusCode}'])
+        text:
+            'settings.network.test_failed'.tr(args: ['HTTP ${resp.statusCode}'])
       );
     } catch (e) {
       return (

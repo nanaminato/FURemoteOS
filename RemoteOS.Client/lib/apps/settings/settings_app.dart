@@ -267,8 +267,7 @@ class _SidebarItem extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 13,
                       color: selected ? palette.accent : palette.textPrimary,
-                      fontWeight:
-                          selected ? FontWeight.w600 : FontWeight.w500,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                     ),
                   ),
                 ),

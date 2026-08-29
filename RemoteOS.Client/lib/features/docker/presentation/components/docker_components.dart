@@ -90,24 +90,23 @@ class WorkspaceHeader extends StatelessWidget {
             width: 46,
             height: 46,
             decoration: BoxDecoration(
-                color: palette.accent,
-                borderRadius: BorderRadius.circular(14)),
-            child: const Center(child: Text('🐳', style: TextStyle(fontSize: 25)))),
+                color: palette.accent, borderRadius: BorderRadius.circular(14)),
+            child: const Center(
+                child: Text('🐳', style: TextStyle(fontSize: 25)))),
         const SizedBox(width: 14),
         Expanded(
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-              Text('app.docker_manager'.tr(),
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                      fontSize: 21,
-                      fontWeight: FontWeight.w600,
-                      color: palette.textPrimary)),
-              Text('docker.subtitle'.tr(),
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 13, color: palette.textTertiary)),
-            ])),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('app.docker_manager'.tr(),
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                  fontSize: 21,
+                  fontWeight: FontWeight.w600,
+                  color: palette.textPrimary)),
+          Text('docker.subtitle'.tr(),
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 13, color: palette.textTertiary)),
+        ])),
         const SizedBox(width: 16),
         Tooltip(
             message: 'docker.status.open_install_guide'.tr(),
@@ -162,7 +161,8 @@ class OperationActivity extends StatelessWidget {
               color: palette.accentMuted,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: palette.borderStrong)),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
               Expanded(
                   child: Text(vm.operationTitle,
@@ -185,8 +185,8 @@ class OperationActivity extends StatelessWidget {
                 tilePadding: EdgeInsets.zero,
                 dense: true,
                 title: Text('docker.operation.logs'.tr(),
-                    style: TextStyle(
-                        fontSize: 13, color: palette.textSecondary)),
+                    style:
+                        TextStyle(fontSize: 13, color: palette.textSecondary)),
                 children: [
                   Container(
                       constraints:
@@ -259,8 +259,8 @@ class HintText extends StatelessWidget {
   final ThemePalette palette;
 
   @override
-  Widget build(BuildContext context) => Text(text,
-      style: TextStyle(color: palette.textSecondary, height: 1.4));
+  Widget build(BuildContext context) =>
+      Text(text, style: TextStyle(color: palette.textSecondary, height: 1.4));
 }
 
 class ReadOnlyBlock extends StatelessWidget {
@@ -387,7 +387,8 @@ class OverviewMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Expanded(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(label,
             style: TextStyle(fontSize: 12, color: palette.textSecondary)),
         const SizedBox(height: 3),
@@ -439,8 +440,8 @@ class DialogLabel extends StatelessWidget {
   final ThemePalette palette;
 
   @override
-  Widget build(BuildContext context) => Text(text,
-      style: TextStyle(fontSize: 13, color: palette.textSecondary));
+  Widget build(BuildContext context) =>
+      Text(text, style: TextStyle(fontSize: 13, color: palette.textSecondary));
 }
 
 // =============================================================================
@@ -459,9 +460,7 @@ Future<void> copyToClipboard(String text) =>
 
 /// Helper for Consumer dialogs: dismiss the current dialog window.
 void dismissCurrentDialog(WidgetRef ref, BuildContext context) {
-  ref
-      .read(modalManagerProvider)
-      .dismiss(RemoteModalScope.of(context).windowId);
+  ref.read(modalManagerProvider).dismiss(RemoteModalScope.of(context).windowId);
 }
 
 /// Helper for Consumer dialogs: complete the current dialog with a result.

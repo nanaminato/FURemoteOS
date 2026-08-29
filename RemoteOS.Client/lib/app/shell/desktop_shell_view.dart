@@ -77,8 +77,8 @@ class _DesktopShellViewState extends ConsumerState<DesktopShellView> {
     await desktop_wm.windowManager.close();
   }
 
-  void _handleAppSelected(BuildContext context, Size workArea,
-      AppRegistryEntry entry) {
+  void _handleAppSelected(
+      BuildContext context, Size workArea, AppRegistryEntry entry) {
     _vm.openAppCommand.run(OpenAppRequest(
       entry: entry,
       child: entry.windowBuilder(context),

@@ -95,13 +95,13 @@ class DesktopShellViewModel extends ViewModel {
   late final refreshCommand = Command.createSyncNoParamNoResult(() {});
 
   /// Opens an app using an already-built child Widget (wrapped as Object).
-  late final openAppCommand =
-      Command.createSyncNoResult<OpenAppRequest>((req) {
-    final saved = _workspace.debugLayoutsSnapshot().windows
+  late final openAppCommand = Command.createSyncNoResult<OpenAppRequest>((req) {
+    final saved = _workspace
+        .debugLayoutsSnapshot()
+        .windows
         .where((w) => w.key == req.entry.id);
-    final Size? size = saved.isEmpty
-        ? null
-        : Size(saved.first.width, saved.first.height);
+    final Size? size =
+        saved.isEmpty ? null : Size(saved.first.width, saved.first.height);
     _windows.openApp(
       entry: req.entry,
       child: req.child as Widget,
@@ -147,8 +147,8 @@ class DesktopShellViewModel extends ViewModel {
       _theme
         ..setThemeKind(preferences.theme)
         ..setPreferences(preferences.themePreferences);
-      final match = _catalog.languages.where(
-          (option) => option.localeTag == preferences.language);
+      final match = _catalog.languages
+          .where((option) => option.localeTag == preferences.language);
       if (match.isNotEmpty) {
         final desired = match.first.locale;
         if (desired != _currentLocale()) await _setLocale(desired);
@@ -181,9 +181,8 @@ class DesktopShellViewModel extends ViewModel {
     }
     if (sizes.isEmpty) return;
     final layouts = WorkspaceWindowLayouts(windows: sizes.values.toList());
-    final fingerprint = layouts.windows
-        .map((w) => '${w.key}:${w.width}:${w.height}')
-        .join('|');
+    final fingerprint =
+        layouts.windows.map((w) => '${w.key}:${w.width}:${w.height}').join('|');
     if (fingerprint == _lastQueuedLayoutFingerprint) return;
     _lastQueuedLayoutFingerprint = fingerprint;
     _workspace.queueLayouts(layouts);

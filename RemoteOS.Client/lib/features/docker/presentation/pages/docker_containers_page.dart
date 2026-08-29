@@ -29,19 +29,20 @@ class ContainersPage extends StatelessWidget {
     final hasSelection = vm.selectedContainer != null && !busy;
     return PageCard(
         palette: palette,
-        child:
-            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          PageTitle(text: 'docker.containers'.tr(), palette: palette, trailing: [
-            OutlinedButton(
-                onPressed: busy ? null : () => vm.refresh(),
-                child: Text('common.refresh'.tr())),
-          ]),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          PageTitle(
+              text: 'docker.containers'.tr(),
+              palette: palette,
+              trailing: [
+                OutlinedButton(
+                    onPressed: busy ? null : () => vm.refresh(),
+                    child: Text('common.refresh'.tr())),
+              ]),
           const SizedBox(height: 12),
           HintText('docker.containers_hint'.tr(), palette),
           const SizedBox(height: 12),
           FilledButton(
-              onPressed: onCreate,
-              child: Text('docker.container.create'.tr())),
+              onPressed: onCreate, child: Text('docker.container.create'.tr())),
           const SizedBox(height: 12),
           Divider(height: 1, color: palette.borderSubtle),
           const SizedBox(height: 12),
@@ -75,9 +76,8 @@ class ContainersPage extends StatelessWidget {
                     : null,
                 child: Text('docker.action.start'.tr())),
             OutlinedButton(
-                onPressed: hasSelection
-                    ? () => vm.applyContainerAction('stop')
-                    : null,
+                onPressed:
+                    hasSelection ? () => vm.applyContainerAction('stop') : null,
                 child: Text('docker.action.stop'.tr())),
             OutlinedButton(
                 onPressed: hasSelection
@@ -107,7 +107,8 @@ class ContainersPage extends StatelessWidget {
                 hasSelection ? vm.deleteContainer : null),
           ]),
           const SizedBox(height: 12),
-          ReadOnlyBlock(text: vm.containerStats, palette: palette, minHeight: 32),
+          ReadOnlyBlock(
+              text: vm.containerStats, palette: palette, minHeight: 32),
           const SizedBox(height: 8),
           ReadOnlyBlock(
               text: vm.containerLogs,

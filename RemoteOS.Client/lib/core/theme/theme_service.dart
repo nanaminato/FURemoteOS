@@ -88,7 +88,8 @@ class ThemeNotifier extends StateNotifier<ThemeState> {
   /// to `platformDispatcher.platformBrightness` because the settings repo
   /// is invoked during clipboard actions outside a Flutter view.
   ThemePalette currentPalette() {
-    final brightness = WidgetsBinding.instance.platformDispatcher.platformBrightness;
+    final brightness =
+        WidgetsBinding.instance.platformDispatcher.platformBrightness;
     return state.resolvePalette(
       state.kind == ThemeKind.system
           ? brightness

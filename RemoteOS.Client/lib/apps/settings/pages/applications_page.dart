@@ -1,4 +1,4 @@
-﻿import 'package:easy_localization/easy_localization.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -52,55 +52,51 @@ class _InstalledAppsList extends ConsumerWidget {
           _statusBanner(palette, state.appsActionStatus),
         ],
         const SizedBox(height: 20),
-        SettingsSectionTitle(palette: palette,
-            title: 'settings.apps.installed'.tr()),
+        SettingsSectionTitle(
+            palette: palette, title: 'settings.apps.installed'.tr()),
         const SizedBox(height: 8),
-        SettingsCard(
-            palette: palette,
-            children: [
-              for (final entry in registry.all)
-                InkWell(
-                  borderRadius: BorderRadius.circular(6),
-                  onTap: () => ctrl.openAppDetails(entry.id),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: palette.accentMuted,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Icon(entry.icon,
-                              size: 20, color: palette.accent),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(entry.nameKey.tr(),
-                                  style: TextStyle(
-                                      color: palette.textPrimary,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600)),
-                              const SizedBox(height: 2),
-                              Text('settings.apps.built_in_hint'.tr(),
-                                  style: TextStyle(
-                                      color: palette.textSecondary,
-                                      fontSize: 12)),
-                            ],
-                          ),
-                        ),
-                        Icon(Icons.chevron_right_rounded,
-                            size: 20, color: palette.textTertiary),
-                      ],
+        SettingsCard(palette: palette, children: [
+          for (final entry in registry.all)
+            InkWell(
+              borderRadius: BorderRadius.circular(6),
+              onTap: () => ctrl.openAppDetails(entry.id),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: palette.accentMuted,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(entry.icon, size: 20, color: palette.accent),
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(entry.nameKey.tr(),
+                              style: TextStyle(
+                                  color: palette.textPrimary,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 2),
+                          Text('settings.apps.built_in_hint'.tr(),
+                              style: TextStyle(
+                                  color: palette.textSecondary, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded,
+                        size: 20, color: palette.textTertiary),
+                  ],
                 ),
-            ]),
+              ),
+            ),
+        ]),
       ],
     );
   }
@@ -185,14 +181,13 @@ class _AppDetails extends ConsumerWidget {
                             fontSize: 11,
                             fontFamily: 'monospace')),
                     const SizedBox(height: 6),
-                    Text(
-                        () {
-                          // ignore: dead_code
-                          if (canUninstall) {
-                            return 'settings.apps.uninstall_available'.tr();
-                          }
-                          return 'settings.apps.built_in'.tr();
-                        }(),
+                    Text(() {
+                      // ignore: dead_code
+                      if (canUninstall) {
+                        return 'settings.apps.uninstall_available'.tr();
+                      }
+                      return 'settings.apps.built_in'.tr();
+                    }(),
                         style: TextStyle(
                             color: palette.textSecondary, fontSize: 12)),
                   ],
@@ -259,8 +254,8 @@ class _AppDetails extends ConsumerWidget {
           _statusBanner(palette, state.appsActionStatus),
         ],
         const SizedBox(height: 16),
-        SettingsSectionTitle(palette: palette,
-            title: 'settings.apps.permissions.title'.tr()),
+        SettingsSectionTitle(
+            palette: palette, title: 'settings.apps.permissions.title'.tr()),
         const SizedBox(height: 8),
         SettingsCard(palette: palette, children: [
           Text(
@@ -291,8 +286,8 @@ class _AppDetails extends ConsumerWidget {
         ]),
         if (isBrowser) ...[
           const SizedBox(height: 16),
-          SettingsSectionTitle(palette: palette,
-              title: 'settings.apps.browser.title'.tr()),
+          SettingsSectionTitle(
+              palette: palette, title: 'settings.apps.browser.title'.tr()),
           const SizedBox(height: 8),
           SettingsCard(palette: palette, children: [
             Text('settings.apps.browser.link_open_target'.tr(),
@@ -305,8 +300,7 @@ class _AppDetails extends ConsumerWidget {
               contentPadding: EdgeInsets.zero,
               dense: true,
               title: Text('settings.apps.browser.target_builtin'.tr(),
-                  style:
-                      TextStyle(color: palette.textPrimary, fontSize: 13)),
+                  style: TextStyle(color: palette.textPrimary, fontSize: 13)),
               value: 0,
               groupValue: state.browserLinkTarget,
               onChanged: (v) => ctrl.setBrowserLinkTarget(v ?? 0),
@@ -315,8 +309,7 @@ class _AppDetails extends ConsumerWidget {
               contentPadding: EdgeInsets.zero,
               dense: true,
               title: Text('settings.apps.browser.target_host'.tr(),
-                  style:
-                      TextStyle(color: palette.textPrimary, fontSize: 13)),
+                  style: TextStyle(color: palette.textPrimary, fontSize: 13)),
               value: 1,
               groupValue: state.browserLinkTarget,
               onChanged: (v) => ctrl.setBrowserLinkTarget(v ?? 1),
@@ -344,8 +337,7 @@ class _AppDetails extends ConsumerWidget {
             if (state.browserLinkTargetStatus.isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(state.browserLinkTargetStatus,
-                  style:
-                      TextStyle(color: palette.textSecondary, fontSize: 12)),
+                  style: TextStyle(color: palette.textSecondary, fontSize: 12)),
             ],
           ]),
         ],
@@ -362,6 +354,7 @@ Widget _statusBanner(ThemePalette palette, String text) {
       borderRadius: BorderRadius.circular(6),
       border: Border.all(color: palette.accent.withValues(alpha: 0.2)),
     ),
-    child: Text(text, style: TextStyle(color: palette.textPrimary, fontSize: 12)),
+    child:
+        Text(text, style: TextStyle(color: palette.textPrimary, fontSize: 12)),
   );
 }

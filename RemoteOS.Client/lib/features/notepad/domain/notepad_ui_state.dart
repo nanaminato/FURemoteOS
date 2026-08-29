@@ -47,8 +47,7 @@ class NotepadUiState {
       showFindReplace: false,
       isReplaceMode: false,
       findStatus: '',
-      findOptions:
-          const FindOptions(caseSensitive: false, useRegex: false),
+      findOptions: const FindOptions(caseSensitive: false, useRegex: false),
     );
   }
 

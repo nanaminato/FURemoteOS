@@ -60,8 +60,7 @@ Future<void> showInfoDialog(
       ),
       actions: [
         FilledButton(
-            onPressed: () => Navigator.pop(c),
-            child: Text('common.ok'.tr())),
+            onPressed: () => Navigator.pop(c), child: Text('common.ok'.tr())),
       ],
     ),
   );

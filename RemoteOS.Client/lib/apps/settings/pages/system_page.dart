@@ -1,4 +1,4 @@
-﻿import 'dart:io' show Platform;
+import 'dart:io' show Platform;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -55,8 +55,10 @@ class SettingsSystemPage extends ConsumerWidget {
                     fontWeight: FontWeight.w700,
                     color: palette.textSecondary)),
           ),
-          SettingsInfoRow(palette: palette,
-              label: 'settings.version'.tr(), value: 'RemoteOS 0.1'),
+          SettingsInfoRow(
+              palette: palette,
+              label: 'settings.version'.tr(),
+              value: 'RemoteOS 0.1'),
           SettingsInfoRow(
             palette: palette,
             label: 'settings.connection_status'.tr(),
@@ -67,7 +69,8 @@ class SettingsSystemPage extends ConsumerWidget {
           ),
           SettingsInfoRow(
               palette: palette,
-              label: 'settings.server'.tr(), value: auth.serverUrl ?? '—'),
+              label: 'settings.server'.tr(),
+              value: auth.serverUrl ?? '—'),
         ]),
         const SizedBox(height: 16),
         SettingsCard(palette: palette, children: [
@@ -79,20 +82,30 @@ class SettingsSystemPage extends ConsumerWidget {
                     fontWeight: FontWeight.w700,
                     color: palette.textSecondary)),
           ),
-          SettingsInfoRow(palette: palette,
+          SettingsInfoRow(
+              palette: palette,
               label: 'settings.username'.tr(),
               value: auth.username ?? '—'),
-          SettingsInfoRow(palette: palette,
-              label: 'settings.host_platform'.tr(), value: hostPlatform),
-          SettingsInfoRow(palette: palette,
+          SettingsInfoRow(
+              palette: palette,
+              label: 'settings.host_platform'.tr(),
+              value: hostPlatform),
+          SettingsInfoRow(
+              palette: palette,
               label: 'settings.workspace'.tr(),
               value: '${auth.workspaceName ?? '—'} Workspace'),
-          SettingsInfoRow(palette: palette,
-              label: 'settings.device'.tr(), value: deviceName),
-          SettingsInfoRow(palette: palette,
-              label: 'settings.device_role'.tr(), value: 'Controller'),
-          SettingsInfoRow(palette: palette,
-              label: 'settings.last_login'.tr(), value: nowStr),
+          SettingsInfoRow(
+              palette: palette,
+              label: 'settings.device'.tr(),
+              value: deviceName),
+          SettingsInfoRow(
+              palette: palette,
+              label: 'settings.device_role'.tr(),
+              value: 'Controller'),
+          SettingsInfoRow(
+              palette: palette,
+              label: 'settings.last_login'.tr(),
+              value: nowStr),
         ]),
         const SizedBox(height: 16),
         Text('settings.system.description'.tr(),

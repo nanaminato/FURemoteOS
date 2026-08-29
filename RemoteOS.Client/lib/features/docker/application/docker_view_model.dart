@@ -25,7 +25,8 @@ typedef ConfirmCallback = Future<bool> Function(String message);
 typedef OpenPathCallback = Future<void> Function(String path);
 
 /// Signature used by [DockerViewModel] to open a stack-edit dialog.
-typedef EditStackCallback = Future<void> Function(String name, String composeYaml);
+typedef EditStackCallback = Future<void> Function(
+    String name, String composeYaml);
 
 /// Empty callback placeholders (default no-ops, never null).
 Future<bool> _noopConfirm(String _) async => false;
@@ -183,8 +184,7 @@ class DockerViewModel extends ViewModel {
       final status = snap.status;
       final available = status.available;
       final installRequired = _isInstallRequired(available, status.problemCode);
-      final version =
-          (status.version ?? '').isNotEmpty ? status.version! : '—';
+      final version = (status.version ?? '').isNotEmpty ? status.version! : '—';
       final platform = [
         status.operatingSystem ?? '',
         status.architecture ?? '',
@@ -205,8 +205,8 @@ class DockerViewModel extends ViewModel {
         engineVersion: version,
         enginePlatform: platform.isEmpty ? '—' : platform,
         statusText: available
-            ? 'docker.status.available'.tr(
-                args: [status.version ?? '', status.operatingSystem ?? ''])
+            ? 'docker.status.available'
+                .tr(args: [status.version ?? '', status.operatingSystem ?? ''])
             : 'docker.status.unavailable'.tr(args: [status.problemCode]),
         isLoading: false,
       );
@@ -228,8 +228,7 @@ class DockerViewModel extends ViewModel {
     return _runOperation(
       () => _repository.containerAction(c.id, action, confirmed: confirmed),
       (result) => result.success
-          ? 'docker.action.succeeded'
-              .tr(args: [_opText(action), c.name])
+          ? 'docker.action.succeeded'.tr(args: [_opText(action), c.name])
           : 'docker.action.failed'
               .tr(args: [_opText(action), _problemText(result.problemCode)]),
       operationName: 'docker.operation.container_action'
@@ -292,8 +291,8 @@ class DockerViewModel extends ViewModel {
         containerDetailsText:
             details == null ? '' : _formatContainerDetails(details),
         statusText: details == null
-            ? 'docker.action.failed'.tr(
-                args: ['docker.container.details'.tr(), 'docker.not_found'])
+            ? 'docker.action.failed'
+                .tr(args: ['docker.container.details'.tr(), 'docker.not_found'])
             : 'docker.container.details_loaded'.tr(args: [c.name]),
       );
     });
@@ -406,8 +405,7 @@ class DockerViewModel extends ViewModel {
     );
   }
 
-  Future<bool> applyStackAction(String action,
-      {bool confirmed = false}) async {
+  Future<bool> applyStackAction(String action, {bool confirmed = false}) async {
     final s = selectedStack;
     if (s == null) return false;
     return _runOpRaw<DockerStackOperationResult>(
@@ -437,8 +435,8 @@ class DockerViewModel extends ViewModel {
       final list = await _repository.stackServices(s.name);
       state.value = state.value.copyWith(
         stackServices: list,
-        statusText: 'docker.stack.services_loaded'
-            .tr(args: [s.name, '${list.length}']),
+        statusText:
+            'docker.stack.services_loaded'.tr(args: [s.name, '${list.length}']),
       );
     });
   }
@@ -497,8 +495,7 @@ class DockerViewModel extends ViewModel {
           ? 'docker.image.deleted'.tr(args: [img.repository])
           : 'docker.image.delete_failed'
               .tr(args: [_problemText(result.problemCode)]),
-      operationName:
-          'docker.operation.delete_image'.tr(args: [img.repository]),
+      operationName: 'docker.operation.delete_image'.tr(args: [img.repository]),
     );
   }
 
@@ -533,8 +530,7 @@ class DockerViewModel extends ViewModel {
           ? 'docker.network.deleted'.tr(args: [n.name])
           : 'docker.network.delete_failed'
               .tr(args: [_problemText(result.problemCode)]),
-      operationName:
-          'docker.operation.delete_network'.tr(args: [n.name]),
+      operationName: 'docker.operation.delete_network'.tr(args: [n.name]),
     );
   }
 
@@ -569,8 +565,7 @@ class DockerViewModel extends ViewModel {
           ? 'docker.volume.deleted'.tr(args: [v.name])
           : 'docker.volume.delete_failed'
               .tr(args: [_problemText(result.problemCode)]),
-      operationName:
-          'docker.operation.delete_volume'.tr(args: [v.name]),
+      operationName: 'docker.operation.delete_volume'.tr(args: [v.name]),
     );
   }
 
@@ -650,8 +645,8 @@ class DockerViewModel extends ViewModel {
 
   Future<bool> _ensureAvailable() async {
     if (state.value.isDockerAvailable) return true;
-    state.value = state.value.copyWith(
-        statusText: 'docker.status.unavailable_operation'.tr());
+    state.value = state.value
+        .copyWith(statusText: 'docker.status.unavailable_operation'.tr());
     await _showUnavailableDialog();
     return false;
   }
@@ -677,8 +672,7 @@ class DockerViewModel extends ViewModel {
       if (status.available) return;
       state.value = state.value.copyWith(
         isDockerAvailable: false,
-        isDockerInstallRequired:
-            _isInstallRequired(false, status.problemCode),
+        isDockerInstallRequired: _isInstallRequired(false, status.problemCode),
         statusText: 'docker.status.unavailable'.tr(args: [status.problemCode]),
         containers: snap.containers,
         images: snap.images,
@@ -732,8 +726,10 @@ class DockerViewModel extends ViewModel {
   void _completeOp(String outcome) {
     final cur = state.value.operationLog;
     state.value = state.value.copyWith(
-      operationLog: [cur, 'docker.operation.finished'.tr(args: [outcome])]
-          .join('\n'),
+      operationLog: [
+        cur,
+        'docker.operation.finished'.tr(args: [outcome])
+      ].join('\n'),
     );
   }
 
@@ -752,8 +748,7 @@ class DockerViewModel extends ViewModel {
   static String _problemText(String problemCode) => switch (problemCode) {
         'docker.operation_timeout' => 'docker.problem.timeout'.tr(),
         'docker.operation_failed' => 'docker.problem.failed'.tr(),
-        'docker.stack_no_services' =>
-          'docker.problem.stack_no_services'.tr(),
+        'docker.stack_no_services' => 'docker.problem.stack_no_services'.tr(),
         'docker.stack_source_unavailable' =>
           'docker.stack.source_unavailable'.tr(),
         _ => problemCode,

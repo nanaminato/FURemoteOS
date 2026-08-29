@@ -1,4 +1,4 @@
-﻿import 'package:easy_localization/easy_localization.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -59,7 +59,8 @@ class SettingsDefaultAppsPage extends ConsumerWidget {
           for (int i = 0; i < state.defaultMappings.length; i++) ...[
             if (i > 0) const SizedBox(height: 10),
             _DefaultAppRow(
-                key: ValueKey('row_${identityHashCode(state.defaultMappings[i])}_$i'),
+                key: ValueKey(
+                    'row_${identityHashCode(state.defaultMappings[i])}_$i'),
                 palette: palette,
                 mapping: state.defaultMappings[i],
                 availableSchemes: state.availableSchemes,
@@ -99,10 +100,9 @@ class _DefaultAppRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final compatible = _compatibleAppsFor(mapping.scheme);
     final appList = compatible.isNotEmpty ? compatible : appOptions;
-    final currentApp = appOptions
-            .where((a) => a.id == mapping.appId)
-            .firstOrNull ??
-        appList.first;
+    final currentApp =
+        appOptions.where((a) => a.id == mapping.appId).firstOrNull ??
+            appList.first;
 
     return SettingsCard(palette: palette, children: [
       Row(
@@ -111,7 +111,8 @@ class _DefaultAppRow extends StatelessWidget {
           SizedBox(
             width: 200,
             child: _AutocompleteField(
-              key: ValueKey('sch_${mapping.scheme}_${identityHashCode(mapping)}'),
+              key: ValueKey(
+                  'sch_${mapping.scheme}_${identityHashCode(mapping)}'),
               initialValue: mapping.scheme,
               suggestions: availableSchemes,
               labelText: 'settings.default_apps.scheme'.tr(),
@@ -155,8 +156,8 @@ class _DefaultAppRow extends StatelessWidget {
   List<AppOptionUi> _compatibleAppsFor(String scheme) {
     if (scheme.startsWith('.')) {
       final declared = appOptions
-          .where((a) => a.extensions
-              .any((e) => e.toLowerCase() == scheme.toLowerCase()))
+          .where((a) =>
+              a.extensions.any((e) => e.toLowerCase() == scheme.toLowerCase()))
           .toList();
       if (declared.isNotEmpty) return declared;
       return appOptions.where((a) => a.extensions.isNotEmpty).toList();
@@ -227,23 +228,22 @@ class _AutocompleteFieldState extends State<_AutocompleteField> {
         _ctrl.text = v;
         widget.onSubmitted(v);
       },
-      fieldViewBuilder:
-          (ctx, controller, focusNode, onFieldSubmitted) => TextField(
-                controller: controller,
-                focusNode: focusNode,
-                onSubmitted: (_) {
-                  onFieldSubmitted();
-                  widget.onSubmitted(controller.text);
-                },
-                style: TextStyle(
-                    color: widget.palette.textPrimary, fontSize: 13),
-                decoration: InputDecoration(
-                  isDense: true,
-                  labelText: widget.labelText,
-                  labelStyle: TextStyle(
-                      color: widget.palette.textSecondary, fontSize: 12),
-                ),
-              ),
+      fieldViewBuilder: (ctx, controller, focusNode, onFieldSubmitted) =>
+          TextField(
+        controller: controller,
+        focusNode: focusNode,
+        onSubmitted: (_) {
+          onFieldSubmitted();
+          widget.onSubmitted(controller.text);
+        },
+        style: TextStyle(color: widget.palette.textPrimary, fontSize: 13),
+        decoration: InputDecoration(
+          isDense: true,
+          labelText: widget.labelText,
+          labelStyle:
+              TextStyle(color: widget.palette.textSecondary, fontSize: 12),
+        ),
+      ),
       optionsViewBuilder: (ctx, onSelected, options) => Align(
         alignment: Alignment.topLeft,
         child: Material(
@@ -260,8 +260,8 @@ class _AutocompleteFieldState extends State<_AutocompleteField> {
                 return InkWell(
                   onTap: () => onSelected(opt),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     child: Text(opt,
                         style: TextStyle(
                             color: widget.palette.textPrimary, fontSize: 13)),

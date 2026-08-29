@@ -68,8 +68,7 @@ class _NotepadViewState extends ConsumerState<NotepadView> {
       _installedHooks = true;
       _installHooks();
       // Seed an initial snapshot so Ctrl+Z on an untouched document behaves.
-      _vm.seedInitialSnapshot(
-          '', const TextSelection.collapsed(offset: 0));
+      _vm.seedInitialSnapshot('', const TextSelection.collapsed(offset: 0));
       if (widget.initialPath != null && widget.initialPath!.isNotEmpty) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
@@ -162,17 +161,17 @@ class _NotepadViewState extends ConsumerState<NotepadView> {
 
   Future<String?> _requestSavePath(String defaultName) {
     return ref.read(modalManagerProvider).open<String>(
-      ownerId: RemoteWindowScope.of(context).window.id,
-      spec: ModalSpec(
-        title: 'notepad.save_remote_file'.tr(),
-        icon: Icons.save_outlined,
-        preferredSize: const Size(440, 230),
-        child: NotepadSavePathDialog(
-          prompt: 'notepad.remote_path_prompt'.tr(),
-          initialValue: defaultName,
-        ),
-      ),
-    );
+          ownerId: RemoteWindowScope.of(context).window.id,
+          spec: ModalSpec(
+            title: 'notepad.save_remote_file'.tr(),
+            icon: Icons.save_outlined,
+            preferredSize: const Size(440, 230),
+            child: NotepadSavePathDialog(
+              prompt: 'notepad.remote_path_prompt'.tr(),
+              initialValue: defaultName,
+            ),
+          ),
+        );
   }
 
   Future<bool> _confirmDiscard(String titleKey, String messageKey) {
@@ -197,20 +196,20 @@ class _NotepadViewState extends ConsumerState<NotepadView> {
   Future<void> _openSettings() {
     final s = _vm.state.value;
     return ref.read(modalManagerProvider).open<void>(
-      ownerId: RemoteWindowScope.of(context).window.id,
-      spec: ModalSpec(
-        title: 'notepad.settings.title'.tr(),
-        icon: Icons.tune_outlined,
-        preferredSize: const Size(440, 320),
-        child: NotepadSettingsDialog(
-          fontSize: s.fontSize,
-          defaultEncoding: s.defaultEncodingName,
-          fontSizes: notepadFontSizes,
-          onFontSizeChanged: _vm.setFontSize,
-          onDefaultEncodingChanged: _vm.setDefaultEncoding,
-        ),
-      ),
-    );
+          ownerId: RemoteWindowScope.of(context).window.id,
+          spec: ModalSpec(
+            title: 'notepad.settings.title'.tr(),
+            icon: Icons.tune_outlined,
+            preferredSize: const Size(440, 320),
+            child: NotepadSettingsDialog(
+              fontSize: s.fontSize,
+              defaultEncoding: s.defaultEncodingName,
+              fontSizes: notepadFontSizes,
+              onFontSizeChanged: _vm.setFontSize,
+              onDefaultEncodingChanged: _vm.setDefaultEncoding,
+            ),
+          ),
+        );
   }
 
   Future<EncodingDialogAction?> _requestEncodingAction() {
@@ -306,7 +305,8 @@ class _NotepadViewState extends ConsumerState<NotepadView> {
     final snap = _vm.undo();
     if (snap == null) return;
     _syncingTextFromVm = true;
-    _controller.value = TextEditingValue(text: snap.text, selection: snap.selection);
+    _controller.value =
+        TextEditingValue(text: snap.text, selection: snap.selection);
     _syncingTextFromVm = false;
   }
 
@@ -314,7 +314,8 @@ class _NotepadViewState extends ConsumerState<NotepadView> {
     final snap = _vm.redo();
     if (snap == null) return;
     _syncingTextFromVm = true;
-    _controller.value = TextEditingValue(text: snap.text, selection: snap.selection);
+    _controller.value =
+        TextEditingValue(text: snap.text, selection: snap.selection);
     _syncingTextFromVm = false;
   }
 

@@ -102,8 +102,8 @@ class LanguageCatalog {
         final parsed = jsonDecode(raw);
         if (parsed is! Map<String, dynamic>) continue;
 
-        final displayName = _requiredString(
-            parsed['DisplayName'], '$commonPath: DisplayName');
+        final displayName =
+            _requiredString(parsed['DisplayName'], '$commonPath: DisplayName');
         final sortOrder = parsed['SortOrder'] is int
             ? parsed['SortOrder'] as int
             : languages.length * 10;
@@ -118,6 +118,11 @@ class LanguageCatalog {
       } on FlutterError {
         // Asset missing — the locale is simply not shipped.
       } on FormatException {
+        continue;
+      } catch (_) {
+        // Custom test bundles may throw errors other than FlutterError when an
+        // asset is missing.  Treat any load failure as "locale not shipped"
+        // so bundle discovery is tolerant of non-standard asset bundles.
         continue;
       }
 
@@ -157,15 +162,29 @@ class LanguageCatalog {
     final externalOptions = <String, LanguageOption>{};
     final directory = languagePackDirectory ?? defaultLanguagePackDirectory();
     if (await directory.exists()) {
-      await for (final entity in directory.list(followLinks: false)) {
-        if (entity is! Directory) continue;
+      Future<void> readPack(Directory dir) async {
         try {
-          final pack = await _readLanguagePack(entity);
+          final pack = await _readLanguagePack(dir);
           externalTranslations[pack.option.localeTag] = pack.translations;
           externalOptions[pack.option.localeTag.toLowerCase()] = pack.option;
         } on FormatException {
           // Optional user content must never keep the client from opening.
         } on IOException {
+          // Malformed filesystem entries are skipped so unrelated files next
+          // to a language pack do not break startup.
+        }
+      }
+
+      // The root directory may be a single-locale pack (e.g. test temp
+      // directories that place common.json at the root).  Otherwise treat
+      // immediate subdirectories as locale packs.
+      final rootCommon = File('${directory.path}${Platform.pathSeparator}common.json');
+      if (await rootCommon.exists()) {
+        await readPack(directory);
+      } else {
+        await for (final entity in directory.list(followLinks: false)) {
+          if (entity is! Directory) continue;
+          await readPack(entity);
         }
       }
     }
@@ -236,12 +255,11 @@ class LanguageCatalog {
     final commonRaw = await commonFile.readAsString();
     final commonParsed = jsonDecode(commonRaw);
     if (commonParsed is! Map<String, dynamic>) {
-      throw FormatException(
-          '${commonFile.path}: must contain a JSON object.');
+      throw FormatException('${commonFile.path}: must contain a JSON object.');
     }
 
-    final locale = _requiredString(
-        commonParsed['Culture'], '${commonFile.path}: Culture');
+    final locale =
+        _requiredString(commonParsed['Culture'], '${commonFile.path}: Culture');
     final displayName = _requiredString(
         commonParsed['DisplayName'], '${commonFile.path}: DisplayName');
 

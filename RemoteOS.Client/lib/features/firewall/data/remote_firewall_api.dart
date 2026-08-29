@@ -10,42 +10,44 @@ class RemoteFirewallApi {
   Future<FirewallStatus> status() async => FirewallStatus.fromJson(
       _map(await _api.getJson('/api/v1/firewall/status')));
 
-  Future<List<FirewallRule>> rules() async => _list(
-          await _api.getJson('/api/v1/firewall/rules'))
-      .map((value) => FirewallRule.fromJson(_map(value)))
-      .toList();
+  Future<List<FirewallRule>> rules() async =>
+      _list(await _api.getJson('/api/v1/firewall/rules'))
+          .map((value) => FirewallRule.fromJson(_map(value)))
+          .toList();
 
   Future<FirewallOperationResult> setEnabled(bool enabled,
           {String? password}) async =>
       FirewallOperationResult.fromJson(_map(await _api.sendJson(
-          'PUT', '/api/v1/firewall/enabled',
-          body: {
-            'enabled': enabled,
-            'credentialConfirmation': _credential(password)
-          })));
+          'PUT', '/api/v1/firewall/enabled', body: {
+        'enabled': enabled,
+        'credentialConfirmation': _credential(password)
+      })));
 
-  Future<FirewallOperationResult> setDefaults(String incomingPolicy,
-          String outgoingPolicy,
+  Future<FirewallOperationResult> setDefaults(
+          String incomingPolicy, String outgoingPolicy,
           {String? password}) async =>
-      FirewallOperationResult.fromJson(_map(await _api.sendJson(
-          'PUT', '/api/v1/firewall/defaults',
-          body: {
-            'incomingPolicy': incomingPolicy,
-            'outgoingPolicy': outgoingPolicy,
-            'credentialConfirmation': _credential(password)
-          })));
+      FirewallOperationResult.fromJson(
+          _map(await _api.sendJson('PUT', '/api/v1/firewall/defaults', body: {
+        'incomingPolicy': incomingPolicy,
+        'outgoingPolicy': outgoingPolicy,
+        'credentialConfirmation': _credential(password)
+      })));
 
   Future<FirewallOperationResult> createRule(FirewallRuleInput rule,
           {String? password}) async =>
-      FirewallOperationResult.fromJson(_map(await _api.sendJson('POST',
-          '/api/v1/firewall/rules',
-          body: {...rule.toJson(), 'credentialConfirmation': _credential(password)})));
+      FirewallOperationResult.fromJson(_map(await _api.sendJson(
+          'POST', '/api/v1/firewall/rules', body: {
+        ...rule.toJson(),
+        'credentialConfirmation': _credential(password)
+      })));
 
   Future<FirewallOperationResult> updateRule(int number, FirewallRuleInput rule,
           {String? password}) async =>
       FirewallOperationResult.fromJson(_map(await _api.sendJson(
-          'PUT', '/api/v1/firewall/rules/$number',
-          body: {...rule.toJson(), 'credentialConfirmation': _credential(password)})));
+          'PUT', '/api/v1/firewall/rules/$number', body: {
+        ...rule.toJson(),
+        'credentialConfirmation': _credential(password)
+      })));
 
   Future<FirewallOperationResult> deleteRule(int number,
           {String? password}) async =>

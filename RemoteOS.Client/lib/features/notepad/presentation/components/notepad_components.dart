@@ -219,7 +219,8 @@ class NotepadMenuBar extends StatelessWidget {
     final text = data?.text;
     if (text == null) return;
     final sel = editorController.selection;
-    final newText = editorController.text.replaceRange(sel.start, sel.end, text);
+    final newText =
+        editorController.text.replaceRange(sel.start, sel.end, text);
     final newOffset = sel.start + text.length;
     editorController.value = TextEditingValue(
       text: newText,
@@ -534,8 +535,8 @@ class NotepadStatusBar extends StatelessWidget {
 
 // ---------- Menu button helper ----------
 
-Widget _menuButton(ThemePalette palette, IconData icon, String label,
-    List<Widget> children) {
+Widget _menuButton(
+    ThemePalette palette, IconData icon, String label, List<Widget> children) {
   return MenuAnchor(
     builder: (context, controller, _) => InkWell(
       onTap: () => controller.isOpen ? controller.close() : controller.open(),

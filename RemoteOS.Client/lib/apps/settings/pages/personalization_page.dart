@@ -1,4 +1,4 @@
-﻿import 'package:easy_localization/easy_localization.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -48,11 +48,9 @@ class _SettingsPersonalizationPageState
         ? prefs.paletteId
         : PaletteIds.remoteosBlue;
 
-    final wallpaperKey = ref
-            .watch(workspaceSyncProvider)
-            .preferences
-            ?.wallpaperKey ??
-        'builtin:bloom';
+    final wallpaperKey =
+        ref.watch(workspaceSyncProvider).preferences?.wallpaperKey ??
+            'builtin:bloom';
 
     final ctrl = ref.watch(settingsControllerProvider.notifier);
     final accentError = ref.watch(settingsControllerProvider).accentError;
@@ -78,8 +76,8 @@ class _SettingsPersonalizationPageState
     );
   }
 
-  Widget _wallpaperSection(ThemePalette p, String wallpaperKey,
-      SettingsController ctrl) {
+  Widget _wallpaperSection(
+      ThemePalette p, String wallpaperKey, SettingsController ctrl) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -96,16 +94,15 @@ class _SettingsPersonalizationPageState
                 for (final w in wallpaperOptions())
                   DropdownMenuItem(
                       value: w.key,
-                      child: Text(w.name,
-                          style: const TextStyle(fontSize: 13))),
+                      child:
+                          Text(w.name, style: const TextStyle(fontSize: 13))),
               ],
               onChanged: (v) {
                 if (v == null) return;
-                ref.read(workspaceSyncProvider.notifier)
-                    .queuePreferences(ref
-                        .read(workspaceSyncProvider)
-                        .preferences!
-                        .copyWith(wallpaperKey: v));
+                ref.read(workspaceSyncProvider.notifier).queuePreferences(ref
+                    .read(workspaceSyncProvider)
+                    .preferences!
+                    .copyWith(wallpaperKey: v));
               },
             ),
           ),
@@ -131,8 +128,8 @@ class _SettingsPersonalizationPageState
     );
   }
 
-  Widget _themeModeSection(ThemePalette p, ThemeKind kind,
-      SettingsController ctrl) {
+  Widget _themeModeSection(
+      ThemePalette p, ThemeKind kind, SettingsController ctrl) {
     void setKind(ThemeKind k) {
       ref.read(themeProvider.notifier).setThemeKind(k);
       ctrl.queueTheme();
@@ -146,7 +143,8 @@ class _SettingsPersonalizationPageState
         SettingsCard(palette: p, children: [
           Row(
             children: [
-              Expanded(child: _ThemeModeTile(
+              Expanded(
+                  child: _ThemeModeTile(
                 palette: p,
                 kind: ThemeKind.light,
                 icon: Icons.light_mode_outlined,
@@ -155,7 +153,8 @@ class _SettingsPersonalizationPageState
                 onSelected: () => setKind(ThemeKind.light),
               )),
               const SizedBox(width: 8),
-              Expanded(child: _ThemeModeTile(
+              Expanded(
+                  child: _ThemeModeTile(
                 palette: p,
                 kind: ThemeKind.dark,
                 icon: Icons.dark_mode_outlined,
@@ -164,7 +163,8 @@ class _SettingsPersonalizationPageState
                 onSelected: () => setKind(ThemeKind.dark),
               )),
               const SizedBox(width: 8),
-              Expanded(child: _ThemeModeTile(
+              Expanded(
+                  child: _ThemeModeTile(
                 palette: p,
                 kind: ThemeKind.system,
                 icon: Icons.brightness_auto_outlined,
@@ -258,14 +258,13 @@ class _SettingsPersonalizationPageState
                     OutlinedButton.icon(
                       onPressed: selectedIsCustom
                           ? () async {
-                              final ok = await ctrl.deleteTheme(
-                                  (t, m) => showConfirmDialog(context, ref, t, m));
+                              final ok = await ctrl.deleteTheme((t, m) =>
+                                  showConfirmDialog(context, ref, t, m));
                               if (!ok || !mounted) return;
                             }
                           : null,
                       icon: Icon(Icons.delete_outline_rounded,
-                          size: 16,
-                          color: selectedIsCustom ? p.danger : null),
+                          size: 16, color: selectedIsCustom ? p.danger : null),
                       label: Text('settings.theme_delete'.tr(),
                           style: TextStyle(
                               fontSize: 12,
@@ -308,8 +307,8 @@ class _SettingsPersonalizationPageState
                           isDense: true,
                           hintText: '#RRGGBB',
                           errorText: accentError,
-                          labelStyle: TextStyle(
-                              fontSize: 12, color: p.textSecondary),
+                          labelStyle:
+                              TextStyle(fontSize: 12, color: p.textSecondary),
                           suffixIcon: IconButton(
                             tooltip: 'settings.accent.reset'.tr(),
                             icon: const Icon(Icons.refresh_rounded, size: 16),
@@ -379,8 +378,7 @@ class _ThemeModeTile extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 13,
                     color: isSelected ? palette.accent : palette.textPrimary,
-                    fontWeight:
-                        isSelected ? FontWeight.w600 : FontWeight.w500,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
                   ),
                 ),
               ),

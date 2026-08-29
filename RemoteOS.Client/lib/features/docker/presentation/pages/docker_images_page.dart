@@ -60,11 +60,7 @@ class ImagesPage extends StatelessWidget {
             minWidth: 800,
             height: 230),
         const SizedBox(height: 12),
-        dangerButton(
-            'docker.image.delete'.tr(),
-            palette,
-            vm.selectedImage != null && !vm.isLoading
-                ? vm.deleteImage
-                : null),
+        dangerButton('docker.image.delete'.tr(), palette,
+            vm.selectedImage != null && !vm.isLoading ? vm.deleteImage : null),
       ]));
 }

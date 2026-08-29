@@ -34,65 +34,60 @@ class FileManagerToolbar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8),
       child: Row(children: [
         _toolButton(palette, Icons.arrow_back_rounded, 'common.back'.tr(),
-            onPressed: state.canGoBack
-                ? () => vm.navigateBackCommand.run()
-                : null),
+            onPressed:
+                state.canGoBack ? () => vm.navigateBackCommand.run() : null),
         _toolButton(palette, Icons.arrow_forward_rounded, 'common.forward'.tr(),
             onPressed: state.canGoForward
                 ? () => vm.navigateForwardCommand.run()
                 : null),
         _toolButton(palette, Icons.arrow_upward_rounded, 'common.up'.tr(),
-            onPressed:
-                state.canGoUp ? () => vm.goUpCommand.run() : null),
+            onPressed: state.canGoUp ? () => vm.goUpCommand.run() : null),
         const SizedBox(width: 4),
         if (!pickerMode) ...[
           const _Divider(),
           _toolButton(palette, Icons.create_new_folder_outlined,
               'explorer.new_folder'.tr(),
               onPressed: () => vm.newFolderCommand.runAsync()),
-          _toolButton(palette, Icons.drive_file_rename_outline,
-              'common.rename'.tr(),
+          _toolButton(
+              palette, Icons.drive_file_rename_outline, 'common.rename'.tr(),
               onPressed: state.hasSelection
                   ? () => vm.renameCommand.runAsync()
                   : null),
-          _toolButton(palette, Icons.delete_outline_rounded,
-              'common.delete'.tr(),
+          _toolButton(
+              palette, Icons.delete_outline_rounded, 'common.delete'.tr(),
               onPressed: state.hasSelection
                   ? () => vm.deleteCommand.runAsync()
                   : null),
           const _Divider(),
           _toolButton(palette, Icons.content_copy_outlined, 'common.copy'.tr(),
-              onPressed: state.hasSelection
-                  ? () => vm.copyCommand.run()
-                  : null),
+              onPressed:
+                  state.hasSelection ? () => vm.copyCommand.run() : null),
           _toolButton(palette, Icons.content_cut_outlined, 'common.cut'.tr(),
-              onPressed: state.hasSelection
-                  ? () => vm.cutCommand.run()
-                  : null),
-          _toolButton(palette, Icons.content_paste_outlined,
-              'common.paste'.tr(),
-              onPressed: state.hasClipboard
-                  ? () => vm.pasteCommand.runAsync()
-                  : null),
+              onPressed: state.hasSelection ? () => vm.cutCommand.run() : null),
+          _toolButton(
+              palette, Icons.content_paste_outlined, 'common.paste'.tr(),
+              onPressed:
+                  state.hasClipboard ? () => vm.pasteCommand.runAsync() : null),
           const _Divider(),
-          _toolButton(palette, Icons.upload_file_outlined,
-              'explorer.upload_files'.tr(),
+          _toolButton(
+              palette, Icons.upload_file_outlined, 'explorer.upload_files'.tr(),
               onPressed: () => vm.uploadFilesCommand.runAsync()),
           _toolButton(palette, Icons.folder_open_outlined,
               'explorer.upload_folder'.tr(),
               onPressed: () => vm.uploadFolderCommand.runAsync()),
-          _toolButton(palette, Icons.download_outlined,
-              'explorer.download'.tr(),
+          _toolButton(
+              palette, Icons.download_outlined, 'explorer.download'.tr(),
               onPressed: state.hasSelection
                   ? () => vm.downloadCommand.runAsync()
                   : null),
           const _Divider(),
-          _toolButton(palette, Icons.terminal_outlined, 'explorer.terminal'.tr(),
+          _toolButton(
+              palette, Icons.terminal_outlined, 'explorer.terminal'.tr(),
               onPressed: state.currentPath.isNotEmpty
                   ? () => vm.openTerminal?.call(state.currentPath)
                   : null),
-          _toolButton(palette, Icons.info_outline_rounded,
-              'explorer.properties'.tr(),
+          _toolButton(
+              palette, Icons.info_outline_rounded, 'explorer.properties'.tr(),
               onPressed: state.hasSelection
                   ? () => vm.propertiesCommand.runAsync()
                   : null),
@@ -115,8 +110,8 @@ class FileManagerToolbar extends StatelessWidget {
     );
   }
 
-  Widget _toolButton(
-      ThemePalette palette, IconData icon, String tooltip, {VoidCallback? onPressed}) {
+  Widget _toolButton(ThemePalette palette, IconData icon, String tooltip,
+      {VoidCallback? onPressed}) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),
       child: Tooltip(
@@ -140,8 +135,8 @@ class _Divider extends StatelessWidget {
     final palette = context.palette;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-      child: VerticalDivider(
-          width: 1, thickness: 1, color: palette.borderSubtle),
+      child:
+          VerticalDivider(width: 1, thickness: 1, color: palette.borderSubtle),
     );
   }
 }
@@ -254,7 +249,8 @@ class FileManagerSideRail extends StatelessWidget {
     );
   }
 
-  Widget _buildGroup(ThemePalette palette, TreeNodeItem node, {required int depth}) {
+  Widget _buildGroup(ThemePalette palette, TreeNodeItem node,
+      {required int depth}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -296,7 +292,8 @@ class FileManagerSideRail extends StatelessWidget {
               child: Text(
                 _label(node.name),
                 style: TextStyle(
-                    color: selected ? palette.textPrimary : palette.textSecondary,
+                    color:
+                        selected ? palette.textPrimary : palette.textSecondary,
                     fontSize: 13),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -382,8 +379,8 @@ class FileManagerStatusBar extends StatelessWidget {
 
   static String _formatStatus(FileManagerUiState s) {
     final ready = 'explorer.status.ready'.tr();
-    final itemsText = 'explorer.status.items_count'
-        .tr(args: ['${s.entries.length}']);
+    final itemsText =
+        'explorer.status.items_count'.tr(args: ['${s.entries.length}']);
     if (s.isTransferActive) {
       final label = s.transferText.isEmpty ? ready : s.transferText;
       return '$label  ${s.transferProgressPercent.toStringAsFixed(1)}%';
@@ -426,9 +423,8 @@ class FileManagerPickerFooter extends StatelessWidget {
     final label = folderMode
         ? 'explorer.picker.folder_label'.tr()
         : 'explorer.picker.file_name_label'.tr();
-    final confirmLabel = folderMode
-        ? 'explorer.picker.select_folder'.tr()
-        : 'common.open'.tr();
+    final confirmLabel =
+        folderMode ? 'explorer.picker.select_folder'.tr() : 'common.open'.tr();
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
       decoration: BoxDecoration(
@@ -438,8 +434,7 @@ class FileManagerPickerFooter extends StatelessWidget {
       child: Row(children: [
         SizedBox(
             width: 120,
-            child: Text(label,
-                style: TextStyle(color: palette.textSecondary))),
+            child: Text(label, style: TextStyle(color: palette.textSecondary))),
         Expanded(
           child: TextField(
             controller: nameController,
@@ -472,9 +467,8 @@ class FileManagerPickerFooter extends StatelessWidget {
             child: Text('common.cancel'.tr())),
         const SizedBox(width: 8),
         FilledButton(
-          onPressed: vm.canConfirmPicker
-              ? () => vm.confirmPickerCommand.run()
-              : null,
+          onPressed:
+              vm.canConfirmPicker ? () => vm.confirmPickerCommand.run() : null,
           child: Text(confirmLabel),
         ),
       ]),

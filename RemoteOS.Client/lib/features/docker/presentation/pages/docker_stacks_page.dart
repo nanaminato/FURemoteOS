@@ -29,17 +29,19 @@ class StacksPage extends StatelessWidget {
     final hasSelection = vm.selectedStack != null && !busy;
     return PageCard(
         palette: palette,
-        child:
-            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          PageTitle(text: 'docker.orchestration'.tr(), palette: palette, trailing: [
-            OutlinedButton(
-                onPressed: busy ? null : () => vm.refresh(),
-                child: Text('common.refresh'.tr())),
-            const SizedBox(width: 8),
-            FilledButton(
-                onPressed: onDeploy,
-                child: Text('docker.stack.deploy'.tr())),
-          ]),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          PageTitle(
+              text: 'docker.orchestration'.tr(),
+              palette: palette,
+              trailing: [
+                OutlinedButton(
+                    onPressed: busy ? null : () => vm.refresh(),
+                    child: Text('common.refresh'.tr())),
+                const SizedBox(width: 8),
+                FilledButton(
+                    onPressed: onDeploy,
+                    child: Text('docker.stack.deploy'.tr())),
+              ]),
           const SizedBox(height: 12),
           HintText('docker.orchestration_hint'.tr(), palette),
           const SizedBox(height: 12),
@@ -66,28 +68,25 @@ class StacksPage extends StatelessWidget {
           const SizedBox(height: 12),
           Wrap(spacing: 8, runSpacing: 8, children: [
             OutlinedButton(
-                onPressed: hasSelection
-                    ? () => vm.applyStackAction('start')
-                    : null,
+                onPressed:
+                    hasSelection ? () => vm.applyStackAction('start') : null,
                 child: Text('docker.action.start'.tr())),
             OutlinedButton(
-                onPressed: hasSelection
-                    ? () => vm.applyStackAction('stop')
-                    : null,
+                onPressed:
+                    hasSelection ? () => vm.applyStackAction('stop') : null,
                 child: Text('docker.action.stop'.tr())),
             OutlinedButton(
-                onPressed: hasSelection
-                    ? () => vm.applyStackAction('restart')
-                    : null,
+                onPressed:
+                    hasSelection ? () => vm.applyStackAction('restart') : null,
                 child: Text('docker.action.restart'.tr())),
             OutlinedButton(
                 onPressed: hasSelection ? vm.editStack : null,
                 child: Text('docker.stack.edit'.tr())),
             OutlinedButton(
-                onPressed: hasSelection &&
-                        vm.selectedStack!.configDirectory.isNotEmpty
-                    ? vm.openStackSource
-                    : null,
+                onPressed:
+                    hasSelection && vm.selectedStack!.configDirectory.isNotEmpty
+                        ? vm.openStackSource
+                        : null,
                 child: Text('docker.stack.open_source'.tr())),
             OutlinedButton(
                 onPressed: hasSelection ? vm.loadStackServices : null,

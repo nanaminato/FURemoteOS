@@ -10,7 +10,12 @@ import '../data/remote_docker_api.dart';
 abstract class DockerRepository {
   static const networkDrivers = ['bridge', 'ipvlan', 'macvlan', 'overlay'];
   static const volumeDrivers = ['local'];
-  static const restartPolicies = ['no', 'always', 'unless-stopped', 'on-failure'];
+  static const restartPolicies = [
+    'no',
+    'always',
+    'unless-stopped',
+    'on-failure'
+  ];
 
   Future<DockerRefreshSnapshot> refresh();
   Future<DockerOperationResult> containerAction(

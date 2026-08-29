@@ -199,16 +199,18 @@ class DockerUiState {
       selectedStackName: clearSelectedStackName
           ? null
           : (selectedStackName ?? this.selectedStackName),
-      selectedImageId:
-          clearSelectedImageId ? null : (selectedImageId ?? this.selectedImageId),
+      selectedImageId: clearSelectedImageId
+          ? null
+          : (selectedImageId ?? this.selectedImageId),
       selectedNetworkId: clearSelectedNetworkId
           ? null
           : (selectedNetworkId ?? this.selectedNetworkId),
       selectedVolumeName: clearSelectedVolumeName
           ? null
           : (selectedVolumeName ?? this.selectedVolumeName),
-      containerDetails:
-          clearContainerDetails ? null : (containerDetails ?? this.containerDetails),
+      containerDetails: clearContainerDetails
+          ? null
+          : (containerDetails ?? this.containerDetails),
       containerDetailsText: containerDetailsText ?? this.containerDetailsText,
       containerLogs: containerLogs ?? this.containerLogs,
       containerStats: containerStats ?? this.containerStats,

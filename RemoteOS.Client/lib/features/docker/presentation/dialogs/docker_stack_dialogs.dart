@@ -41,8 +41,7 @@ class _StackDialogState extends ConsumerState<StackDialog> {
 
   Future<void> _submit(bool deploy) async {
     final ok = deploy
-        ? await widget.vm
-            .deployStack(name: name.text, composeYaml: yaml.text)
+        ? await widget.vm.deployStack(name: name.text, composeYaml: yaml.text)
         : await widget.vm
             .validateStack(name: name.text, composeYaml: yaml.text);
     if (ok && deploy && mounted) {
@@ -91,8 +90,7 @@ class _StackDialogState extends ConsumerState<StackDialog> {
                         widget.vm.isLoading ? null : () => _submit(false),
                     child: Text('docker.stack.validate'.tr())),
                 FilledButton(
-                    onPressed:
-                        widget.vm.isLoading ? null : () => _submit(true),
+                    onPressed: widget.vm.isLoading ? null : () => _submit(true),
                     child: Text('docker.stack.deploy'.tr())),
                 OutlinedButton(
                     onPressed: () => dismissCurrentDialog(ref, context),

@@ -42,8 +42,8 @@ class FileManagerFileList extends StatelessWidget {
         child: SizedBox(
           width: 18,
           height: 18,
-          child: CircularProgressIndicator(
-              strokeWidth: 2, color: palette.accent),
+          child:
+              CircularProgressIndicator(strokeWidth: 2, color: palette.accent),
         ),
       ));
     }
@@ -51,8 +51,9 @@ class FileManagerFileList extends StatelessWidget {
       return Center(
           child: Padding(
         padding: const EdgeInsets.all(24),
-        child: Text('explorer.status.path_load_failed'
-            .tr(args: [state.currentPath, state.loadError!]),
+        child: Text(
+            'explorer.status.path_load_failed'
+                .tr(args: [state.currentPath, state.loadError!]),
             style: TextStyle(color: palette.textSecondary)),
       ));
     }
@@ -202,11 +203,11 @@ class _EntryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selectable =
-        !state.isPickerMode || entry.isFolder || vm.isSelectableForPicker(entry);
-    final bg = selected
-        ? palette.accent.withValues(alpha: 0.16)
-        : Colors.transparent;
+    final selectable = !state.isPickerMode ||
+        entry.isFolder ||
+        vm.isSelectableForPicker(entry);
+    final bg =
+        selected ? palette.accent.withValues(alpha: 0.16) : Colors.transparent;
     return InkWell(
       onTap: selectable
           ? () {
@@ -223,28 +224,34 @@ class _EntryRow extends StatelessWidget {
         height: 30,
         child: Row(
           children: [
-            _Cell(flex: 4, child: Row(children: [
-              const SizedBox(width: 6),
-              Icon(entry.icon, size: 16, color: palette.textSecondary),
-              const SizedBox(width: 6),
-              Expanded(
-                  child: Text(entry.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: palette.textPrimary, fontSize: 13))),
-            ])),
+            _Cell(
+                flex: 4,
+                child: Row(children: [
+                  const SizedBox(width: 6),
+                  Icon(entry.icon, size: 16, color: palette.textSecondary),
+                  const SizedBox(width: 6),
+                  Expanded(
+                      child: Text(entry.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              color: palette.textPrimary, fontSize: 13))),
+                ])),
             _Cell(
                 flex: 2,
                 child: Text(entry.modifiedText,
-                    style: TextStyle(color: palette.textSecondary, fontSize: 12))),
+                    style:
+                        TextStyle(color: palette.textSecondary, fontSize: 12))),
             _Cell(
                 flex: 1,
                 child: Text(entry.sizeText,
-                    style: TextStyle(color: palette.textSecondary, fontSize: 12))),
+                    style:
+                        TextStyle(color: palette.textSecondary, fontSize: 12))),
             _Cell(
                 flex: 1,
                 child: Text(entry.isFolder ? 'Folder' : 'File',
-                    style: TextStyle(color: palette.textSecondary, fontSize: 12))),
+                    style:
+                        TextStyle(color: palette.textSecondary, fontSize: 12))),
           ],
         ),
       ),
@@ -316,7 +323,8 @@ class _TilesGrid extends StatelessWidget {
                   }
                 : null,
             onDoubleTap: () => onOpenEntry(entry),
-            onSecondaryTapUp: (d) => onContextMenuRequested(entry, d.globalPosition),
+            onSecondaryTapUp: (d) =>
+                onContextMenuRequested(entry, d.globalPosition),
             borderRadius: BorderRadius.circular(6),
             child: Container(
               decoration: BoxDecoration(
@@ -342,7 +350,8 @@ class _TilesGrid extends StatelessWidget {
                       maxLines: 3,
                       textAlign: TextAlign.center,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: palette.textPrimary, fontSize: 12)),
+                      style:
+                          TextStyle(color: palette.textPrimary, fontSize: 12)),
                 ],
               ),
             ),

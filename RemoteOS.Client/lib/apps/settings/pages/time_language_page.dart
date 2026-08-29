@@ -1,4 +1,4 @@
-﻿import 'package:easy_localization/easy_localization.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -73,7 +73,8 @@ class SettingsTimeLanguagePage extends ConsumerWidget {
                 if (v == null) return;
                 final current = ref.read(workspaceSyncProvider).preferences;
                 if (current == null) return;
-                ref.read(workspaceSyncProvider.notifier)
+                ref
+                    .read(workspaceSyncProvider.notifier)
                     .queuePreferences(current.copyWith(timeFormat: v));
               },
             ),
@@ -96,19 +97,21 @@ class SettingsTimeLanguagePage extends ConsumerWidget {
                 if (v == null) return;
                 final current = ref.read(workspaceSyncProvider).preferences;
                 if (current == null) return;
-                ref.read(workspaceSyncProvider.notifier)
+                ref
+                    .read(workspaceSyncProvider.notifier)
                     .queuePreferences(current.copyWith(dateFormat: v));
               },
             ),
           ),
           const SizedBox(height: 8),
-          SettingsInfoRow(palette: palette,
+          SettingsInfoRow(
+              palette: palette,
               label: 'settings.timezone'.tr(),
               value: ctrl.timeZoneDisplayName()),
         ]),
         const SizedBox(height: 20),
-        SettingsSectionTitle(palette: palette,
-            title: 'settings.region_language'.tr()),
+        SettingsSectionTitle(
+            palette: palette, title: 'settings.region_language'.tr()),
         const SizedBox(height: 8),
         SettingsCard(palette: palette, children: [
           SettingsLabeledRow(
@@ -136,7 +139,8 @@ class SettingsTimeLanguagePage extends ConsumerWidget {
                 }
                 final current = ref.read(workspaceSyncProvider).preferences;
                 if (current == null) return;
-                ref.read(workspaceSyncProvider.notifier)
+                ref
+                    .read(workspaceSyncProvider.notifier)
                     .queuePreferences(current.copyWith(language: v));
               },
             ),
@@ -158,7 +162,8 @@ class SettingsTimeLanguagePage extends ConsumerWidget {
                 if (v == null) return;
                 final current = ref.read(workspaceSyncProvider).preferences;
                 if (current == null) return;
-                ref.read(workspaceSyncProvider.notifier)
+                ref
+                    .read(workspaceSyncProvider.notifier)
                     .queuePreferences(current.copyWith(region: v));
               },
             ),

@@ -71,10 +71,10 @@ class _PullImageDialogState extends ConsumerState<PullImageDialog> {
                     onPressed: () => dismissCurrentDialog(ref, context),
                     child: Text('common.cancel'.tr())),
                 FilledButton(
-                    onPressed: reference.text.trim().isEmpty ||
-                            widget.vm.isLoading
-                        ? null
-                        : _submit,
+                    onPressed:
+                        reference.text.trim().isEmpty || widget.vm.isLoading
+                            ? null
+                            : _submit,
                     child: Text('docker.image.pull'.tr())),
               ]),
             ])));
@@ -162,8 +162,7 @@ class CreateVolumeDialog extends ConsumerStatefulWidget {
   final DockerViewModel vm;
 
   @override
-  ConsumerState<CreateVolumeDialog> createState() =>
-      _CreateVolumeDialogState();
+  ConsumerState<CreateVolumeDialog> createState() => _CreateVolumeDialogState();
 }
 
 class _CreateVolumeDialogState extends ConsumerState<CreateVolumeDialog> {

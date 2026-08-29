@@ -158,7 +158,9 @@ class DockerOperationResult {
 /// Compose operations return bounded diagnostic messages instead of raw logs.
 class DockerStackOperationResult {
   const DockerStackOperationResult(
-      {required this.success, required this.problemCode, this.messages = const []});
+      {required this.success,
+      required this.problemCode,
+      this.messages = const []});
   final bool success;
   final String problemCode;
   final List<String> messages;

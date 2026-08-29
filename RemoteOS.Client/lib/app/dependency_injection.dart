@@ -23,18 +23,25 @@ import '../core/network/remoteos_api.dart';
 import '../core/theme/theme_service.dart';
 import '../core/window_manager/modal_manager.dart';
 import '../core/window_manager/window_manager.dart';
+import '../apps/explorer/explorer_picker.dart';
 import '../features/docker/application/docker_repository.dart';
 import '../features/docker/application/docker_view_model.dart';
 import '../features/docker/data/remote_docker_api.dart';
 import '../features/file_manager/application/file_manager_view_model.dart';
 import '../features/file_manager/data/file_manager_repository.dart';
 import '../features/files/data/remote_file_api.dart';
-import '../apps/explorer/explorer_picker.dart';
+import '../features/firewall/application/firewall_view_model.dart';
+import '../features/firewall/data/remote_firewall_api.dart';
+import '../features/firewall/data/repositories/remote_firewall_repository.dart';
+import '../features/firewall/domain/firewall_repository.dart';
 import '../features/notepad/application/notepad_view_model.dart';
 import '../features/notepad/data/text_file_repository.dart';
-import '../features/settings/data/settings_repository.dart';
 import '../features/settings/application/settings_view_model.dart';
+import '../features/settings/data/settings_repository.dart';
 import '../features/system_monitor/data/remote_system_monitor_api.dart';
+import '../features/task_manager/application/task_manager_view_model.dart';
+import '../features/task_manager/data/repositories/remote_task_repository.dart';
+import '../features/task_manager/domain/task_repository.dart';
 import '../features/workspace/application/workspace_sync_coordinator.dart';
 import '../features/workspace/data/remote_workspace_api.dart';
 
@@ -92,6 +99,9 @@ void registerCoreSingletons({
     )
     ..registerLazySingleton<RemoteSystemMonitorApi>(
       () => RemoteSystemMonitorApi(remoteOsApi),
+    )
+    ..registerLazySingleton<RemoteFirewallApi>(
+      () => RemoteFirewallApi(remoteOsApi),
     );
 
   // Workspace sync (uses window manager + workspace REST client).
@@ -134,6 +144,21 @@ void registerCoreSingletons({
   di.registerFactoryParam<FileManagerViewModel, ExplorerPickerOptions?, void>(
     (picker, _) => createFileManagerViewModel(picker: picker),
   );
+
+  // Firewall feature (ARCHITECTURE.md § 11).
+  // Repository wraps RemoteFirewallApi + error mapping; VM is transient
+  // because each open firewall window owns its own dialog hook state and
+  // pending confirmation password.
+  di.registerLazySingleton<FirewallRepository>(
+    () => RemoteFirewallRepository(di<RemoteFirewallApi>()),
+  );
+  di.registerFactory<FirewallViewModel>(createFirewallViewModel);
+
+  // Task Manager feature (ARCHITECTURE.md § 11).
+  // The repository wraps RemoteSystemMonitorApi; the realtime PerformanceHub
+  // is injected from the owning ConsumerState (because it is riverpod-owned)
+  // so no DI singleton is registered here.  Use createTaskManagerViewModel
+  // directly with the hub instance.
 }
 
 /// Register server-session-scoped objects after a successful login.

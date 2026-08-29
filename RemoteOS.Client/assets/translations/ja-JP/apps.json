@@ -1,4 +1,4 @@
-﻿{
+{
     "Strings":  {
                     "app.welcome":  "ようこそ",
                     "app.notepad":  "メモ帳",
@@ -17,6 +17,7 @@
                     "app.git_client":  "Git クライアント",
                     "app.port_forwarding":  "ポート転送",
                     "app.process_guardian":  "プロセス ガーディアン",
-                    "app.app_installer":  "アプリ インストーラー"
+                    "app.app_installer":  "アプリ インストーラー",
+                    "apps.desktop_unknown":  "不明なアプリ"
                 }
 }

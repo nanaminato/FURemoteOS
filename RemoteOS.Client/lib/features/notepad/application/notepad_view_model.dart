@@ -206,8 +206,7 @@ class NotepadViewModel extends ViewModel {
 
   // ---- View toggles ----
 
-  void toggleWordWrap() =>
-      state.value = _s.copyWith(wordWrap: !_s.wordWrap);
+  void toggleWordWrap() => state.value = _s.copyWith(wordWrap: !_s.wordWrap);
 
   void toggleShowLineNumbers() =>
       state.value = _s.copyWith(showLineNumbers: !_s.showLineNumbers);

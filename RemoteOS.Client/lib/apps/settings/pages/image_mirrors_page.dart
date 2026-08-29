@@ -1,4 +1,4 @@
-﻿import 'package:easy_localization/easy_localization.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -110,29 +110,29 @@ class _SettingsImageMirrorsPageState
           ],
         ]),
         const SizedBox(height: 16),
-        SettingsSectionTitle(palette: widget.palette,
+        SettingsSectionTitle(
+            palette: widget.palette,
             title: 'settings.image_mirrors.registries'.tr()),
         const SizedBox(height: 8),
         if (state.imageMirrors.isEmpty)
           Text('settings.image_mirrors.empty'.tr(),
-              style: TextStyle(
-                  color: widget.palette.textTertiary, fontSize: 12))
+              style:
+                  TextStyle(color: widget.palette.textTertiary, fontSize: 12))
         else
-          SettingsCard(
-              palette: widget.palette,
-              children: [
-                for (int i = 0; i < state.imageMirrors.length; i++) ...[
-                  if (i > 0) const SizedBox(height: 4),
-                  _ImageMirrorRadioRow(
-                      palette: widget.palette,
-                      mirror: state.imageMirrors[i],
-                      groupValue: ctrl.selectedMirrorGroupValue(),
-                      loading: state.imageMirrorsLoading,
-                      onSelected: () => ctrl.selectImageMirror(state.imageMirrors[i]),
-                      onRemove: () =>
-                          ctrl.removeImageMirror(state.imageMirrors[i])),
-                ],
-              ]),
+          SettingsCard(palette: widget.palette, children: [
+            for (int i = 0; i < state.imageMirrors.length; i++) ...[
+              if (i > 0) const SizedBox(height: 4),
+              _ImageMirrorRadioRow(
+                  palette: widget.palette,
+                  mirror: state.imageMirrors[i],
+                  groupValue: ctrl.selectedMirrorGroupValue(),
+                  loading: state.imageMirrorsLoading,
+                  onSelected: () =>
+                      ctrl.selectImageMirror(state.imageMirrors[i]),
+                  onRemove: () =>
+                      ctrl.removeImageMirror(state.imageMirrors[i])),
+            ],
+          ]),
       ],
     );
   }
@@ -241,9 +241,7 @@ class _Badge extends StatelessWidget {
       ),
       child: Text(text,
           style: TextStyle(
-              color: foreground,
-              fontSize: 11,
-              fontWeight: FontWeight.w600)),
+              color: foreground, fontSize: 11, fontWeight: FontWeight.w600)),
     );
   }
 }

@@ -90,9 +90,8 @@ class RemoteFileManagerRepository implements FileManagerRepository {
       path: e.path,
       kind: isDirectory ? FileItemKind.folder : FileItemKind.file,
       sizeBytes: e.size,
-      sizeText: isDirectory
-          ? '—'
-          : (e.size == null ? '—' : _formatBytes(e.size!)),
+      sizeText:
+          isDirectory ? '—' : (e.size == null ? '—' : _formatBytes(e.size!)),
       modified: e.lastWriteTime,
       modifiedText: e.lastWriteTime == null
           ? '—'

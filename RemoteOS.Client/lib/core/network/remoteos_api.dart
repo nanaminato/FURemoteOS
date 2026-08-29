@@ -67,9 +67,8 @@ class RemoteOsApi {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       dynamic decoded;
       try {
-        decoded = response.body.trim().isEmpty
-            ? null
-            : jsonDecode(response.body);
+        decoded =
+            response.body.trim().isEmpty ? null : jsonDecode(response.body);
       } on FormatException {
         decoded = null;
       }

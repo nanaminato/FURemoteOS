@@ -92,7 +92,8 @@ class SettingsSectionTitle extends StatelessWidget {
 
 /// A Fluent-style card container used to group related rows.
 class SettingsCard extends StatelessWidget {
-  const SettingsCard({super.key, required this.palette, required this.children});
+  const SettingsCard(
+      {super.key, required this.palette, required this.children});
   final ThemePalette palette;
   final List<Widget> children;
 
