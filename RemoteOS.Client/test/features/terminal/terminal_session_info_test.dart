@@ -19,8 +19,7 @@ void main() {
       });
       expect(info.sessionId, 'abc-123');
       expect(info.hasExited, isFalse);
-      expect(info.createdAt.toIso8601String(),
-          '2026-08-28T12:34:56.789Z');
+      expect(info.createdAt.toIso8601String(), '2026-08-28T12:34:56.789Z');
     });
 
     test('tolerates a missing hasExited field (defaults to false)', () {
@@ -46,8 +45,8 @@ void main() {
         'createdAt': 'not-a-date',
         'hasExited': false,
       });
-      expect(info.createdAt,
-          DateTime.fromMillisecondsSinceEpoch(0, isUtc: false));
+      expect(
+          info.createdAt, DateTime.fromMillisecondsSinceEpoch(0, isUtc: false));
     });
 
     test('equality is by sessionId only', () {

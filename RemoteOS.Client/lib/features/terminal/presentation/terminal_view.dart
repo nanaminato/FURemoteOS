@@ -20,14 +20,18 @@ import 'dart:async';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xterm2/flutter.dart' as xterm;
 import 'package:xterm2/xterm.dart';
 
+import '../../../core/window_manager/modal_manager.dart';
+import '../../../core/window_manager/window_manager.dart';
 import '../application/terminal_view_model.dart';
 import '../domain/terminal_repository.dart';
 import '../domain/terminal_ui_state.dart';
+import 'dialogs/terminal_settings_dialog.dart';
 
-class TerminalView extends StatefulWidget {
+class TerminalView extends ConsumerStatefulWidget {
   const TerminalView({
     super.key,
     required this.vm,
@@ -44,30 +48,17 @@ class TerminalView extends StatefulWidget {
   final String? resumeSessionId;
 
   @override
-  State<TerminalView> createState() => _TerminalViewState();
+  ConsumerState<TerminalView> createState() => _TerminalViewState();
 }
 
-class _TerminalViewState extends State<TerminalView> {
+class _TerminalViewState extends ConsumerState<TerminalView> {
   late final Terminal _terminal;
   late final xterm.TerminalController _terminalController;
 
   // ---- Appearance chrome ----
-  static const String _defaultScheme = 'Campbell';
-  static const List<String> _colorSchemes = [
-    _defaultScheme,
-    'One Half Dark',
-    'Solarized Dark',
-    'Light',
-  ];
-  static const List<double> _fontSizes = [12, 14, 16, 18, 20, 24];
-  static const List<String> _fontFamilies = [
-    'Cascadia Mono',
-    'Consolas',
-    'JetBrains Mono',
-    'Courier New',
-  ];
-
-  String _colorScheme = _defaultScheme;
+  // Option lists + default scheme live on [TerminalSettingsDialog] so the
+  // dialog and view stay in sync without duplicating constants.
+  String _colorScheme = TerminalSettingsDialog.defaultScheme;
   double _fontSize = 14;
   String _fontFamily = 'Cascadia Mono';
 
@@ -185,9 +176,8 @@ class _TerminalViewState extends State<TerminalView> {
     // createAnchor(x, y) — column first, line second (matches xterm2 buffer API).
     final start = buffer.createAnchor(0, 0);
     final lastLine = (lines.length - 1).clamp(0, 1 << 31);
-    final lastCols = lines.length > 0
-        ? (lines[lastLine].length - 1).clamp(0, 1 << 31)
-        : 0;
+    final lastCols =
+        lines.length > 0 ? (lines[lastLine].length - 1).clamp(0, 1 << 31) : 0;
     final end = buffer.createAnchor(
       lastCols > 0 ? lastCols : (cols - 1).clamp(0, 1 << 31),
       lastLine,
@@ -206,133 +196,40 @@ class _TerminalViewState extends State<TerminalView> {
   }
 
   // ---- Settings dialog ----
+  //
+  // Hosted through [ModalManager] so the dialog is owned by this terminal
+  // app's [RemoteWindowScope] — it only blocks the terminal window (Avalonia
+  // ModalBlocker semantics) instead of the whole workspace window, and it
+  // participates in desktop z-order + focus restoration.  Matches the
+  // pattern used by NotepadView for `NotepadSettingsDialog`.
 
   Future<void> _showSettingsDialog() {
-    return showDialog<void>(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: Text('terminal.settings'.tr()),
-              content: SizedBox(
-                width: 380,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildFontFamilyRow(setDialogState),
-                    const SizedBox(height: 14),
-                    _buildFontSizeRow(setDialogState),
-                    const SizedBox(height: 14),
-                    _buildColorSchemeRow(setDialogState),
-                    const SizedBox(height: 16),
-                    Text(
-                      'terminal.settings.description'.tr(),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('OK'),
-                ),
-              ],
-            );
-          },
+    final ownerId = RemoteWindowScope.of(context).window.id;
+    return ref.read(modalManagerProvider).open<void>(
+          ownerId: ownerId,
+          spec: ModalSpec(
+            title: 'terminal.settings'.tr(),
+            icon: Icons.tune_outlined,
+            preferredSize: const Size(440, 320),
+            child: TerminalSettingsDialog(
+              colorScheme: _colorScheme,
+              fontSize: _fontSize,
+              fontFamily: _fontFamily,
+              onColorSchemeChanged: (value) {
+                if (!mounted) return;
+                setState(() => _colorScheme = value);
+              },
+              onFontSizeChanged: (value) {
+                if (!mounted) return;
+                setState(() => _fontSize = value);
+              },
+              onFontFamilyChanged: (value) {
+                if (!mounted) return;
+                setState(() => _fontFamily = value);
+              },
+            ),
+          ),
         );
-      },
-    );
-  }
-
-  void _applyAppearance() {
-    if (!mounted) return;
-    setState(() {
-      // font size / family / scheme are read by the build() method below
-      // when constructing [TerminalTheme] and the text style.
-    });
-  }
-
-  Widget _buildFontFamilyRow(void Function(void Function()) setDialogState) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 110,
-          child: Text('terminal.font_family'.tr()),
-        ),
-        Expanded(
-          child: DropdownButtonFormField<String>(
-            initialValue:
-                _fontFamilies.contains(_fontFamily) ? _fontFamily : null,
-            isDense: true,
-            items: _fontFamilies
-                .map((f) => DropdownMenuItem<String>(value: f, child: Text(f)))
-                .toList(),
-            onChanged: (value) {
-              if (value == null) return;
-              setDialogState(() => _fontFamily = value);
-              _applyAppearance();
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFontSizeRow(void Function(void Function()) setDialogState) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 110,
-          child: Text('terminal.font_size'.tr()),
-        ),
-        Expanded(
-          child: DropdownButtonFormField<double>(
-            initialValue: _fontSizes.contains(_fontSize) ? _fontSize : null,
-            isDense: true,
-            items: _fontSizes
-                .map((s) => DropdownMenuItem<double>(
-                      value: s,
-                      child: Text(s.toStringAsFixed(0)),
-                    ))
-                .toList(),
-            onChanged: (value) {
-              if (value == null) return;
-              setDialogState(() => _fontSize = value);
-              _applyAppearance();
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildColorSchemeRow(void Function(void Function()) setDialogState) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 110,
-          child: Text('terminal.color_scheme'.tr()),
-        ),
-        Expanded(
-          child: DropdownButtonFormField<String>(
-            initialValue:
-                _colorSchemes.contains(_colorScheme) ? _colorScheme : null,
-            isDense: true,
-            items: _colorSchemes
-                .map((s) => DropdownMenuItem<String>(value: s, child: Text(s)))
-                .toList(),
-            onChanged: (value) {
-              if (value == null) return;
-              setDialogState(() => _colorScheme = value);
-              _applyAppearance();
-            },
-          ),
-        ),
-      ],
-    );
   }
 
   // ==========================================================================
@@ -376,7 +273,8 @@ class _TerminalViewState extends State<TerminalView> {
       padding: const EdgeInsets.symmetric(horizontal: 4),
       decoration: BoxDecoration(
         color: palette.surfaceRaised,
-        border: Border(bottom: BorderSide(color: palette.borderDefault, width: 1)),
+        border:
+            Border(bottom: BorderSide(color: palette.borderDefault, width: 1)),
       ),
       child: Row(
         children: [
@@ -464,9 +362,8 @@ class _TerminalViewState extends State<TerminalView> {
 
   void _showContextMenu(Offset globalPosition, _TerminalPalette palette) {
     final box = context.findRenderObject() as RenderBox?;
-    final relative = box == null
-        ? globalPosition
-        : box.globalToLocal(globalPosition);
+    final relative =
+        box == null ? globalPosition : box.globalToLocal(globalPosition);
     showMenu<String>(
       context: context,
       position: RelativeRect.fromRect(
@@ -526,7 +423,8 @@ class _TerminalViewState extends State<TerminalView> {
       case TerminalConnectionState.exited:
         final code = s.exitCode;
         if (code == null) return 'terminal.status.process_exited'.tr();
-        return 'terminal.status.process_exited_with_code'.tr(args: [code.toString()]);
+        return 'terminal.status.process_exited_with_code'
+            .tr(args: [code.toString()]);
       case TerminalConnectionState.disconnected:
         return 'terminal.status.process_exited'.tr();
     }
@@ -628,7 +526,10 @@ class _TerminalMenuButtonState extends State<_TerminalMenuButton> {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
             color: _hover
-                ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.08)
+                ? Theme.of(context)
+                    .colorScheme
+                    .onSurface
+                    .withValues(alpha: 0.08)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(4),
           ),
