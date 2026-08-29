@@ -1,7 +1,12 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:remoteos_client/core/theme/theme_palette_defaults.dart';
+import 'package:remoteos_client/core/theme/theme_service.dart';
 import 'package:remoteos_client/features/code_editor/application/code_editor_view_model.dart';
 import 'package:remoteos_client/features/code_editor/domain/code_editor_models.dart';
 import 'package:remoteos_client/features/code_editor/domain/code_editor_repository.dart';
+import 'package:remoteos_client/features/code_editor/presentation/components/code_editor_components.dart';
 
 void main() {
   group('CodeEditorViewModel', () {
@@ -55,6 +60,39 @@ void main() {
 
       expect(vm.state.value.workspaceRoots.single.children, hasLength(2));
       expect(vm.state.value.workspaceRoots.single.isLoaded, isTrue);
+    });
+
+    testWidgets('uses a top-aligned multiline editor for the active document',
+        (tester) async {
+      final vm = CodeEditorViewModel(repository: _FakeCodeEditorRepository({}));
+      addTearDown(vm.dispose);
+      vm.newDocument();
+      final palette = ThemePalette(ThemePaletteDefaults.resolve(null, false));
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            theme: buildThemeData(palette, Brightness.light),
+            home: Scaffold(
+              body: SizedBox(
+                width: 900,
+                height: 600,
+                child: CodeEditorWorkspace(
+                  vm: vm,
+                  state: vm.state.value.copyWith(isSidebarVisible: false),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final editor = tester.widget<TextField>(find.byType(TextField));
+      expect(editor.expands, isTrue);
+      expect(editor.maxLines, isNull);
+      expect(editor.minLines, isNull);
+      expect(editor.textAlign, TextAlign.start);
+      expect(editor.textAlignVertical, TextAlignVertical.top);
     });
   });
 }

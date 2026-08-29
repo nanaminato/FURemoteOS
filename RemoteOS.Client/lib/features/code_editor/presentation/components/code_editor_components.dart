@@ -286,7 +286,10 @@ class _CodeTextEditorState extends State<_CodeTextEditor> {
         expands: true,
         maxLines: null,
         minLines: null,
+        textAlign: TextAlign.start,
+        textAlignVertical: TextAlignVertical.top,
         keyboardType: TextInputType.multiline,
+        textInputAction: TextInputAction.newline,
         style:
             TextStyle(fontFamily: 'monospace', fontSize: widget.state.fontSize),
         decoration: const InputDecoration(

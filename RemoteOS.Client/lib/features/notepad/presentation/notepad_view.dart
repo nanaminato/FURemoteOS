@@ -403,17 +403,7 @@ class _NotepadViewState extends ConsumerState<NotepadView> {
                       if (s.showLineNumbers)
                         _buildLineNumbersGutter(palette, s),
                       Expanded(
-                        child: SingleChildScrollView(
-                          controller: _scrollController,
-                          scrollDirection:
-                              s.wordWrap ? Axis.vertical : Axis.horizontal,
-                          child: s.wordWrap
-                              ? _buildTextField(palette, s)
-                              : SingleChildScrollView(
-                                  scrollDirection: Axis.vertical,
-                                  child: _buildTextField(palette, s),
-                                ),
-                        ),
+                        child: _buildTextField(palette, s),
                       ),
                     ],
                   ),
@@ -431,25 +421,42 @@ class _NotepadViewState extends ConsumerState<NotepadView> {
   }
 
   Widget _buildLineNumbersGutter(ThemePalette palette, NotepadUiState s) {
-    return Container(
-      width: 52,
-      padding: const EdgeInsets.only(top: 14, right: 8),
-      decoration: BoxDecoration(
-        color: palette.surfaceSunken,
-        border: Border(right: BorderSide(color: palette.borderSubtle)),
-      ),
-      child: Text(
-        List.generate(s.lineCount, (i) => '${i + 1}').join('\n'),
-        textAlign: TextAlign.right,
-        style: TextStyle(
-          fontFamily: 'Consolas',
-          fontFamilyFallback: const ['Courier New', 'monospace'],
-          fontSize: s.fontSize,
-          height: 1.35,
-          color: palette.textTertiary,
+    return AnimatedBuilder(
+      animation: _scrollController,
+      builder: (context, _) => Container(
+        width: 52,
+        clipBehavior: Clip.hardEdge,
+        decoration: BoxDecoration(
+          color: palette.surfaceSunken,
+          border: Border(right: BorderSide(color: palette.borderSubtle)),
+        ),
+        child: Transform.translate(
+          offset: Offset(0, -_verticalScrollOffset),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 14, right: 8),
+            child: Text(
+              List.generate(s.lineCount, (i) => '${i + 1}').join('\n'),
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontFamily: 'Consolas',
+                fontFamilyFallback: const ['Courier New', 'monospace'],
+                fontSize: s.fontSize,
+                height: 1.35,
+                color: palette.textTertiary,
+              ),
+            ),
+          ),
         ),
       ),
     );
+  }
+
+  double get _verticalScrollOffset {
+    if (!_scrollController.hasClients ||
+        _scrollController.position.axisDirection != AxisDirection.down) {
+      return 0;
+    }
+    return _scrollController.offset;
   }
 
   Widget _buildTextField(ThemePalette palette, NotepadUiState s) {
@@ -459,66 +466,35 @@ class _NotepadViewState extends ConsumerState<NotepadView> {
       top: 14,
       bottom: 14,
     );
-    final text = s.text;
-    double? intrinsicWidth;
-    if (!s.wordWrap && text.isNotEmpty) {
-      final direction = Directionality.maybeOf(context);
-      if (direction != null) {
-        final painter = TextPainter(
-          text: TextSpan(
-            text: _longestLine(text),
-            style: TextStyle(
-              fontFamily: 'Consolas',
-              fontFamilyFallback: const ['Courier New', 'monospace'],
-              fontSize: s.fontSize,
-              height: 1.35,
-            ),
-          ),
-          maxLines: 1,
-          textDirection: direction,
-        )..layout();
-        intrinsicWidth = painter.width + 28;
-      }
-    }
-    return Container(
-      width: intrinsicWidth,
-      constraints: s.wordWrap
-          ? null
-          : BoxConstraints(minWidth: MediaQuery.of(context).size.width),
-      child: TextField(
-        controller: _controller,
-        expands: false,
-        maxLines: s.wordWrap ? null : s.lineCount,
-        minLines: s.wordWrap ? null : s.lineCount,
-        textAlignVertical: TextAlignVertical.top,
-        style: TextStyle(
-          fontFamily: 'Consolas',
-          fontFamilyFallback: const ['Courier New', 'monospace'],
-          fontSize: s.fontSize,
-          height: 1.35,
-          color: palette.textPrimary,
-        ),
-        cursorColor: palette.accent,
-        cursorWidth: 2,
-        keyboardType: TextInputType.multiline,
-        textInputAction: TextInputAction.newline,
-        decoration: InputDecoration(
-          border: InputBorder.none,
-          filled: true,
-          fillColor: palette.surface,
-          contentPadding: contentPadding,
-          hintText: 'notepad.hint.start_typing'.tr(),
-          hintStyle:
-              TextStyle(color: palette.textTertiary, fontSize: s.fontSize),
-          isCollapsed: true,
-          isDense: false,
-        ),
+    return TextField(
+      controller: _controller,
+      scrollController: _scrollController,
+      expands: true,
+      maxLines: null,
+      minLines: null,
+      textAlign: TextAlign.start,
+      textAlignVertical: TextAlignVertical.top,
+      style: TextStyle(
+        fontFamily: 'Consolas',
+        fontFamilyFallback: const ['Courier New', 'monospace'],
+        fontSize: s.fontSize,
+        height: 1.35,
+        color: palette.textPrimary,
+      ),
+      cursorColor: palette.accent,
+      cursorWidth: 2,
+      keyboardType: TextInputType.multiline,
+      textInputAction: TextInputAction.newline,
+      decoration: InputDecoration(
+        border: InputBorder.none,
+        filled: true,
+        fillColor: palette.surface,
+        contentPadding: contentPadding,
+        hintText: 'notepad.hint.start_typing'.tr(),
+        hintStyle: TextStyle(color: palette.textTertiary, fontSize: s.fontSize),
+        isCollapsed: true,
+        isDense: false,
       ),
     );
-  }
-
-  static String _longestLine(String text) {
-    if (text.isEmpty) return '';
-    return text.split('\n').reduce((a, b) => a.length > b.length ? a : b);
   }
 }
