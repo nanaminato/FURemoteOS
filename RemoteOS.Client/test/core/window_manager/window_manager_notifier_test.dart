@@ -90,6 +90,43 @@ void main() {
     expect(item.bounds, originalBounds);
   });
 
+  test('leaving fullscreen restores the prior maximized state', () {
+    final manager = WindowManagerNotifier();
+    final item = window();
+    manager.state = [item];
+    final originalBounds = item.bounds;
+    const workArea = Rect.fromLTWH(0, 0, 1000, 700);
+
+    manager.toggleMaximize(item.id, workArea);
+    manager.toggleFullscreen(item.id, workArea);
+    manager.toggleFullscreen(item.id, workArea);
+
+    expect(item.state, RemoteWindowState.maximized);
+    expect(item.bounds, workArea);
+
+    manager.toggleMaximize(item.id, workArea);
+    expect(item.state, RemoteWindowState.normal);
+    expect(item.bounds, originalBounds);
+  });
+
+  test('maximizing from fullscreen retains the normal restore bounds', () {
+    final manager = WindowManagerNotifier();
+    final item = window();
+    manager.state = [item];
+    final originalBounds = item.bounds;
+    const workArea = Rect.fromLTWH(0, 0, 1000, 700);
+
+    manager.toggleFullscreen(item.id, workArea);
+    manager.toggleMaximize(item.id, workArea);
+
+    expect(item.state, RemoteWindowState.maximized);
+    expect(item.bounds, workArea);
+
+    manager.toggleMaximize(item.id, workArea);
+    expect(item.state, RemoteWindowState.normal);
+    expect(item.bounds, originalBounds);
+  });
+
   test('move and resize obey visible-area and minimum-size constraints', () {
     final manager = WindowManagerNotifier();
     final item = window(bounds: const Rect.fromLTWH(100, 100, 420, 300));

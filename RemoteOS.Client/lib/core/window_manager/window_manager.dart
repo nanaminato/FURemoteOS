@@ -22,7 +22,16 @@ class RemoteWindow {
   final IconData icon;
 
   Rect bounds;
+
+  /// The normal-size bounds to use when restoring from maximized state.
   Rect? restoreBounds;
+
+  /// The exact presentation bounds immediately before entering fullscreen.
+  ///
+  /// This cannot share [restoreBounds]: a maximized window still needs its
+  /// normal-size bounds after it returns from fullscreen.
+  Rect? fullscreenRestoreBounds;
+  RemoteWindowState? stateBeforeFullscreen;
   RemoteWindowState? stateBeforeMinimize;
   final Size minimumSize;
   RemoteWindowState state;
@@ -385,7 +394,10 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
             w
               ..state = RemoteWindowState.normal
               ..bounds = w.restoreBounds ?? w.bounds
+              ..restoreBounds = null
               ..zOrder = _zCounter++
+          else if (w.state == RemoteWindowState.fullscreen)
+            _maximizeFromFullscreen(w, screenWorkArea)
           else
             _maximize(w, screenWorkArea)
         else
@@ -401,27 +413,67 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
       ..zOrder = _zCounter++;
   }
 
-  /// Toggle an internal window between its normal/maximized presentation and
-  /// the entire managed host work area. The host taskbar remains available.
+  /// Switches a fullscreen window to maximized without replacing the normal
+  /// bounds that the maximize button must later restore.
+  RemoteWindow _maximizeFromFullscreen(
+    RemoteWindow window,
+    Rect? screenWorkArea,
+  ) {
+    if (window.stateBeforeFullscreen != RemoteWindowState.maximized) {
+      window.restoreBounds = window.fullscreenRestoreBounds ??
+          window.restoreBounds ??
+          window.bounds;
+    }
+    return window
+      ..state = RemoteWindowState.maximized
+      ..bounds = screenWorkArea ?? window.bounds
+      ..fullscreenRestoreBounds = null
+      ..stateBeforeFullscreen = null
+      ..zOrder = _zCounter++;
+  }
+
+  /// Toggle an internal window between fullscreen and its exact prior
+  /// presentation. The host taskbar remains available.
   void toggleFullscreen(String windowId, Rect workArea) {
     _ensureNextZOrderAbove(state);
     state = [
       for (final w in state)
         if (w.id == windowId)
           if (w.state == RemoteWindowState.fullscreen)
-            w
-              ..state = RemoteWindowState.normal
-              ..bounds = w.restoreBounds ?? w.bounds
-              ..zOrder = _zCounter++
+            _leaveFullscreen(w)
           else
             w
-              ..restoreBounds = w.bounds
+              ..fullscreenRestoreBounds = w.bounds
+              ..stateBeforeFullscreen = w.state
+              // Layout persistence needs the normal bounds while fullscreen
+              // is active. Do not overwrite an existing maximize restore
+              // bound, because it is the only route back to normal size.
+              ..restoreBounds = w.state == RemoteWindowState.maximized
+                  ? w.restoreBounds
+                  : w.bounds
               ..state = RemoteWindowState.fullscreen
               ..bounds = workArea
               ..zOrder = _zCounter++
         else
           w,
     ];
+  }
+
+  RemoteWindow _leaveFullscreen(RemoteWindow window) {
+    final previousState =
+        window.stateBeforeFullscreen ?? RemoteWindowState.normal;
+    final previousBounds =
+        window.fullscreenRestoreBounds ?? window.restoreBounds ?? window.bounds;
+    final restored = window
+      ..state = previousState
+      ..bounds = previousBounds
+      ..fullscreenRestoreBounds = null
+      ..stateBeforeFullscreen = null
+      ..zOrder = _zCounter++;
+    if (previousState == RemoteWindowState.normal) {
+      restored.restoreBounds = null;
+    }
+    return restored;
   }
 
   /// Move a window to a new position.
