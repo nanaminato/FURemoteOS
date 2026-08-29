@@ -40,9 +40,6 @@ import '../features/notepad/data/text_file_repository.dart';
 import '../features/settings/application/settings_view_model.dart';
 import '../features/settings/data/settings_repository.dart';
 import '../features/system_monitor/data/remote_system_monitor_api.dart';
-import '../features/task_manager/application/task_manager_view_model.dart';
-import '../features/task_manager/data/repositories/remote_task_repository.dart';
-import '../features/task_manager/domain/task_repository.dart';
 import '../features/workspace/application/workspace_sync_coordinator.dart';
 import '../features/workspace/data/remote_workspace_api.dart';
 

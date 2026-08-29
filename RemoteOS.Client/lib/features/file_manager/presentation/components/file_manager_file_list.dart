@@ -115,44 +115,53 @@ class _DetailsTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return Column(
-      children: [
-        Container(
-          height: 28,
-          decoration: BoxDecoration(
-            color: palette.surfaceRaised,
-            border: Border(bottom: BorderSide(color: palette.borderSubtle)),
-          ),
-          child: const Row(
-            children: [
-              _HeaderCell(flex: 4, text: 'common.name'),
-              _HeaderCell(flex: 2, text: 'explorer.modified'),
-              _HeaderCell(flex: 1, text: 'explorer.size'),
-              _HeaderCell(flex: 1, text: 'common.type'),
-            ],
-          ),
+    return LayoutBuilder(builder: (context, constraints) {
+      // Avalonia's details ListBox leaves an unused trailing viewport area.
+      // Keep it intentionally: users right-click there to get directory
+      // actions without accidentally targeting the final row.
+      final rightClickGutter = constraints.maxWidth >= 680 ? 160.0 : 64.0;
+      return Padding(
+        padding: EdgeInsets.only(right: rightClickGutter),
+        child: Column(
+          children: [
+            Container(
+              height: 28,
+              decoration: BoxDecoration(
+                color: palette.surfaceRaised,
+                border: Border(bottom: BorderSide(color: palette.borderSubtle)),
+              ),
+              child: const Row(
+                children: [
+                  _HeaderCell(flex: 4, text: 'common.name'),
+                  _HeaderCell(flex: 2, text: 'explorer.modified'),
+                  _HeaderCell(flex: 1, text: 'explorer.size'),
+                  _HeaderCell(flex: 1, text: 'common.type'),
+                ],
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                itemCount: entries.length,
+                itemBuilder: (context, i) {
+                  final entry = entries[i];
+                  final selected = state.selectedPaths.contains(entry.path);
+                  return _EntryRow(
+                    palette: palette,
+                    entry: entry,
+                    selected: selected,
+                    state: state,
+                    vm: vm,
+                    onContextMenuRequested: onContextMenuRequested,
+                    onOpenEntry: onOpenEntry,
+                    onOpenWith: onOpenWith,
+                  );
+                },
+              ),
+            ),
+          ],
         ),
-        Expanded(
-          child: ListView.builder(
-            itemCount: entries.length,
-            itemBuilder: (context, i) {
-              final entry = entries[i];
-              final selected = state.selectedPaths.contains(entry.path);
-              return _EntryRow(
-                palette: palette,
-                entry: entry,
-                selected: selected,
-                state: state,
-                vm: vm,
-                onContextMenuRequested: onContextMenuRequested,
-                onOpenEntry: onOpenEntry,
-                onOpenWith: onOpenWith,
-              );
-            },
-          ),
-        ),
-      ],
-    );
+      );
+    });
   }
 }
 
@@ -229,7 +238,8 @@ class _EntryRow extends StatelessWidget {
                 flex: 4,
                 child: Row(children: [
                   const SizedBox(width: 6),
-                  Icon(entry.icon, size: 16, color: palette.textSecondary),
+                  Icon(_entryIcon(entry),
+                      size: 16, color: palette.textSecondary),
                   const SizedBox(width: 6),
                   Expanded(
                       child: Text(entry.name,
@@ -341,7 +351,7 @@ class _TilesGrid extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(entry.icon,
+                  Icon(_entryIcon(entry),
                       size: 40,
                       color: entry.isFolder
                           ? palette.accent
@@ -362,3 +372,6 @@ class _TilesGrid extends StatelessWidget {
     );
   }
 }
+
+IconData _entryIcon(FileItem entry) =>
+    entry.isFolder ? Icons.folder_rounded : Icons.description_outlined;

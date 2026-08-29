@@ -17,13 +17,11 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:command_it/command_it.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../../app/dependency_injection.dart' as app_di;
 import '../../../core/commands/base_view_model.dart';
-import '../../../core/network/remoteos_api.dart';
-import '../../auth/domain/auth_models.dart';
+import '../../../core/errors/remote_os_failure.dart';
 import '../../files/data/remote_file_api.dart';
 import '../data/file_manager_repository.dart';
 import '../domain/file_manager_models.dart';
@@ -47,7 +45,7 @@ typedef FmRequestLocalSaveFileAsync = Future<String?> Function(
 typedef FmShowMessageAsync = Future<void> Function(String message);
 typedef FmShowErrorAsync = void Function(Object error);
 typedef FmOpenFileAppAsync = Future<void> Function(
-    FileItem entry, OpenWithCandidate? candidate);
+    FileItem entry, OpenWithChoice? choice);
 typedef FmOpenWithChooseAsync = Future<OpenWithChoice?> Function(
     FileItem entry, List<OpenWithCandidate> candidates);
 typedef FmOpenTerminalAsync = void Function(String workingDirectory);
@@ -226,8 +224,9 @@ class FileManagerViewModel extends ViewModel {
     if (s.isSaveFilePickerMode) {
       return s.pickerEntryName.trim().isNotEmpty && s.currentPath.isNotEmpty;
     }
-    if (s.pickerEntryName.trim().isNotEmpty && !s.allowMultipleFiles)
+    if (s.pickerEntryName.trim().isNotEmpty && !s.allowMultipleFiles) {
       return true;
+    }
     if (s.allowMultipleFiles) {
       final f = s.pickerSelectedFilter;
       return s.selectedEntries().any((e) =>
@@ -242,7 +241,9 @@ class FileManagerViewModel extends ViewModel {
     final s = _s;
     if (!s.isFilePickerMode &&
         !s.isMultiFilePickerMode &&
-        !s.isSaveFilePickerMode) return false;
+        !s.isSaveFilePickerMode) {
+      return false;
+    }
     if (entry.isFolder) return false;
     final f = s.pickerSelectedFilter;
     return f.matches(entry.name) || f.patterns.contains('*');
@@ -378,18 +379,19 @@ class FileManagerViewModel extends ViewModel {
           (specials.isNotEmpty ? specials.first.path : null) ??
           (drives.isNotEmpty ? drives.first.path : '');
       final initialLocation = home?.name ??
-          (specials.isNotEmpty ? specials.first.name : '') ??
-          (drives.isNotEmpty ? drives.first.name : '');
+          (specials.isNotEmpty
+              ? specials.first.name
+              : (drives.isNotEmpty ? drives.first.name : ''));
 
       final s2 = _s.copyWith(
         navigationNodes: nodes,
         isLoading: false,
         loadError: null,
         statusText: 'explorer.status.root_ready',
-        currentPath: s2_currentPath(_s, initialPath),
-        locationName: s2_currentPath(_s, initialLocation),
-        history: s2_history(_s, initialPath),
-        historyIndex: s2_historyIndex(_s, initialPath),
+        currentPath: _initialCurrentPath(_s, initialPath),
+        locationName: _initialCurrentPath(_s, initialLocation),
+        history: _initialHistory(_s, initialPath),
+        historyIndex: _initialHistoryIndex(_s, initialPath),
       );
       state.value = s2;
     } catch (error) {
@@ -405,18 +407,19 @@ class FileManagerViewModel extends ViewModel {
 
   // These helpers exist purely to avoid read-after-write issues inside the
   // copyWith closure: Dart evaluates named parameters eagerly.
-  static String s2_currentPath(FileManagerUiState s, String fallback) {
-    final s2_current = s.currentPath;
-    return s2_current.isEmpty ? fallback : s2_current;
+  static String _initialCurrentPath(FileManagerUiState s, String fallback) {
+    final current = s.currentPath;
+    return current.isEmpty ? fallback : current;
   }
 
-  static List<String> s2_history(FileManagerUiState s, String initialPath) {
+  static List<String> _initialHistory(
+      FileManagerUiState s, String initialPath) {
     if (s.history.isNotEmpty) return s.history;
     if (initialPath.isEmpty) return const [];
     return <String>[initialPath];
   }
 
-  static int s2_historyIndex(FileManagerUiState s, String initialPath) {
+  static int _initialHistoryIndex(FileManagerUiState s, String initialPath) {
     if (s.historyIndex >= 0) return s.historyIndex;
     return initialPath.isEmpty ? -1 : 0;
   }
@@ -650,12 +653,10 @@ class FileManagerViewModel extends ViewModel {
   List<OpenWithCandidate> candidatesFor(FileItem entry) {
     final candidates = <OpenWithCandidate>[];
     if (_isImage(entry)) {
-      candidates.add(const OpenWithCandidate(
-          'image_viewer', 'Image Viewer', Icons.image_outlined));
+      candidates.add(const OpenWithCandidate('image_viewer', 'Image Viewer'));
     }
     if (_isTextByName(entry)) {
-      candidates.add(const OpenWithCandidate(
-          'code_editor', 'Code Editor', Icons.code_outlined));
+      candidates.add(const OpenWithCandidate('code_editor', 'Code Editor'));
     }
     return candidates;
   }
@@ -671,7 +672,7 @@ class FileManagerViewModel extends ViewModel {
     }
   }
 
-  Future<void> openEntry(FileItem entry, {OpenWithCandidate? candidate}) async {
+  Future<void> openEntry(FileItem entry, {OpenWithChoice? choice}) async {
     if (entry.isFolder) {
       navigate(entry.name, entry.path);
       return;
@@ -684,15 +685,17 @@ class FileManagerViewModel extends ViewModel {
     var candidates = candidatesFor(entry);
     if (candidates.isEmpty && await isTextContent(entry)) {
       candidates = const [
-        OpenWithCandidate('code_editor', 'Code Editor', Icons.code_outlined),
+        OpenWithCandidate('code_editor', 'Code Editor'),
       ];
     }
     if (candidates.isEmpty) {
-      showError?.call(const RemoteOsApiException(
-          statusCode: 409, message: 'No compatible application is available.'));
+      showError?.call(const UnsupportedOperationFailure());
       return;
     }
-    await openFileAppAsync?.call(entry, candidate ?? candidates.first);
+    await openFileAppAsync?.call(
+      entry,
+      choice ?? OpenWithChoice(candidates.first, false),
+    );
   }
 
   Future<void> chooseOpenWith(FileItem entry) async {
@@ -700,7 +703,7 @@ class FileManagerViewModel extends ViewModel {
     if (candidates.isEmpty) return openEntry(entry);
     final choice = await openWithChooseAsync?.call(entry, candidates);
     if (choice == null) return;
-    await openFileAppAsync?.call(entry, choice.candidate);
+    await openFileAppAsync?.call(entry, choice);
   }
 
   void _handlePickerOpen(FileItem entry) {
@@ -725,7 +728,6 @@ class FileManagerViewModel extends ViewModel {
   void commitPicker() {
     final s = _s;
     if (!s.isPickerMode) return;
-    final pickerOptions = s.pickerOptions!;
     final List<String> selected;
     if (s.isFolderPickerMode) {
       final folders = s

@@ -11,29 +11,12 @@
 
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../system_monitor/data/remote_system_monitor_api.dart';
 
 /// Which resource tile is selected in the Performance tab.
 enum PerformanceResource { cpu, memory, filesystem, disk, network }
-
-extension PerformanceResourceX on PerformanceResource {
-  String get label => switch (this) {
-        PerformanceResource.cpu => 'CPU',
-        PerformanceResource.memory => 'Memory',
-        PerformanceResource.filesystem => 'Filesystem',
-        PerformanceResource.disk => 'Disk I/O',
-        PerformanceResource.network => 'Network',
-      };
-  IconData get icon => switch (this) {
-        PerformanceResource.cpu => Icons.memory_outlined,
-        PerformanceResource.memory => Icons.storage_outlined,
-        PerformanceResource.filesystem => Icons.folder_outlined,
-        PerformanceResource.disk => Icons.save_outlined,
-        PerformanceResource.network => Icons.network_check_outlined,
-      };
-}
 
 /// Result wrapper for kill-process operations; carries the server elevation
 /// and error fields without leaking raw HTTP DTOs to the ViewModel.

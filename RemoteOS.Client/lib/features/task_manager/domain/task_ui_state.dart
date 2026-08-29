@@ -21,6 +21,7 @@ class TaskManagerUiState {
     required this.selectedResource,
     required this.selectedResourceId,
     required this.processes,
+    required this.selectedProcessId,
     required this.processFilter,
     required this.autoRefresh,
     required this.pendingMessage,
@@ -37,6 +38,7 @@ class TaskManagerUiState {
         selectedResource: PerformanceResource.cpu,
         selectedResourceId: null,
         processes: null,
+        selectedProcessId: null,
         processFilter: '',
         autoRefresh: true,
         pendingMessage: null,
@@ -52,6 +54,7 @@ class TaskManagerUiState {
   final PerformanceResource selectedResource;
   final String? selectedResourceId;
   final ProcessPage? processes;
+  final int? selectedProcessId;
   final String processFilter;
   final bool autoRefresh;
   final String?
@@ -82,6 +85,8 @@ class TaskManagerUiState {
     String? selectedResourceId,
     bool clearSelectedResourceId = false,
     ProcessPage? processes,
+    int? selectedProcessId,
+    bool clearSelectedProcess = false,
     String? processFilter,
     bool? autoRefresh,
     String? pendingMessage,
@@ -100,6 +105,9 @@ class TaskManagerUiState {
           ? null
           : (selectedResourceId ?? this.selectedResourceId),
       processes: processes ?? this.processes,
+      selectedProcessId: clearSelectedProcess
+          ? null
+          : (selectedProcessId ?? this.selectedProcessId),
       processFilter: processFilter ?? this.processFilter,
       autoRefresh: autoRefresh ?? this.autoRefresh,
       pendingMessage:

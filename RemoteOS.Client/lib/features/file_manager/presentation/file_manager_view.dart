@@ -222,9 +222,8 @@ class _FileManagerViewState extends ConsumerState<FileManagerView> {
 
   // ---- Open-with dispatch + app opening ----
 
-  Future<void> _openFileApp(
-      FileItem entry, OpenWithCandidate? candidate) async {
-    final defaultAppId = _resolveDefaultApp(entry, candidate);
+  Future<void> _openFileApp(FileItem entry, OpenWithChoice? choice) async {
+    final defaultAppId = _resolveDefaultApp(entry, choice);
     if (defaultAppId == null) return;
     final registry = ref.read(appRegistryProvider);
     final app = registry.get(defaultAppId);
@@ -245,15 +244,12 @@ class _FileManagerViewState extends ConsumerState<FileManagerView> {
         );
   }
 
-  String? _resolveDefaultApp(FileItem entry, OpenWithCandidate? candidate) {
+  String? _resolveDefaultApp(FileItem entry, OpenWithChoice? choice) {
     final candidates = _vm.candidatesFor(entry);
     if (candidates.isEmpty) return null;
-    final selected = candidate ?? candidates.first;
+    final selected = choice?.candidate ?? candidates.first;
     final ext = _extension(entry.name);
-    if (ext != null &&
-        candidate != null &&
-        candidate is OpenWithChoice &&
-        (candidate as OpenWithChoice).always) {
+    if (ext != null && choice?.always == true) {
       final current = ref.read(workspaceSyncProvider).preferences;
       if (current != null) {
         final mappings = current.defaultApps

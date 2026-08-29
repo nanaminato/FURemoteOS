@@ -1,167 +1,371 @@
-// Code Editor ViewModel.
-//
-// Relies on the existing TextFileRepository (shared with Notepad) for
-// remote text I/O with encoding-awareness and file-path validation.
-// Document content changes propagate in two directions:
-//   * View → VM: view calls [updateDocument] whenever the TextField changes.
-//   * VM → View: state.documentText (used by the View to reset the
-//     controller's value when a remote file finishes loading).
-//
-// Parameterised I/O (load) and 1-param void commands (save) follow the same
-// plain-async-method pattern used by Docker and Image Viewer ViewModels,
-// because command_it v9.x does not expose a 1-param factory.
-
 import 'package:command_it/command_it.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 
 import '../../../core/commands/base_view_model.dart';
 import '../../files/text_file_encodings.dart';
-import '../../notepad/data/text_file_repository.dart';
+import '../domain/code_editor_models.dart';
+import '../domain/code_editor_repository.dart';
 import '../domain/code_editor_ui_state.dart';
 
-/// Factory used by the code-editor app shell.
-CodeEditorViewModel createCodeEditorViewModel({
-  required TextFileRepository repository,
-  String? remotePath,
-  String? fileName,
-}) =>
-    CodeEditorViewModel(
-      repository: repository,
-      initialPath: remotePath,
-      initialFileName: fileName,
-    );
+typedef RequestCodeEditorPath = Future<String?> Function();
+typedef RequestCodeEditorSavePath = Future<String?> Function(
+    String defaultName);
+typedef RequestDiscardDocument = Future<bool> Function(
+    CodeEditorDocument document);
 
-const defaultWelcomeSource = '''import 'package:flutter/material.dart';
-
-void main() {
-  runApp(const RemoteOSApp());
-}
-
-class RemoteOSApp extends StatelessWidget {
-  const RemoteOSApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const MaterialApp(
-      home: Scaffold(
-        body: Center(child: Text('Welcome to RemoteOS')),
-      ),
-    );
-  }
-}
-''';
-
+/// Presentation logic for one Code Editor window.
+///
+/// Remote I/O is isolated behind [CodeEditorRepository]. The callbacks
+/// describe owner-window picker and modal workflows; their Flutter
+/// implementation is installed by the View and is never referenced here.
 class CodeEditorViewModel extends ViewModel {
   CodeEditorViewModel({
-    required TextFileRepository repository,
+    required CodeEditorRepository repository,
     String? initialPath,
-    String? initialFileName,
-  }) : _repository = repository {
-    state = ValueNotifier<CodeEditorUiState>(
-      CodeEditorUiState.initial(
-        remotePath: initialPath,
-        fileName: initialFileName,
-        initialDocument: defaultWelcomeSource,
-      ),
-    );
+    bool pathCaseSensitive = true,
+    String defaultEncodingName = 'UTF-8',
+  })  : _repository = repository,
+        _initialPath = initialPath,
+        _pathCaseSensitive = pathCaseSensitive {
+    state = ValueNotifier(CodeEditorUiState.initial(
+      defaultEncodingName: TextFileEncodings.isSupported(defaultEncodingName)
+          ? defaultEncodingName
+          : 'UTF-8',
+    ));
     trackDisposable(state);
+    trackDisposable(newDocumentCommand);
+    trackDisposable(openDocumentCommand);
     trackDisposable(saveCommand);
-    trackDisposable(toggleWordWrapCommand);
-    trackDisposable(toggleExplorerCommand);
-    trackDisposable(increaseFontSizeCommand);
-    trackDisposable(decreaseFontSizeCommand);
+    trackDisposable(saveAsCommand);
+    trackDisposable(addFolderCommand);
+    trackDisposable(refreshFolderCommand);
+    trackDisposable(removeFolderCommand);
+    trackDisposable(closeDocumentCommand);
   }
 
-  final TextFileRepository _repository;
+  final CodeEditorRepository _repository;
+  final String? _initialPath;
+  final bool _pathCaseSensitive;
+  int _untitledSequence = 0;
 
   late final ValueNotifier<CodeEditorUiState> state;
 
+  RequestCodeEditorPath? requestFilePath;
+  RequestCodeEditorPath? requestFolderPath;
+  RequestCodeEditorSavePath? requestSavePath;
+  RequestDiscardDocument? requestDiscardDocument;
+
   CodeEditorUiState get _s => state.value;
-  void _mutate(CodeEditorUiState Function(CodeEditorUiState s) fn) =>
-      state.value = fn(state.value);
+  void _set(CodeEditorUiState next) => state.value = next;
+  bool get canSave => !_s.isLoading && _s.activeDocument != null;
 
-  // ---- Gate helpers for the View layer ----
+  late final newDocumentCommand =
+      Command.createSyncNoParamNoResult(newDocument);
+  late final openDocumentCommand =
+      Command.createAsyncNoParamNoResult(requestOpenDocument);
+  late final saveCommand = Command.createAsyncNoParamNoResult(save);
+  late final saveAsCommand = Command.createAsyncNoParamNoResult(saveAs);
+  late final addFolderCommand = Command.createAsyncNoParamNoResult(addFolder);
+  late final refreshFolderCommand =
+      Command.createAsyncNoParamNoResult(refreshSelectedFolder);
+  late final removeFolderCommand =
+      Command.createSyncNoParamNoResult(removeSelectedFolder);
+  late final closeDocumentCommand =
+      Command.createAsyncNoParamNoResult(closeActiveDocument);
 
-  bool canSave() => !_s.isLoading && _s.isDirty && _s.remotePath != null;
-  bool get isLoading => _s.isLoading;
+  Future<void> loadInitialDocument() async {
+    final path = _initialPath;
+    if (path != null && path.isNotEmpty) await openPath(path);
+  }
 
-  // ---- Pure UI toggle commands (NoParam sync) ----
+  void newDocument() {
+    final document = CodeEditorDocument(
+      id: 'untitled-${++_untitledSequence}',
+      path: null,
+      text: '',
+      encodingName: _s.defaultEncodingName,
+      untitledName: 'Untitled $_untitledSequence',
+    );
+    _set(_s.copyWith(
+      documents: [..._s.documents, document],
+      activeDocumentId: document.id,
+      statusKey: 'code_editor.status.new_document',
+      statusArguments: const [],
+    ));
+  }
 
-  late final toggleWordWrapCommand = Command.createSyncNoParamNoResult(
-    () => _mutate((s) => s.copyWith(wordWrap: !s.wordWrap)),
-  );
+  Future<void> requestOpenDocument() async {
+    final path = await requestFilePath?.call();
+    if (path != null && path.isNotEmpty) await openPath(path);
+  }
 
-  late final toggleExplorerCommand = Command.createSyncNoParamNoResult(
-    () => _mutate((s) => s.copyWith(showExplorer: !s.showExplorer)),
-  );
-
-  late final increaseFontSizeCommand = Command.createSyncNoParamNoResult(
-    () => _mutate(
-        (s) => s.copyWith(fontSize: (s.fontSize + 1).clamp(10.0, 28.0))),
-  );
-
-  late final decreaseFontSizeCommand = Command.createSyncNoParamNoResult(
-    () => _mutate(
-        (s) => s.copyWith(fontSize: (s.fontSize - 1).clamp(10.0, 28.0))),
-  );
-
-  // ---- Data I/O: save is NoParam async command; load is parameterised → method ----
-
-  /// Persists the document to the current remotePath (no-op if unsaved or no path).
-  late final saveCommand = Command.createAsyncNoParamNoResult(() async {
-    final path = _s.remotePath;
-    if (path == null || !_s.isDirty) return;
-    _mutate((s) => s.copyWith(isLoading: true, clearError: true));
-    try {
-      await _repository.writeText(
-          path, _s.documentText, TextFileEncodings.defaultEncoding);
-      _mutate((s) => s.copyWith(isDirty: false, isLoading: false));
-    } catch (error) {
-      _mutate((s) => s.copyWith(
-            errorMessage: '$error',
-            isLoading: false,
-          ));
+  Future<void> openPath(String path, {bool forceReload = false}) async {
+    final existing = _documentAtPath(path);
+    if (existing != null && !forceReload) {
+      activateDocument(existing.id);
+      return;
     }
-  });
-
-  /// Loads remotePath's text content into the document.
-  Future<void> load(String path) async {
-    if (isLoading) return;
-    _mutate((s) => s.copyWith(isLoading: true, clearError: true));
+    if (existing?.isDirty == true) {
+      _set(_s.copyWith(
+        statusKey: 'code_editor.status.save_or_discard',
+        statusArguments: const [],
+      ));
+      return;
+    }
+    _set(_s.copyWith(isLoading: true));
     try {
-      final content =
-          await _repository.readText(path, TextFileEncodings.defaultEncoding) ??
-              '';
-      _mutate((s) => s.copyWith(
-            documentText: content,
-            isDirty: false,
-            isLoading: false,
-          ));
+      final encoding = existing?.encodingName ?? _s.defaultEncodingName;
+      final text = await _repository.readText(path, encoding);
+      if (text == null) {
+        _set(_s.copyWith(
+          isLoading: false,
+          statusKey: 'code_editor.status.file_missing',
+          statusArguments: const [],
+        ));
+        return;
+      }
+      final document = existing ??
+          CodeEditorDocument(
+            id: path,
+            path: path,
+            text: text,
+            encodingName: encoding,
+            untitledName: 'Untitled ${++_untitledSequence}',
+          );
+      final documents = [
+        for (final item in _s.documents)
+          if (item.id == document.id)
+            document.copyWith(text: text, isDirty: false)
+          else
+            item,
+        if (existing == null) document,
+      ];
+      _set(_s.copyWith(
+        documents: documents,
+        activeDocumentId: document.id,
+        isLoading: false,
+        statusKey: 'code_editor.status.opened',
+        statusArguments: [document.displayName, encoding],
+      ));
     } catch (_) {
-      _mutate((s) => s.copyWith(
-            documentText: 'Unable to open remote text file.',
-            isLoading: false,
-          ));
+      _set(_s.copyWith(
+        isLoading: false,
+        statusKey: 'code_editor.status.open_failed',
+        statusArguments: const [],
+      ));
     }
   }
 
-  // ---- View-to-VM setters (not commands: pure local state updates) ----
-
-  void updateDocument(String text) {
-    if (text == _s.documentText) return;
-    _mutate((s) => s.copyWith(documentText: text, isDirty: true));
+  Future<void> save() async {
+    var document = _s.activeDocument;
+    if (document == null) {
+      newDocument();
+      document = _s.activeDocument;
+    }
+    if (document == null) return;
+    final path = document.path;
+    if (path == null || path.isEmpty) return saveAs();
+    await _saveToPath(document, path);
   }
 
-  void setSearch(String value) => _mutate((s) => s.copyWith(searchText: value));
+  Future<void> saveAs() async {
+    var document = _s.activeDocument;
+    if (document == null) {
+      newDocument();
+      document = _s.activeDocument;
+    }
+    if (document == null) return;
+    final path = await requestSavePath?.call(document.displayName);
+    if (path != null && path.isNotEmpty) await _saveToPath(document, path);
+  }
 
-  /// Trigger remote load from the shell-supplied path once build is ready.
-  void scheduleInitialLoad() {
-    final path = _s.remotePath;
-    if (path == null) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // ignore: discarded_futures
-      load(path);
-    });
+  Future<void> _saveToPath(CodeEditorDocument document, String path) async {
+    _set(_s.copyWith(isLoading: true));
+    try {
+      await _repository.writeText(path, document.text, document.encodingName);
+      final saved = document.copyWith(path: path, isDirty: false);
+      _set(_s.copyWith(
+        documents: [
+          for (final item in _s.documents)
+            if (item.id == document.id) saved else item,
+        ],
+        isLoading: false,
+        statusKey: 'code_editor.status.saved',
+        statusArguments: [saved.displayName, saved.encodingName],
+      ));
+    } catch (_) {
+      _set(_s.copyWith(
+        isLoading: false,
+        statusKey: 'code_editor.status.save_failed',
+        statusArguments: const [],
+      ));
+    }
+  }
+
+  void updateActiveDocument(String text) {
+    final active = _s.activeDocument;
+    if (active == null || active.text == text) return;
+    _set(_s.copyWith(documents: [
+      for (final item in _s.documents)
+        if (item.id == active.id)
+          item.copyWith(text: text, isDirty: true)
+        else
+          item,
+    ]));
+  }
+
+  void activateDocument(String id) {
+    if (_s.documents.every((document) => document.id != id)) return;
+    _set(_s.copyWith(activeDocumentId: id));
+  }
+
+  Future<void> closeActiveDocument() async {
+    final document = _s.activeDocument;
+    if (document == null) return;
+    if (document.isDirty &&
+        !(await requestDiscardDocument?.call(document) ?? false)) {
+      return;
+    }
+    final index = _s.documents.indexWhere((item) => item.id == document.id);
+    final remaining = [..._s.documents]..removeAt(index);
+    final next = remaining.isEmpty
+        ? null
+        : remaining[index.clamp(0, remaining.length - 1)];
+    _set(_s.copyWith(
+      documents: remaining,
+      activeDocumentId: next?.id,
+      clearActiveDocument: next == null,
+    ));
+  }
+
+  void setSidebar(CodeEditorSidebar sidebar) =>
+      _set(_s.copyWith(sidebar: sidebar, isSidebarVisible: true));
+  void toggleSidebar() =>
+      _set(_s.copyWith(isSidebarVisible: !_s.isSidebarVisible));
+  void toggleWordWrap() => _set(_s.copyWith(wordWrap: !_s.wordWrap));
+  void setFontSize(double size) =>
+      _set(_s.copyWith(fontSize: size.clamp(12, 20).toDouble()));
+  void setDefaultEncoding(String name) {
+    if (TextFileEncodings.isSupported(name)) {
+      _set(_s.copyWith(defaultEncodingName: name));
+    }
+  }
+
+  Future<void> addFolder() async {
+    final path = await requestFolderPath?.call();
+    if (path == null || path.isEmpty || _rootAtPath(path) != null) return;
+    final root = CodeEditorFolderNode(
+      name: _fileName(path),
+      path: path,
+      isDirectory: true,
+      isExpanded: true,
+    );
+    _set(_s.copyWith(workspaceRoots: [..._s.workspaceRoots, root]));
+    await refreshFolder(path);
+  }
+
+  Future<void> refreshSelectedFolder() async {
+    final root = _s.workspaceRoots.firstWhere(
+      (node) => node.isExpanded,
+      orElse: () =>
+          const CodeEditorFolderNode(name: '', path: '', isDirectory: false),
+    );
+    if (root.path.isNotEmpty) await refreshFolder(root.path);
+  }
+
+  Future<void> refreshFolder(String path) async {
+    final node = _nodeAtPath(path);
+    if (node == null || !node.isDirectory) return;
+    _replaceNode(node.copyWith(isLoading: true));
+    try {
+      final children = await _repository.listFolder(path);
+      _replaceNode(
+          node.copyWith(children: children, isLoading: false, isLoaded: true));
+    } catch (_) {
+      _replaceNode(node.copyWith(isLoading: false));
+    }
+  }
+
+  Future<void> toggleFolder(String path) async {
+    final node = _nodeAtPath(path);
+    if (node == null || !node.isDirectory) return;
+    final expanded = !node.isExpanded;
+    _replaceNode(node.copyWith(isExpanded: expanded));
+    if (expanded && !node.isLoaded) await refreshFolder(path);
+  }
+
+  void removeSelectedFolder() {
+    final root = _s.workspaceRoots.firstWhere(
+      (node) => node.isExpanded,
+      orElse: () =>
+          const CodeEditorFolderNode(name: '', path: '', isDirectory: false),
+    );
+    if (root.path.isEmpty) return;
+    _set(_s.copyWith(
+      workspaceRoots:
+          _s.workspaceRoots.where((item) => item.path != root.path).toList(),
+      statusKey: 'code_editor.status.folder_removed',
+      statusArguments: [root.name],
+    ));
+  }
+
+  void _replaceNode(CodeEditorFolderNode next) => _set(_s.copyWith(
+        workspaceRoots: [
+          for (final root in _s.workspaceRoots) _replaceNodeInTree(root, next),
+        ],
+      ));
+
+  CodeEditorFolderNode _replaceNodeInTree(
+      CodeEditorFolderNode current, CodeEditorFolderNode next) {
+    if (_pathsEqual(current.path, next.path)) return next;
+    if (!current.isDirectory || current.children.isEmpty) return current;
+    return current.copyWith(
+      children: [
+        for (final child in current.children) _replaceNodeInTree(child, next),
+      ],
+    );
+  }
+
+  CodeEditorDocument? _documentAtPath(String path) {
+    for (final document in _s.documents) {
+      if (document.path != null && _pathsEqual(document.path!, path)) {
+        return document;
+      }
+    }
+    return null;
+  }
+
+  CodeEditorFolderNode? _rootAtPath(String path) {
+    for (final root in _s.workspaceRoots) {
+      if (_pathsEqual(root.path, path)) return root;
+    }
+    return null;
+  }
+
+  CodeEditorFolderNode? _nodeAtPath(String path) {
+    for (final root in _s.workspaceRoots) {
+      final found = _findNode(root, path);
+      if (found != null) return found;
+    }
+    return null;
+  }
+
+  CodeEditorFolderNode? _findNode(CodeEditorFolderNode node, String path) {
+    if (_pathsEqual(node.path, path)) return node;
+    for (final child in node.children) {
+      final found = _findNode(child, path);
+      if (found != null) return found;
+    }
+    return null;
+  }
+
+  bool _pathsEqual(String left, String right) => _pathCaseSensitive
+      ? left == right
+      : left.toLowerCase() == right.toLowerCase();
+
+  static String _fileName(String path) {
+    final values =
+        path.replaceAll('\\', '/').split('/').where((item) => item.isNotEmpty);
+    return values.isEmpty ? path : values.last;
   }
 }

@@ -7,8 +7,6 @@
 
 import 'dart:io';
 
-import 'package:flutter/material.dart';
-
 import '../../files/data/remote_file_api.dart';
 import '../domain/file_manager_models.dart';
 
@@ -96,7 +94,6 @@ class RemoteFileManagerRepository implements FileManagerRepository {
       modifiedText: e.lastWriteTime == null
           ? '—'
           : e.lastWriteTime!.toLocal().toString().split('.').first,
-      icon: isDirectory ? Icons.folder_rounded : Icons.description_outlined,
       mimeType: e.mimeType,
     );
   }

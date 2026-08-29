@@ -1,79 +1,95 @@
-// Code Editor UI state.
-//
-// The text buffer itself lives in Flutter's [TextEditingController] (a
-// presentation concern per ARCHITECTURE.md § 8); state here tracks chrome
-// metadata, editor preferences, and asynchronous I/O status.
-
 import 'package:flutter/foundation.dart';
+
+import 'code_editor_models.dart';
 
 @immutable
 class CodeEditorUiState {
   const CodeEditorUiState({
-    required this.fileName,
-    required this.remotePath,
-    required this.showExplorer,
+    required this.documents,
+    required this.activeDocumentId,
+    required this.workspaceRoots,
+    required this.sidebar,
+    required this.isSidebarVisible,
     required this.wordWrap,
     required this.fontSize,
-    required this.searchText,
-    required this.isDirty,
+    required this.defaultEncodingName,
+    required this.statusKey,
+    required this.statusArguments,
     required this.isLoading,
-    required this.errorMessage,
-    required this.documentText,
   });
 
-  factory CodeEditorUiState.initial({
-    String? remotePath,
-    String? fileName,
-    String initialDocument = '',
-  }) =>
+  factory CodeEditorUiState.initial({String defaultEncodingName = 'UTF-8'}) =>
       CodeEditorUiState(
-        fileName: fileName ?? 'welcome.dart',
-        remotePath: remotePath,
-        showExplorer: true,
-        wordWrap: true,
+        documents: const [],
+        activeDocumentId: null,
+        workspaceRoots: const [],
+        sidebar: CodeEditorSidebar.explorer,
+        isSidebarVisible: true,
+        wordWrap: false,
         fontSize: 14,
-        searchText: '',
-        isDirty: false,
+        defaultEncodingName: defaultEncodingName,
+        statusKey: 'code_editor.status.ready',
+        statusArguments: const [],
         isLoading: false,
-        errorMessage: null,
-        documentText: initialDocument,
       );
 
-  final String fileName;
-  final String? remotePath;
-  final bool showExplorer;
+  final List<CodeEditorDocument> documents;
+  final String? activeDocumentId;
+  final List<CodeEditorFolderNode> workspaceRoots;
+  final CodeEditorSidebar sidebar;
+  final bool isSidebarVisible;
   final bool wordWrap;
   final double fontSize;
-  final String searchText;
-  final bool isDirty;
+  final String defaultEncodingName;
+  final String statusKey;
+  final List<String> statusArguments;
   final bool isLoading;
-  final String? errorMessage;
-  final String documentText;
+
+  CodeEditorDocument? get activeDocument {
+    final id = activeDocumentId;
+    if (id == null) return null;
+    for (final document in documents) {
+      if (document.id == id) return document;
+    }
+    return null;
+  }
+
+  bool get hasOpenFile => activeDocument?.path?.isNotEmpty == true;
+  int get lineCount {
+    final text = activeDocument?.text ?? '';
+    return text.isEmpty ? 1 : '\n'.allMatches(text).length + 1;
+  }
+
+  int get characterCount => activeDocument?.text.length ?? 0;
 
   CodeEditorUiState copyWith({
-    String? fileName,
-    String? remotePath,
-    bool? showExplorer,
+    List<CodeEditorDocument>? documents,
+    String? activeDocumentId,
+    bool clearActiveDocument = false,
+    List<CodeEditorFolderNode>? workspaceRoots,
+    CodeEditorSidebar? sidebar,
+    bool? isSidebarVisible,
     bool? wordWrap,
     double? fontSize,
-    String? searchText,
-    bool? isDirty,
+    String? defaultEncodingName,
+    String? statusKey,
+    List<String>? statusArguments,
     bool? isLoading,
-    String? errorMessage,
-    bool clearError = false,
-    String? documentText,
   }) {
     return CodeEditorUiState(
-      fileName: fileName ?? this.fileName,
-      remotePath: remotePath ?? this.remotePath,
-      showExplorer: showExplorer ?? this.showExplorer,
+      documents: documents ?? this.documents,
+      activeDocumentId: clearActiveDocument
+          ? null
+          : (activeDocumentId ?? this.activeDocumentId),
+      workspaceRoots: workspaceRoots ?? this.workspaceRoots,
+      sidebar: sidebar ?? this.sidebar,
+      isSidebarVisible: isSidebarVisible ?? this.isSidebarVisible,
       wordWrap: wordWrap ?? this.wordWrap,
       fontSize: fontSize ?? this.fontSize,
-      searchText: searchText ?? this.searchText,
-      isDirty: isDirty ?? this.isDirty,
+      defaultEncodingName: defaultEncodingName ?? this.defaultEncodingName,
+      statusKey: statusKey ?? this.statusKey,
+      statusArguments: statusArguments ?? this.statusArguments,
       isLoading: isLoading ?? this.isLoading,
-      errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
-      documentText: documentText ?? this.documentText,
     );
   }
 }

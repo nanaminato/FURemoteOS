@@ -1,11 +1,4 @@
-// Task Manager main View (ARCHITECTURE.md § 8).
-//
-// Thin orchestration layer:
-//   * owns the SnackBar / Scaffold plumbing for one-shot messages
-//   * wires the TabController to the ViewModel state
-//   * composes the two feature-specific components from
-//     `components/task_manager_components.dart`.
-
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/theme_service.dart';
@@ -13,108 +6,67 @@ import '../application/task_manager_view_model.dart';
 import '../domain/task_ui_state.dart';
 import 'components/task_manager_components.dart';
 
+/// Desktop task manager shell. It preserves Avalonia's two top-level tabs;
+/// each page owns a dense desktop workspace rather than a mobile card layout.
 class TaskManagerView extends StatefulWidget {
   const TaskManagerView({super.key, required this.vm});
-
   final TaskManagerViewModel vm;
-
   @override
   State<TaskManagerView> createState() => _TaskManagerViewState();
 }
 
 class _TaskManagerViewState extends State<TaskManagerView> {
-  static const _tabs = [
-    Tab(text: 'Performance'),
-    Tab(text: 'Processes'),
-  ];
-
-  TaskManagerUiState get _ui => widget.vm.state.value;
-
+  TaskManagerUiState get _state => widget.vm.state.value;
   @override
   void initState() {
     super.initState();
-    if (widget.vm.startCommand.canRun.value) {
-      widget.vm.startCommand();
-    }
-    // One-shot UI messages: convert the ViewModel's pendingMessage into a
-    // SnackBar so transient statuses don't pollute long-lived state.
-    widget.vm.state.addListener(_onStateChanged);
-  }
-
-  @override
-  void dispose() {
-    widget.vm.state.removeListener(_onStateChanged);
-    super.dispose();
-  }
-
-  String? _lastShown;
-  void _onStateChanged() {
-    final message = _ui.pendingMessage;
-    if (message == null) {
-      _lastShown = null;
-      return;
-    }
-    if (message == _lastShown) return;
-    _lastShown = message;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) widget.vm.consumePendingMessage();
-    });
+    if (widget.vm.startCommand.canRun.value) widget.vm.startCommand.runAsync();
   }
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return ListenableBuilder(
-      listenable: widget.vm.state,
-      builder: (context, _) {
-        if (_ui.isLoading) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        return DefaultTabController(
-          length: 2,
-          initialIndex: _ui.tabIndex,
-          child: Column(
-            children: [
-              Container(
-                color: palette.surface,
-                child: TabBar(
-                  tabs: _tabs,
-                  onTap: widget.vm.setTabIndex,
-                ),
-              ),
-              if (_ui.hasError && _ui.errorMessage != null)
-                Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Text(
-                    _ui.errorMessage!,
-                    style: TextStyle(color: palette.danger),
-                  ),
-                ),
-              Expanded(
-                child: TabBarView(
-                  children: [
-                    SingleChildScrollView(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          ResourceMetricsGrid(vm: widget.vm),
-                          const SizedBox(height: 28),
-                          ResourceHistorySection(vm: widget.vm),
-                        ],
-                      ),
-                    ),
-                    ProcessListPane(vm: widget.vm),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+    return ValueListenableBuilder(
+      valueListenable: widget.vm.state,
+      builder: (context, state, _) => Column(children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: palette.borderSubtle))),
+          child: Row(children: [
+            _tabButton('task_manager.performance', 0),
+            _tabButton('task_manager.processes', 1),
+            const SizedBox(width: 8),
+            IconButton(
+                onPressed: () => widget.vm.refreshProcessesCommand.runAsync(),
+                icon: const Icon(Icons.refresh),
+                tooltip: 'common.refresh'.tr()),
+            const SizedBox(width: 8),
+            Expanded(
+                child: Text(
+                    state.hasError
+                        ? 'task_manager.status.collect_failed'.tr()
+                        : 'task_manager.status.collecting'.tr(),
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        TextStyle(fontSize: 12, color: palette.textSecondary))),
+          ]),
+        ),
+        if (state.isLoading)
+          const Expanded(child: Center(child: CircularProgressIndicator()))
+        else
+          Expanded(
+              child: state.tabIndex == 0
+                  ? PerformanceWorkspace(vm: widget.vm)
+                  : ProcessWorkspace(vm: widget.vm)),
+      ]),
     );
   }
+
+  Widget _tabButton(String key, int index) => TextButton(
+        onPressed: () => widget.vm.setTabIndex(index),
+        child: Text(key.tr(),
+            style: TextStyle(
+                fontWeight: _state.tabIndex == index ? FontWeight.w700 : null)),
+      );
 }

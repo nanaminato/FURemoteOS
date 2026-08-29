@@ -4,7 +4,7 @@
 // `ExplorerPickerOptions` contracts so the repository + ViewModel can talk
 // purely in domain terms (never raw DTOs, never widgets).
 
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 /// Type of a listed entry.  Mirrors `FileSystemEntryDto.IsDirectory`.
 enum FileItemKind { folder, file }
@@ -17,7 +17,6 @@ class FileItem {
     required this.kind,
     required this.sizeText,
     required this.modifiedText,
-    required this.icon,
     this.sizeBytes,
     this.modified,
     this.mimeType,
@@ -28,7 +27,6 @@ class FileItem {
   final FileItemKind kind;
   final String sizeText;
   final String modifiedText;
-  final IconData icon;
   final int? sizeBytes;
   final DateTime? modified;
   final String? mimeType;
@@ -110,10 +108,9 @@ class TreeNodeItem {
 /// Open-with candidate shown in the Explorer dialog.
 @immutable
 class OpenWithCandidate {
-  const OpenWithCandidate(this.appId, this.label, this.icon);
+  const OpenWithCandidate(this.appId, this.label);
   final String appId;
   final String label;
-  final IconData icon;
 }
 
 @immutable

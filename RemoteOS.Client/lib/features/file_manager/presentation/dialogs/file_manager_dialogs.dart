@@ -271,7 +271,7 @@ class _FmOpenWithDialogState extends ConsumerState<FmOpenWithDialog> {
                     margin: const EdgeInsets.only(bottom: 8),
                     padding: const EdgeInsets.all(10),
                     child: Row(children: [
-                      Icon(c.icon, color: palette.textSecondary),
+                      Icon(_openWithIcon(c), color: palette.textSecondary),
                       const SizedBox(width: 10),
                       Text(c.label,
                           style: TextStyle(color: palette.textPrimary)),
@@ -308,6 +308,11 @@ class _FmOpenWithDialogState extends ConsumerState<FmOpenWithDialog> {
     );
   }
 }
+
+IconData _openWithIcon(OpenWithCandidate candidate) =>
+    candidate.appId == 'image_viewer'
+        ? Icons.image_outlined
+        : Icons.code_outlined;
 
 // ---- Context menu builder ----
 

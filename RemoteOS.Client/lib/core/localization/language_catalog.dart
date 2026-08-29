@@ -131,6 +131,7 @@ class LanguageCatalog {
       for (final file in <String>[
         'common',
         'apps',
+        'code_editor',
         'docker',
         'explorer',
         'firewall',
@@ -138,6 +139,7 @@ class LanguageCatalog {
         'notepad',
         'settings',
         'shell',
+        'task_manager',
       ]) {
         final path = '$_assetRoot/$tag/$file.json';
         try {
@@ -178,7 +180,8 @@ class LanguageCatalog {
       // The root directory may be a single-locale pack (e.g. test temp
       // directories that place common.json at the root).  Otherwise treat
       // immediate subdirectories as locale packs.
-      final rootCommon = File('${directory.path}${Platform.pathSeparator}common.json');
+      final rootCommon =
+          File('${directory.path}${Platform.pathSeparator}common.json');
       if (await rootCommon.exists()) {
         await readPack(directory);
       } else {

@@ -165,6 +165,11 @@ class TaskManagerViewModel extends ViewModel {
     _restartProcessTimer();
   }
 
+  void selectProcess(int? processId) => _mutate((s) => s.copyWith(
+        selectedProcessId: processId,
+        clearSelectedProcess: processId == null,
+      ));
+
   void consumePendingMessage() =>
       _mutate((s) => s.copyWith(clearPendingMessage: true));
 
@@ -264,7 +269,11 @@ class TaskManagerViewModel extends ViewModel {
   Future<void> _refreshProcessesInternal() async {
     try {
       final page = await _repository.queryProcesses(filter: _s.processFilter);
-      _mutate((s) => s.copyWith(processes: page));
+      _mutate((s) => s.copyWith(
+            processes: page,
+            clearSelectedProcess: page.items
+                .every((process) => process.id != s.selectedProcessId),
+          ));
     } catch (error) {
       _mutate((s) => s.copyWith(
             hasError: true,

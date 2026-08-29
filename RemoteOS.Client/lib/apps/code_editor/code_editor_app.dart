@@ -9,9 +9,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/network/remoteos_api.dart';
 import '../../features/code_editor/application/code_editor_view_model.dart';
+import '../../features/code_editor/data/code_editor_repository_impl.dart';
 import '../../features/code_editor/presentation/code_editor_view.dart';
 import '../../features/files/data/remote_file_api.dart';
-import '../../features/notepad/data/text_file_repository.dart';
 
 class CodeEditorApp extends ConsumerStatefulWidget {
   const CodeEditorApp({
@@ -34,11 +34,11 @@ class _CodeEditorAppState extends ConsumerState<CodeEditorApp> {
   void initState() {
     super.initState();
     final files = RemoteFileApi(ref.read(remoteOsApiProvider));
-    final textRepo = RemoteTextFileRepository(files);
-    _vm = createCodeEditorViewModel(
-      repository: textRepo,
-      remotePath: widget.remotePath,
-      fileName: widget.fileName,
+    _vm = CodeEditorViewModel(
+      repository: RemoteCodeEditorRepository(
+        files: files,
+      ),
+      initialPath: widget.remotePath,
     );
   }
 
