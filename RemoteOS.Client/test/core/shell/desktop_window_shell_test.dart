@@ -11,14 +11,22 @@ void main() {
 
   const windowManagerChannel = MethodChannel('window_manager');
   var isFullScreen = false;
+  var isMaximized = false;
 
   setUp(() {
     isFullScreen = false;
+    isMaximized = false;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(windowManagerChannel, (call) async {
       switch (call.method) {
         case 'isMaximized':
-          return false;
+          return isMaximized;
+        case 'maximize':
+          isMaximized = true;
+          return null;
+        case 'unmaximize':
+          isMaximized = false;
+          return null;
         case 'isFullScreen':
           return isFullScreen;
         case 'setFullScreen':
@@ -111,6 +119,35 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.f11);
     await tester.pump();
     expect(find.byIcon(Icons.fullscreen_rounded), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('uses platform maximize state after leaving full screen',
+      (tester) async {
+    isMaximized = true;
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => DesktopWindowShell(
+          child: child ?? const SizedBox.shrink(),
+        ),
+        home: const Scaffold(body: SizedBox.expand()),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byIcon(Icons.filter_none_rounded), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.f11);
+    await tester.pump();
+    expect(find.byIcon(Icons.fullscreen_rounded), findsNothing);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.f11);
+    await tester.pump();
+    expect(find.byIcon(Icons.filter_none_rounded), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.filter_none_rounded));
+    await tester.pump();
+    expect(find.byIcon(Icons.crop_square_rounded), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

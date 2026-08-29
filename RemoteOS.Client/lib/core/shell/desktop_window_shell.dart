@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -30,6 +32,7 @@ class _DesktopWindowShellState extends State<DesktopWindowShell>
   bool _isMaximized = false;
   bool _isFullScreen = false;
   bool _isTogglingFullScreen = false;
+  int _windowStateRequest = 0;
   late final OverlayEntry _titleBarEntry;
 
   @override
@@ -37,15 +40,19 @@ class _DesktopWindowShellState extends State<DesktopWindowShell>
     super.initState();
     _titleBarEntry = OverlayEntry(builder: _buildTitleBar);
     windowManager.addListener(this);
-    _loadWindowState();
+    _refreshWindowState();
   }
 
-  Future<void> _loadWindowState() async {
+  /// Reads platform state instead of trusting window listener ordering. In
+  /// particular, some platforms emit maximize/unmaximize events around a
+  /// fullscreen transition in an order that does not reflect the final state.
+  Future<void> _refreshWindowState() async {
+    final request = ++_windowStateRequest;
     final windowState = await Future.wait([
       windowManager.isMaximized(),
       windowManager.isFullScreen(),
     ]);
-    if (mounted) {
+    if (mounted && request == _windowStateRequest) {
       setState(() {
         _isMaximized = windowState[0];
         _isFullScreen = windowState[1];
@@ -62,42 +69,31 @@ class _DesktopWindowShellState extends State<DesktopWindowShell>
 
   @override
   void onWindowMaximize() {
-    if (mounted) {
-      setState(() => _isMaximized = true);
-      _titleBarEntry.markNeedsBuild();
-    }
+    unawaited(_refreshWindowState());
   }
 
   @override
   void onWindowUnmaximize() {
-    if (mounted) {
-      setState(() => _isMaximized = false);
-      _titleBarEntry.markNeedsBuild();
-    }
+    unawaited(_refreshWindowState());
   }
 
   @override
   void onWindowEnterFullScreen() {
-    if (mounted) {
-      setState(() => _isFullScreen = true);
-      _titleBarEntry.markNeedsBuild();
-    }
+    unawaited(_refreshWindowState());
   }
 
   @override
   void onWindowLeaveFullScreen() {
-    if (mounted) {
-      setState(() => _isFullScreen = false);
-      _titleBarEntry.markNeedsBuild();
-    }
+    unawaited(_refreshWindowState());
   }
 
   Future<void> _toggleMaximize() async {
-    if (_isMaximized) {
+    if (await windowManager.isMaximized()) {
       await windowManager.unmaximize();
     } else {
       await windowManager.maximize();
     }
+    await _refreshWindowState();
   }
 
   Future<void> _toggleFullScreen() async {
@@ -110,11 +106,7 @@ class _DesktopWindowShellState extends State<DesktopWindowShell>
       // which left the Flutter title bar permanently hidden.
       final enteringFullScreen = !await windowManager.isFullScreen();
       await windowManager.setFullScreen(enteringFullScreen);
-      final isFullScreen = await windowManager.isFullScreen();
-      if (mounted) {
-        setState(() => _isFullScreen = isFullScreen);
-        _titleBarEntry.markNeedsBuild();
-      }
+      await _refreshWindowState();
     } finally {
       if (mounted) setState(() => _isTogglingFullScreen = false);
     }
