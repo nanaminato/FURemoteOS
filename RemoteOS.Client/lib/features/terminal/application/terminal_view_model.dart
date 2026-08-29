@@ -5,10 +5,10 @@
 // (package:xterm2's Terminal controller) — the ViewModel simply pipes the
 // repository's onOutput stream back into a UI-installed sink callback.
 //
-// Outbound (keystrokes) are modelled as async methods; command_it v9.x does
-// not ship a 1-param factory so the gating helpers (`canSendInput`,
-// `canResize`, `canTerminate`) are exposed instead, matching the pattern used
-// by the Docker ViewModel for parameterised operations.
+// Outbound (keystrokes) are modelled as async methods. Open-settings uses
+// the same callback-wireup pattern as Avalonia: the host (terminal_app.dart)
+// installs [requestSettingsAsync] so the chrome menu item can trigger a
+// workspace dialog without the VM importing Flutter dialog types.
 
 import 'dart:async';
 
@@ -43,10 +43,23 @@ class TerminalViewModel extends ViewModel {
   StreamSubscription<int?>? _exitSubscription;
   StreamSubscription<Object?>? _closeSubscription;
 
-  // ---- Callbacks installed by the View ----
+  // ---- Callbacks installed by the View / App ----
+
+  /// Writes incoming bytes into the xterm render buffer.  Owned by View.
   TerminalOutputSink? outputSink;
 
+  /// Invoked by the "Terminal → Settings" menu item.  The shell/host installs
+  /// this callback to show a settings dialog (matches Avalonia
+  /// `RequestSettingsAsync` pattern).
+  Future<void> Function()? requestSettingsAsync;
+
+  /// Opened by the chrome menu bar via command_it command.
+  late final openSettingsCommand = Command.createAsyncNoParamNoResult(
+    () async => requestSettingsAsync?.call(),
+  );
+
   // ---- Presentation state ----
+
   final ValueNotifier<TerminalUiState> state =
       ValueNotifier<TerminalUiState>(TerminalUiState.initial());
 
@@ -58,18 +71,15 @@ class TerminalViewModel extends ViewModel {
 
   bool canSendInput() => _s.isConnected;
   bool canResize() => _s.isConnected;
-  bool canTerminate() =>
-      _s.connectionState == TerminalConnectionState.connected ||
-      _s.connectionState == TerminalConnectionState.connecting;
 
   // ---- Command (parameterless, matches command_it v9.x NoParam factories) ----
 
   /// Start the SignalR connection + PTY handshake.
   /// Callers should first call [prepareStartArgs] so the required handshake
   /// parameters are staged before executing the command.
-  _TerminalStartArgs? _pendingStart;
+  TerminalStartArgs? _pendingStart;
 
-  void prepareStartArgs(_TerminalStartArgs args) {
+  void prepareStartArgs(TerminalStartArgs args) {
     _pendingStart = args;
   }
 
@@ -89,8 +99,10 @@ class TerminalViewModel extends ViewModel {
         outputSink?.call(
           '\r\n\x1b[90mProcess exited${code == null ? '' : ' ($code)'}.\x1b[0m\r\n',
         );
-        _mutate(
-            (s) => s.copyWith(connectionState: TerminalConnectionState.exited));
+        _mutate((s) => s.copyWith(
+              connectionState: TerminalConnectionState.exited,
+              exitCode: code,
+            ));
       });
       _closeSubscription?.cancel();
       _closeSubscription = _repository.onClose.listen((error) {
@@ -132,10 +144,30 @@ class TerminalViewModel extends ViewModel {
         widthPx: widthPx, heightPx: heightPx);
   }
 
-  Future<void> terminateSession() async {
-    if (!canTerminate()) return;
-    await _repository.terminateSession();
-    _mutate((s) => s.copyWith(connectionState: _repository.state));
+  /// Called by the View when the remote shell announces an OSC 0/2 title
+  /// change.  Avalonia surfaces this as the chrome status line.
+  void setTitle(String? value) {
+    if (value == null || value.isEmpty) return;
+    _mutate((s) => s.copyWith(title: value));
+  }
+
+  /// Closes the remote PTY and the transport.  Used as part of the
+  /// deliberate-window-close teardown sequence (see [dispose]).  For
+  /// logout / workspace teardown the session is already unauthenticated so
+  /// the View simply detaches and the transport stop is sufficient — the
+  /// server preserves the PTY for the next sign-in (matches Avalonia's
+  /// `ReleaseActiveSession(kill: false)` branch).
+  Future<void> _terminateAndDetach() async {
+    final current = _repository.state;
+    if (current == TerminalConnectionState.connected ||
+        current == TerminalConnectionState.connecting) {
+      try {
+        await _repository.terminateSession();
+      } catch (_) {
+        // A dropping transport is equivalent to a closed attachment.
+      }
+      _mutate((s) => s.copyWith(connectionState: _repository.state));
+    }
   }
 
   @override
@@ -143,14 +175,21 @@ class TerminalViewModel extends ViewModel {
     _outputSubscription?.cancel();
     _exitSubscription?.cancel();
     _closeSubscription?.cancel();
-    unawaited(_repository.dispose());
+    // Intentional: best-effort kill of the corresponding server PTY as
+    // part of a deliberate window close.  We do not await the future
+    // because `dispose()` is synchronous in the ViewModel supertype; any
+    // transport-level error here is swallowed and the subsequent
+    // `_repository.dispose()` still closes the local streams + hub.
+    unawaited(_terminateAndDetach().whenComplete(_repository.dispose));
     super.dispose();
   }
 }
 
 // ---- Start args record ----
 
-typedef _TerminalStartArgs = ({
+/// Argument bundle staged by the View before invoking [startCommand].
+/// Mirrors the shape of [SignalRTerminalRepository.connect].
+typedef TerminalStartArgs = ({
   String serverUrl,
   String accessToken,
   int columns,
