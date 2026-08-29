@@ -49,12 +49,38 @@ class _DesktopShellViewState extends ConsumerState<DesktopShellView> {
       setLocale: (locale) => context.setLocale(locale),
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final size = MediaQuery.of(context).size;
-      _vm.restoreDesktopCommand.run(RestoreDesktopRequest(
-        screen: Size(size.width, size.height - 48),
-        welcomeBuilder: (entry) => entry.windowBuilder(context),
-      ));
+      _restoreWhenSized();
     });
+  }
+
+  /// Waits for the host viewport to reach a non-trivial size before asking the
+  /// VM to restore the welcome app and window layouts.  On Windows the first
+  /// post-frame callback can fire while `MediaQuery.size` is still 0×0, which
+  /// would otherwise produce a negative or zero work area and crash the
+  /// managed-window center-rect math the first time the desktop is entered
+  /// after sign-in.
+  Future<void> _restoreWhenSized() async {
+    const taskbarHeight = 48.0;
+    var size = Size.zero;
+    int attempts = 0;
+    while (mounted) {
+      size = MediaQuery.of(context).size;
+      if (size.width >= 320 && size.height >= taskbarHeight + 240) break;
+      attempts += 1;
+      if (attempts >= 50) {
+        // Give up: use the shipped minimum host size as a safe default so the
+        // user still sees the desktop even if the OS window reports garbage.
+        size = const Size(1280, 800);
+        break;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+    if (!mounted) return;
+    final workArea = Size(size.width, (size.height - taskbarHeight).clamp(240.0, 4320.0));
+    _vm.restoreDesktopCommand.run(RestoreDesktopRequest(
+      screen: workArea,
+      welcomeBuilder: (entry) => entry.windowBuilder(context),
+    ));
   }
 
   @override

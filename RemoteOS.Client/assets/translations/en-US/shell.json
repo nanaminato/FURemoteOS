@@ -1,4 +1,4 @@
-﻿{
+{
     "Strings":  {
                     "shell.connection.not_connected":  "Not connected",
                     "shell.connection.unknown_user":  "Unknown user",
@@ -24,6 +24,7 @@
                     "shell.desktop_display.show_server_files":  "Show files from the server desktop (folders, documents, images, and more)",
                     "shell.desktop_display.show_server_shortcuts":  "Show server desktop shortcuts (.lnk / .desktop)",
                     "shell.desktop_display.shortcuts_tooltip":  "Shortcuts often point to paths on the host machine and may not open directly in RemoteOS.",
+                    "shell.desktop_display.configure_ellipsis":  "Personalize…",
                     "shell.desktop_display.get_started":  "Get started",
                     "shell.taskbar.start":  "Start",
                     "shell.taskbar.search":  "Search"

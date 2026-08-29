@@ -127,16 +127,13 @@ class _RemoteOSAppState extends ConsumerState<RemoteOSApp> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<AuthSessionState>(authProvider, (previous, next) {
-      final current = _router.routeInformationProvider.value.uri.toString();
-      if (next.isAuthenticated &&
-          current != '/desktop' &&
-          current.startsWith('/login')) {
-        _router.go('/desktop');
-      } else if (!next.isAuthenticated && !current.startsWith('/login')) {
-        _router.go('/login');
-      }
-    });
+    // Use GoRouter's built-in `redirect` (see initState) for the canonical
+    // auth→route mapping.  An extra ref.listen here would issue a parallel
+    // _router.go() while LoginScreen is already navigating, which GoRouter
+    // can collapse into a no-op or race into a blank intermediate frame on
+    // slower hosts.  The redirect callback is both deterministic and runs
+    // before any route builds, so it covers direct-link, first-frame, and
+    // token-expiry transitions equally.
 
     final themeState = ref.watch(themeProvider);
     final brightness = themeState.resolveBrightness(context);

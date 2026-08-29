@@ -69,10 +69,16 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
       }
     }
     final id = const Uuid().v4();
+    // Guard against transient zero or negative sizes during the first desktop
+    // frame.  Using such sizes would produce non-finite bounds and either
+    // throw during layout or render a blank desktop on sign-in.
+    final safeScreen = _sanitizeSize(screenSize, const Size(1280, 720));
+    final Size? safeInitial =
+        initialSize == null ? null : _sanitizeSize(initialSize, entry.defaultSize);
     final defaultRect = initialBounds ??
         _centerRect(
-          initialSize ?? entry.defaultSize,
-          screenSize ?? const Size(1280, 720),
+          safeInitial ?? entry.defaultSize,
+          safeScreen,
         );
     final window = RemoteWindow(
       id: id,
@@ -89,9 +95,21 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
     return window;
   }
 
+  Size _sanitizeSize(Size? input, Size fallback) {
+    final candidate = input ?? fallback;
+    final width = candidate.width.isFinite && candidate.width >= 240
+        ? candidate.width
+        : fallback.width;
+    final height = candidate.height.isFinite && candidate.height >= 160
+        ? candidate.height
+        : fallback.height;
+    return Size(width, height);
+  }
+
   Rect _centerRect(Size size, Size screen) {
-    final left = (screen.width - size.width) / 2;
-    final top = (screen.height - size.height) / 2 - 20;
+    final left = ((screen.width - size.width) / 2).clamp(0.0, screen.width);
+    final top = ((screen.height - size.height) / 2 - 20)
+        .clamp(0.0, (screen.height - 20).clamp(0.0, double.infinity));
     return Rect.fromLTWH(left, top, size.width, size.height);
   }
 
