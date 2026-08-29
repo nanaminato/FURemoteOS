@@ -1,4 +1,4 @@
-import 'package:easy_localization/easy_localization.dart';
+﻿import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/theme_service.dart';
@@ -11,6 +11,8 @@ import 'components/task_manager_performance_workspace.dart';
 /// a top border holds the two tab buttons, a tab-aware refresh button, and
 /// two lines of status text (connection status + detailed timestamped line).
 /// Each tab owns a dense desktop workspace rather than a mobile card layout.
+///
+/// This View owns all localization + timestamp formatting per AGENTS.md § 8.
 class TaskManagerView extends StatefulWidget {
   const TaskManagerView({super.key, required this.vm});
   final TaskManagerViewModel vm;
@@ -27,6 +29,53 @@ class _TaskManagerViewState extends State<TaskManagerView> {
     super.initState();
     if (widget.vm.startCommand.canRun.value) {
       widget.vm.startCommand.runAsync();
+    }
+  }
+
+  // ---- Translation helpers: enum → key + namedArgs ----
+
+  /// Maps ConnectionState enum to its translation key.
+  static String _connectionKey(TaskConnectionState state) {
+    switch (state) {
+      case TaskConnectionState.initializing:
+        return 'task_manager.connection.initializing';
+      case TaskConnectionState.live:
+        return 'task_manager.connection.live';
+      case TaskConnectionState.snapshot:
+        return 'task_manager.connection.snapshot';
+      case TaskConnectionState.updated:
+        return 'task_manager.connection.updated';
+      case TaskConnectionState.recovering:
+        return 'task_manager.connection.recovering';
+      case TaskConnectionState.disconnected:
+        return 'task_manager.connection.disconnected';
+      case TaskConnectionState.unavailable:
+        return 'task_manager.connection.unavailable';
+      case TaskConnectionState.waiting:
+        return 'task_manager.connection.waiting';
+    }
+  }
+
+  /// Builds the detail status text from raw state data.
+  /// Returns null when there is nothing to show.
+  static String? _buildStatusText(TaskManagerUiState state) {
+    switch (state.statusKind) {
+      case TaskManagerStatusKind.collecting:
+        return 'task_manager.status.collecting'.tr();
+      case TaskManagerStatusKind.updated:
+        final time = DateFormat('HH:mm:ss')
+            .format(state.lastUpdatedTime?.toLocal() ?? DateTime.now());
+        return 'task_manager.status.updated'.tr(namedArgs: {
+          'time': time,
+          'cpu': state.currentCpuPercent.toStringAsFixed(1),
+          'count': '${state.processTotalCount}',
+        });
+      case TaskManagerStatusKind.failed:
+        return 'task_manager.status.collect_failed'.tr(namedArgs: {
+          'error': state.errorMessage ?? '',
+        });
+      case TaskManagerStatusKind.none:
+        return null;
     }
   }
 
@@ -62,13 +111,13 @@ class _TaskManagerViewState extends State<TaskManagerView> {
                     child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(state.connectionStatus,
+                    Text(_connectionKey(state.connectionState).tr(),
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                             fontSize: 12,
                             color: palette.textSecondary
                                 .withValues(alpha: 0.8))),
-                    Text(state.statusText,
+                    Text(_buildStatusText(state) ?? '',
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                             fontSize: 11,

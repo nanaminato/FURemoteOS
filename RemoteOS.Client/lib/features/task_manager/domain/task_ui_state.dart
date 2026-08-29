@@ -3,10 +3,52 @@
 // Contains:
 //   * performance tab state (snapshots, selected item key, info, history)
 //   * processes tab state (filter, page, auto-refresh, kill feedback, counts)
+//
+// Design rule (AGENTS.md § 8-9):
+//   * This state does NOT hold pre-localized UI text. The View owns translation
+//     and formatting; this file only carries raw data + enums.
 
 import 'package:flutter/foundation.dart';
 
 import '../../system_monitor/data/remote_system_monitor_api.dart';
+
+/// SignalR / live-monitor connection lifecycle. Mirrors the translation keys
+/// under `task_manager.connection.*`. The View maps each value to its key.
+///
+/// Renamed to [TaskConnectionState] to avoid colliding with Flutter's own
+/// `ConnectionState` enum from `package:flutter/src/widgets/async.dart`.
+enum TaskConnectionState {
+  initializing,
+  live,
+  snapshot,
+  updated,
+  recovering,
+  disconnected,
+  unavailable,
+  waiting,
+}
+
+/// The kind of detail status line to render under the connection badge.
+/// `none` means no detail line should be shown.
+enum TaskManagerStatusKind { collecting, updated, failed, none }
+
+/// Kill-process feedback payload (data, not text). The View owns localization.
+@immutable
+class KillFeedback {
+  const KillFeedback({
+    required this.kind,
+    required this.processName,
+    required this.processId,
+    this.errorMessage,
+  });
+
+  final KillFeedbackKind kind;
+  final String processName;
+  final int processId;
+  final String? errorMessage;
+}
+
+enum KillFeedbackKind { terminating, terminated, elevationRequired, failed }
 
 @immutable
 class TaskManagerUiState {
@@ -25,8 +67,10 @@ class TaskManagerUiState {
     required this.pendingMessage,
     required this.killFeedback,
     required this.processTotalCount,
-    required this.connectionStatus,
-    required this.statusText,
+    required this.connectionState,
+    required this.statusKind,
+    required this.lastUpdatedTime,
+    required this.currentCpuPercent,
     required this.tabIndex,
   });
 
@@ -43,10 +87,12 @@ class TaskManagerUiState {
         processFilter: '',
         autoRefresh: true,
         pendingMessage: null,
-        killFeedback: '',
+        killFeedback: null,
         processTotalCount: 0,
-        connectionStatus: 'task_manager.connection.initializing',
-        statusText: 'task_manager.status.collecting',
+        connectionState: TaskConnectionState.initializing,
+        statusKind: TaskManagerStatusKind.collecting,
+        lastUpdatedTime: null,
+        currentCpuPercent: 0,
         tabIndex: 0,
       );
 
@@ -63,11 +109,13 @@ class TaskManagerUiState {
   final bool autoRefresh;
   final String?
       pendingMessage; // one-shot SnackBar message, null after consumed
-  final String killFeedback; // empty → hidden; mirrors Avalonia KillFeedback
+  final KillFeedback?
+      killFeedback; // null → hidden; mirrors Avalonia KillFeedback visibility
   final int processTotalCount;
-  final String
-      connectionStatus; // short label on the top bar (e.g. "实时连接")
-  final String statusText; // detailed status with timestamp/cpu/process counts
+  final TaskConnectionState connectionState;
+  final TaskManagerStatusKind statusKind;
+  final DateTime? lastUpdatedTime; // raw timestamp, View formats + localizes
+  final double currentCpuPercent; // raw CPU percent (0..100)
   final int tabIndex;
 
   TaskManagerUiState copyWith({
@@ -86,10 +134,12 @@ class TaskManagerUiState {
     bool? autoRefresh,
     String? pendingMessage,
     bool clearPendingMessage = false,
-    String? killFeedback,
+    KillFeedback? killFeedback,
     int? processTotalCount,
-    String? connectionStatus,
-    String? statusText,
+    TaskConnectionState? connectionState,
+    TaskManagerStatusKind? statusKind,
+    DateTime? lastUpdatedTime,
+    double? currentCpuPercent,
     int? tabIndex,
   }) {
     return TaskManagerUiState(
@@ -111,8 +161,10 @@ class TaskManagerUiState {
           clearPendingMessage ? null : (pendingMessage ?? this.pendingMessage),
       killFeedback: killFeedback ?? this.killFeedback,
       processTotalCount: processTotalCount ?? this.processTotalCount,
-      connectionStatus: connectionStatus ?? this.connectionStatus,
-      statusText: statusText ?? this.statusText,
+      connectionState: connectionState ?? this.connectionState,
+      statusKind: statusKind ?? this.statusKind,
+      lastUpdatedTime: lastUpdatedTime ?? this.lastUpdatedTime,
+      currentCpuPercent: currentCpuPercent ?? this.currentCpuPercent,
       tabIndex: tabIndex ?? this.tabIndex,
     );
   }

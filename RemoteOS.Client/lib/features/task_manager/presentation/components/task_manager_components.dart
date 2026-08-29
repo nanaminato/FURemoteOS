@@ -6,6 +6,7 @@ import '../../../../core/theme/theme_service.dart';
 import '../../../system_monitor/data/remote_system_monitor_api.dart';
 import '../../application/task_manager_view_model.dart';
 import '../../domain/task_repository.dart';
+import '../../domain/task_ui_state.dart';
 
 /// Processes-tab workspace + shared [HistoryPainter].
 ///
@@ -14,6 +15,8 @@ import '../../domain/task_repository.dart';
 /// network resource is expanded into a dedicated navigation item. The
 /// performance-tab rendering now lives exclusively in
 /// [AvaloniaPerformanceWorkspace] (task_manager_performance_workspace.dart).
+///
+/// All localization uses namedArgs per project rule (AGENTS.md § 23).
 
 class ProcessWorkspace extends StatefulWidget {
   const ProcessWorkspace({super.key, required this.vm});
@@ -32,6 +35,33 @@ class _ProcessWorkspaceState extends State<ProcessWorkspace> {
     _filter.dispose();
     _filterFocus.dispose();
     super.dispose();
+  }
+
+  /// Maps KillFeedbackKind → translation key, with namedArgs built from payload.
+  static String? _killFeedbackText(KillFeedback? fb) {
+    if (fb == null) return null;
+    switch (fb.kind) {
+      case KillFeedbackKind.terminating:
+        return 'task_manager.process.terminating'.tr(namedArgs: {
+          'name': fb.processName,
+          'pid': '${fb.processId}',
+        });
+      case KillFeedbackKind.terminated:
+        return 'task_manager.process.terminated'.tr(namedArgs: {
+          'name': fb.processName,
+          'pid': '${fb.processId}',
+        });
+      case KillFeedbackKind.elevationRequired:
+        return 'task_manager.process.elevation_required'.tr(namedArgs: {
+          'name': fb.processName,
+          'pid': '${fb.processId}',
+          'error': fb.errorMessage ?? '',
+        });
+      case KillFeedbackKind.failed:
+        return 'task_manager.process.termination_failed'.tr(namedArgs: {
+          'error': fb.errorMessage ?? '',
+        });
+    }
   }
 
   @override
@@ -69,9 +99,9 @@ class _ProcessWorkspaceState extends State<ProcessWorkspace> {
           ListenableBuilder(
               listenable: widget.vm.state,
               builder: (_, __) => Text(
-                  'task_manager.process_count'.tr(args: [
-                    '${widget.vm.state.value.processTotalCount}'
-                  ]),
+                  'task_manager.process_count'.tr(namedArgs: {
+                    'count': '${widget.vm.state.value.processTotalCount}'
+                  }),
                   style: TextStyle(
                       fontSize: 12,
                       color: palette.textSecondary.withValues(alpha: 0.7)))),
@@ -116,12 +146,13 @@ class _ProcessWorkspaceState extends State<ProcessWorkspace> {
           listenable: widget.vm.state,
           builder: (_, __) {
             final feedback = widget.vm.state.value.killFeedback;
-            if (feedback.isEmpty) return const SizedBox.shrink();
+            final text = _killFeedbackText(feedback);
+            if (text == null) return const SizedBox.shrink();
             return Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 alignment: Alignment.centerLeft,
-                child: Text(feedback,
+                child: Text(text,
                     style: const TextStyle(fontSize: 12),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis));

@@ -1,4 +1,4 @@
-// Task Manager ViewModel (ARCHITECTURE.md § 9).
+﻿// Task Manager ViewModel (ARCHITECTURE.md § 9).
 //
 // Presentation state is a single [ValueNotifier<TaskManagerUiState>].
 // Commands model the user intents that have async execution state: starting
@@ -6,17 +6,19 @@
 // StreamSubscriptions (hub snapshots/reconnects/disconnects) and the periodic
 // process Timer are owned here and disposed with this ViewModel.
 //
+// Design rule (AGENTS.md § 8-9 + recent refactor):
+//   * This ViewModel never calls .tr() or formats timestamps.
+//   * State carries raw data + enums; the View owns localization & formatting.
+//
 // Behavior mirrors the Avalonia TaskManagerViewModel:
 //  - Performance tab is driven by PerformanceItems built from PerformanceInfo;
 //  - Processes tab uses a server-side paged query with a 5-second auto-refresh
 //    that is only enabled while this tab is active;
-//  - Kill operations produce a KillFeedback banner with localized progress/error
-//    messages, identical to Avalonia's IsVisible feedback bar.
+//  - Kill operations produce a KillFeedback banner with structured payloads.
 
 import 'dart:async';
 
 import 'package:command_it/command_it.dart';
-import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../../core/commands/base_view_model.dart';
@@ -164,25 +166,39 @@ class TaskManagerViewModel extends ViewModel {
     final target = selectedProcess;
     if (target == null) return;
     _mutate((s) => s.copyWith(
-          killFeedback: 'task_manager.process.terminating'
-              .tr(args: [target.name, '${target.id}']),
+          killFeedback: KillFeedback(
+            kind: KillFeedbackKind.terminating,
+            processName: target.name,
+            processId: target.id,
+          ),
         ));
     final result = await _repository.killProcess(pid);
     if (result.success) {
       _mutate((s) => s.copyWith(
-            killFeedback: 'task_manager.process.terminated'
-                .tr(args: [target.name, '${target.id}']),
+            killFeedback: KillFeedback(
+              kind: KillFeedbackKind.terminated,
+              processName: target.name,
+              processId: target.id,
+            ),
             clearSelectedProcess: true,
           ));
     } else if (result.requiresElevation) {
       _mutate((s) => s.copyWith(
-            killFeedback: 'task_manager.process.elevation_required'
-                .tr(args: [target.name, '${target.id}', result.error ?? '']),
+            killFeedback: KillFeedback(
+              kind: KillFeedbackKind.elevationRequired,
+              processName: target.name,
+              processId: target.id,
+              errorMessage: result.error,
+            ),
           ));
     } else {
       _mutate((s) => s.copyWith(
-            killFeedback: 'task_manager.process.termination_failed'
-                .tr(args: [result.error ?? '']),
+            killFeedback: KillFeedback(
+              kind: KillFeedbackKind.failed,
+              processName: target.name,
+              processId: target.id,
+              errorMessage: result.error,
+            ),
           ));
     }
     // Refresh after kill so the UI reflects server state, including cases
@@ -227,19 +243,19 @@ class TaskManagerViewModel extends ViewModel {
         // TODO(remoteos-migration): expose a snapshot REST fallback in the
         // repository; for now mark connection as waiting for a hub sample.
         _mutate((s) => s.copyWith(
-              connectionStatus: 'task_manager.connection.waiting'.tr(),
+              connectionState: TaskConnectionState.waiting,
             ));
       }
       try {
         await _repository.ensureMonitoringConnected();
         _mutate((s) => s.copyWith(
-              connectionStatus: 'task_manager.connection.live'.tr(),
+              connectionState: TaskConnectionState.live,
             ));
       } catch (error) {
         _mutate((s) => s.copyWith(
-              connectionStatus: 'task_manager.connection.snapshot'.tr(),
-              statusText: 'task_manager.status.collect_failed'
-                  .tr(args: ['$error']),
+              connectionState: TaskConnectionState.snapshot,
+              statusKind: TaskManagerStatusKind.failed,
+              errorMessage: '$error',
             ));
       }
       // Real-time snapshots + reconnect recovery.
@@ -250,7 +266,10 @@ class TaskManagerViewModel extends ViewModel {
           return s.copyWith(
             snapshot: snapshot,
             history: updated,
-            statusText: _formatUpdatedStatus(snapshot, s.processTotalCount),
+            statusKind: TaskManagerStatusKind.updated,
+            lastUpdatedTime: snapshot.timestamp ?? DateTime.now(),
+            currentCpuPercent: snapshot.cpuPercent,
+            processTotalCount: s.processTotalCount,
           );
         });
       });
@@ -258,11 +277,11 @@ class TaskManagerViewModel extends ViewModel {
       _reconnects =
           _repository.reconnectedStream.listen((_) async {
         _mutate((s) => s.copyWith(
-              connectionStatus: 'task_manager.connection.recovering'.tr(),
+              connectionState: TaskConnectionState.recovering,
             ));
         await _recoverHistory();
         _mutate((s) => s.copyWith(
-              connectionStatus: 'task_manager.connection.live'.tr(),
+              connectionState: TaskConnectionState.live,
             ));
       });
       await _refreshProcessesInternal();
@@ -271,9 +290,8 @@ class TaskManagerViewModel extends ViewModel {
       _mutate((s) => s.copyWith(
             hasError: true,
             errorMessage: '$error',
-            connectionStatus: 'task_manager.connection.unavailable'.tr(),
-            statusText:
-                'task_manager.status.collect_failed'.tr(args: ['$error']),
+            connectionState: TaskConnectionState.unavailable,
+            statusKind: TaskManagerStatusKind.failed,
           ));
     } finally {
       _mutate((s) => s.copyWith(isLoading: false));
@@ -288,22 +306,20 @@ class TaskManagerViewModel extends ViewModel {
       ]);
       final history = results[0] as List<PerformanceSnapshot>;
       final info = results[1] as PerformanceInfo;
+      final isLive = _s.connectionState == TaskConnectionState.live;
       _mutate((s) => s.copyWith(
             info: info,
             history: history,
             snapshot: history.isEmpty ? s.snapshot : history.last,
-            connectionStatus: s.connectionStatus ==
-                    'task_manager.connection.live'.tr()
-                ? s.connectionStatus
-                : 'task_manager.connection.updated'.tr(),
+            connectionState:
+                isLive ? TaskConnectionState.live : TaskConnectionState.updated,
           ));
     } catch (error) {
       _mutate((s) => s.copyWith(
             hasError: true,
             errorMessage: '$error',
-            connectionStatus: 'task_manager.connection.unavailable'.tr(),
-            statusText:
-                'task_manager.status.collect_failed'.tr(args: ['$error']),
+            connectionState: TaskConnectionState.unavailable,
+            statusKind: TaskManagerStatusKind.failed,
           ));
     }
   }
@@ -311,15 +327,14 @@ class TaskManagerViewModel extends ViewModel {
   Future<void> _refreshProcessesInternal() async {
     try {
       final page = await _repository.queryProcesses(filter: _s.processFilter);
-      final count = page.totalCount;
-      final cpu = _s.snapshot?.cpuPercent.toStringAsFixed(1) ?? '0.0';
       final when = page.sampledAt ?? _s.snapshot?.timestamp ?? DateTime.now();
-      final time = DateFormat('HH:mm:ss').format(when.toLocal());
+      final cpu = _s.snapshot?.cpuPercent ?? 0.0;
       _mutate((s) => s.copyWith(
             processes: page,
-            processTotalCount: count,
-            statusText: 'task_manager.status.updated'
-                .tr(args: [time, cpu, '$count']),
+            processTotalCount: page.totalCount,
+            statusKind: TaskManagerStatusKind.updated,
+            lastUpdatedTime: when,
+            currentCpuPercent: cpu,
             clearSelectedProcess: page.items
                 .every((process) => process.id != s.selectedProcessId),
           ));
@@ -327,8 +342,7 @@ class TaskManagerViewModel extends ViewModel {
       _mutate((s) => s.copyWith(
             hasError: true,
             errorMessage: '$error',
-            statusText:
-                'task_manager.status.collect_failed'.tr(args: ['$error']),
+            statusKind: TaskManagerStatusKind.failed,
           ));
     }
   }
@@ -375,14 +389,6 @@ class TaskManagerViewModel extends ViewModel {
         },
       );
     }
-  }
-
-  String _formatUpdatedStatus(PerformanceSnapshot snapshot, int processCount) {
-    final time = DateFormat('HH:mm:ss')
-        .format(snapshot.timestamp?.toLocal() ?? DateTime.now());
-    final cpu = snapshot.cpuPercent.toStringAsFixed(1);
-    return 'task_manager.status.updated'
-        .tr(args: [time, cpu, '$processCount']);
   }
 
   @override

@@ -569,6 +569,135 @@ When adding a new string:
 3. update all required baseline locales;
 4. do not put presentation text in business logic unless it is genuinely domain data.
 
+### 23.1 Parameterized translations
+
+This project uses `easy_localization`. Two rules are mandatory for any
+translation that carries runtime values:
+
+#### Rule A — always use `namedArgs`, never positional `args`
+
+Good — named placeholders survive reordering during translation and make
+each argument's role self-documenting:
+
+```json
+// zh-CN/feature.json
+"feature.status.updated": "已更新 — {time}  CPU {cpu}%  进程 {count}"
+
+// View
+'feature.status.updated'.tr(namedArgs: {
+  'time': DateFormat('HH:mm:ss').format(someTime.toLocal()),
+  'cpu': cpuPercent.toStringAsFixed(1),
+  'count': '${processTotalCount}',
+})
+```
+
+Bad — positional `{0}`, `{1}`... break when a translator rearranges the
+sentence and hide what each value means:
+
+```dart
+// DO NOT DO THIS — hard to read, fragile across locales
+'feature.status.updated'.tr(args: [time, cpu, '$count'])
+```
+
+Existing `args:` calls in legacy files should be migrated to `namedArgs:`
+when that area is being touched for other work. Do not introduce new ones.
+
+#### Rule B — View owns translation; ViewModel/State carry data only
+
+State and ViewModel must never call `.tr()`, `DateFormat`, or compose
+translated strings. They carry:
+
+```text
+enum values    (e.g. ConnectionState.live)
+raw numbers    (e.g. currentCpuPercent: double)
+raw timestamps (e.g. lastUpdatedTime: DateTime?)
+typed payloads (e.g. KillFeedback { kind, name, pid, errorMessage? })
+```
+
+The View is the single place that maps enum → key, formats numbers/dates,
+and calls `.tr(namedArgs: ...)`.
+
+**Why?**
+
+- AGENTS.md §9 forbids `BuildContext` in ViewModel; `.tr()` needs it.
+- AGENTS.md §7 (View rules) says the View owns presentation concerns;
+  localization and formatting are presentation.
+- Live language switching works automatically because every rebuild
+  re-reads `.tr()` in the View — cached translated strings in State
+  would go stale.
+
+**Concrete example — before (wrong):**
+
+```dart
+// ViewModel — BAD: translation + formatting + key naming all mixed in
+class TaskManagerUiState {
+  final String connectionStatus; // already .tr()'ed
+  final String statusText;       // already .tr()'ed with args
+}
+
+// ViewModel code
+connectionStatus: 'task_manager.connection.live'.tr(),
+statusText: 'task_manager.status.updated'
+    .tr(args: [time, cpu, '$count']),
+```
+
+**Concrete example — after (correct):**
+
+```dart
+// Domain — pure data
+enum TaskConnectionState { initializing, live, snapshot, ... }
+enum TaskManagerStatusKind { collecting, updated, failed, none }
+
+class TaskManagerUiState {
+  final TaskConnectionState connectionState;
+  final TaskManagerStatusKind statusKind;
+  final DateTime? lastUpdatedTime;
+  final double currentCpuPercent;
+  final int processTotalCount;
+}
+
+// View — owns translation + formatting
+Text(_connectionKey(state.connectionState).tr())
+Text(_buildStatusText(state))
+
+static String _connectionKey(TaskConnectionState s) {
+  switch (s) {
+    case TaskConnectionState.live: return 'task_manager.connection.live';
+    case TaskConnectionState.updated: return 'task_manager.connection.updated';
+    // ...
+  }
+}
+
+static String? _buildStatusText(TaskManagerUiState s) {
+  switch (s.statusKind) {
+    case TaskManagerStatusKind.updated:
+      final time = DateFormat('HH:mm:ss')
+          .format(s.lastUpdatedTime?.toLocal() ?? DateTime.now());
+      return 'task_manager.status.updated'.tr(namedArgs: {
+        'time': time,
+        'cpu': s.currentCpuPercent.toStringAsFixed(1),
+        'count': '${s.processTotalCount}',
+      });
+    case TaskManagerStatusKind.failed:
+      return 'task_manager.status.collect_failed'.tr(namedArgs: {
+        'error': s.errorMessage ?? '',
+      });
+    // ...
+  }
+}
+```
+
+#### Adding a new parameterized key — checklist
+
+1. All three locale files (`zh-CN`, `en-US`, `ja-JP`) get the same key with
+   named placeholders `{name}`, `{count}`, `{error}` etc.
+2. State/ViewModel expose enums + raw data that can drive the key selection
+   and namedArgs map.
+3. View provides a small private helper (`_buildXxxText`, `_keyForYyy`)
+   that owns the switch-on-enum → translation-key mapping.
+4. Run `flutter analyze` — there must be no `easy_localization` usage in
+   files under `domain/` or `application/`.
+
 ---
 
 ## 24. Theme Rules
