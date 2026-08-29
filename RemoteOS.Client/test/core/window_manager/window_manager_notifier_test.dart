@@ -106,6 +106,27 @@ void main() {
     expect(item.bounds.height, item.minimumSize.height);
   });
 
+  test('move publishes every changed bounds update', () {
+    final manager = WindowManagerNotifier();
+    final item = window(bounds: const Rect.fromLTWH(100, 100, 420, 300));
+    manager.state = [item];
+    var notifications = 0;
+    final removeListener = manager.addListener(
+      (_) => notifications++,
+      fireImmediately: false,
+    );
+
+    manager.move(
+      item.id,
+      const Offset(40, 30),
+      const Rect.fromLTWH(0, 0, 800, 600),
+    );
+
+    expect(item.bounds, const Rect.fromLTWH(140, 130, 420, 300));
+    expect(notifications, 1);
+    removeListener();
+  });
+
   test('uses a restored workspace size when opening an app', () {
     final manager = WindowManagerNotifier();
     const entry = AppRegistryEntry(
@@ -333,7 +354,8 @@ void main() {
         icon: Icons.help_outline,
         child: const SizedBox.shrink(),
       );
-      final b = manager.state.singleWhere((w) => w.isModal && w.modalOwnerId == a.id);
+      final b =
+          manager.state.singleWhere((w) => w.isModal && w.modalOwnerId == a.id);
       // Add unrelated E, focus E so it goes above [A, B].
       final e = plain('E');
       manager.state = [...manager.state, e];

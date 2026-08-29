@@ -224,15 +224,7 @@ class _DesktopShellViewState extends ConsumerState<DesktopShellView> {
     // the listener inside the View so the VM can be unit-tested without
     // riverpod directly.
     ref.listen<List<RemoteWindow>>(windowManagerProvider, (previous, windows) {
-      final prevIds = previous?.map((w) => '${w.appId}:${w.state}').join(',') ?? '<none>';
-      final ids = windows.map((w) => '${w.appId}:${w.state}').join(',');
-      final logL = _optionalRuntimeLog();
-      unawaited(logL?.info(
-        '[desktop] windowManagerProvider listener fired '
-        'previous=[$prevIds] next=[$ids]',
-      ));
       _vm.saveWindowLayouts(windows);
-      unawaited(logL?.info('[desktop] windowManagerProvider saveWindowLayouts returned'));
     });
 
     final log = _optionalRuntimeLog();

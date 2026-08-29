@@ -19,20 +19,8 @@ class DesktopWindowLayer extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final windows = ref.watch(windowManagerProvider);
-    final log = _optionalLog();
-    unawaited(log?.info(
-      '[window-layer] build windows=${windows.length} '
-      'workArea=LTWH(${workArea.left},${workArea.top},${workArea.width},${workArea.height})',
-    ));
     final sorted = List<RemoteWindow>.from(windows)
       ..sort((a, b) => a.zOrder.compareTo(b.zOrder));
-    for (final w in sorted) {
-      unawaited(log?.info(
-        '[window-layer] window id=${w.id} appId=${w.appId} state=${w.state} '
-        'zOrder=${w.zOrder} title=${w.title} '
-        'bounds=LTWH(${w.bounds.left},${w.bounds.top},${w.bounds.width},${w.bounds.height})',
-      ));
-    }
     return Positioned.fromRect(
       rect: workArea,
       child: ClipRect(
@@ -71,28 +59,19 @@ class DesktopWindowLayer extends ConsumerWidget {
 class _ErrorGuardedWindowChrome extends ConsumerWidget {
   final RemoteWindow window;
   final Rect workArea;
-  const _ErrorGuardedWindowChrome({required this.window, required this.workArea});
+  const _ErrorGuardedWindowChrome(
+      {required this.window, required this.workArea});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final log = _optionalLog();
-    unawaited(log?.info(
-      '[window-chrome] build id=${window.id} appId=${window.appId} '
-      'state=${window.state}',
-    ));
     try {
       return Builder(
         builder: (context) {
-          final result =
-              RemoteWindowChrome(window: window, workArea: workArea);
-          unawaited(log?.info(
-            '[window-chrome] RemoteWindowChrome constructed id=${window.id}',
-          ));
-          return result;
+          return RemoteWindowChrome(window: window, workArea: workArea);
         },
       );
     } catch (error, stack) {
-      unawaited(log?.error(
+      unawaited(_optionalLog()?.error(
         AssertionError('[window-chrome] build failed for '
             'id=${window.id} appId=${window.appId}: $error'),
         stack,
