@@ -45,7 +45,11 @@ void main() async {
       // Remote Desktop Connection layout is protected by a real minimum size.
       minimumSize: Size(760, 700),
       center: true,
-      backgroundColor: Colors.transparent,
+      // Keep the native surface opaque while diagnosing the desktop white
+      // screen.  Transparent Windows surfaces rely on DWM composition before
+      // Flutter submits its first scene and can obscure an otherwise healthy
+      // widget tree on some graphics-driver combinations.
+      backgroundColor: Color(0xFFF4F7FB),
       skipTaskbar: false,
       titleBarStyle: TitleBarStyle.hidden,
       windowButtonVisibility: false,
@@ -251,24 +255,22 @@ class _RemoteOSAppState extends ConsumerState<RemoteOSApp> {
             ' logical=${logical.width.toStringAsFixed(1)}x${logical.height.toStringAsFixed(1)}',
           ));
         }
-        return VirtualWindowFrame(
-          child: DesktopWindowShell(
-            child: child ?? const SizedBox.shrink(),
-            onCloseRequested: () async {
-              // Best-effort flush: logout flush happens in DesktopScreen too;
-              // the app shell flush protects against closing via the host
-              // window chrome before any managed desktop is mounted.
-              try {
-                await ref
-                    .read(workspaceSyncProvider.notifier)
-                    .flush()
-                    .timeout(const Duration(seconds: 2));
-              } catch (_) {
-                // Persisting workspace data is best-effort during shutdown.
-              }
-              await windowManager.close();
-            },
-          ),
+        return DesktopWindowShell(
+          child: child ?? const SizedBox.shrink(),
+          onCloseRequested: () async {
+            // Best-effort flush: logout flush happens in DesktopScreen too;
+            // the app shell flush protects against closing via the host
+            // window chrome before any managed desktop is mounted.
+            try {
+              await ref
+                  .read(workspaceSyncProvider.notifier)
+                  .flush()
+                  .timeout(const Duration(seconds: 2));
+            } catch (_) {
+              // Persisting workspace data is best-effort during shutdown.
+            }
+            await windowManager.close();
+          },
         );
       },
     );

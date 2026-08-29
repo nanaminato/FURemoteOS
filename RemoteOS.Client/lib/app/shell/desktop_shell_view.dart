@@ -44,6 +44,7 @@ class DesktopShellView extends ConsumerStatefulWidget {
 class _DesktopShellViewState extends ConsumerState<DesktopShellView> {
   late final DesktopShellViewModel _vm;
   final _desktopMenu = RemoteContextMenuController();
+  Size _desktopSize = Size.zero;
 
   @override
   void initState() {
@@ -68,19 +69,17 @@ class _DesktopShellViewState extends ConsumerState<DesktopShellView> {
     }
   }
 
-  /// Waits for the host viewport to reach a non-trivial size before asking the
-  /// VM to restore the welcome app and window layouts.  On Windows the first
-  /// post-frame callback can fire while `MediaQuery.size` is still 0×0, which
-  /// would otherwise produce a negative or zero work area and crash the
-  /// managed-window center-rect math the first time the desktop is entered
-  /// after sign-in.
+  /// Waits for the actual desktop layout to reach a non-trivial size before
+  /// asking the VM to restore the welcome app and window layouts.  The outer
+  /// MediaQuery includes [DesktopWindowShell]'s title bar; using it here would
+  /// center managed windows against a taller area than their Stack can render.
   Future<void> _restoreWhenSized() async {
     const taskbarHeight = 48.0;
     final log = _optionalRuntimeLog();
     var size = Size.zero;
     int attempts = 0;
     while (mounted) {
-      size = MediaQuery.of(context).size;
+      size = _desktopSize;
       if (size.width >= 320 && size.height >= taskbarHeight + 240) break;
       attempts += 1;
       if (attempts >= 50) {
@@ -89,9 +88,9 @@ class _DesktopShellViewState extends ConsumerState<DesktopShellView> {
         unawaited(log?.info(
           '[desktop] viewport size stalled at ${size.width.toStringAsFixed(1)}x'
           '${size.height.toStringAsFixed(1)} after ${attempts} polls; '
-          'falling back to default 1280x800',
+          'falling back to default 1280x764',
         ));
-        size = const Size(1280, 800);
+        size = const Size(1280, 764);
         break;
       }
       await Future<void>.delayed(const Duration(milliseconds: 20));
@@ -198,6 +197,9 @@ class _DesktopShellViewState extends ConsumerState<DesktopShellView> {
         body: LayoutBuilder(
           builder: (context, constraints) {
             const taskbarHeight = 48.0;
+            // LayoutBuilder receives the area below DesktopWindowShell's
+            // custom title bar, unlike the root MediaQuery size.
+            _desktopSize = constraints.biggest;
             final workArea = Rect.fromLTWH(
               0,
               0,
