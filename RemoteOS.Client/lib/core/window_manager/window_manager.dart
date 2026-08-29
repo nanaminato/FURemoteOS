@@ -49,7 +49,20 @@ class RemoteWindow {
 
 /// State notifier for the window manager.
 class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
-  WindowManagerNotifier() : super([]);
+  WindowManagerNotifier() : super([]) {
+    // Keep a tiny mirrored copy of windows for diagnostics so log lines never
+    // read the Riverpod state during a build callback inside the notifier
+    // itself (StateNotifier forbids reading .state in external watchers but
+    // writing from within is allowed and safe here).
+    addListener((windows) {
+      final log = _optionalLog;
+      if (log == null) return;
+      unawaited(log.info(
+        '[windows] state changed count=${windows.length} windows=['
+        '${windows.map((w) => '${w.appId}:${w.state}:${w.zOrder}').join(',')}]',
+      ));
+    });
+  }
 
   int _zCounter = 0;
 
@@ -513,8 +526,11 @@ class _RemoteWindowChromeState extends ConsumerState<RemoteWindowChrome> {
                         thickness: 1,
                       ),
                       Expanded(
-                          child:
-                              RemoteWindowScope(window: win, child: win.child)),
+                        child: RemoteWindowScope(
+                          window: win,
+                          child: _GuardedWindowChild(window: win),
+                        ),
+                      ),
                     ],
                   ),
                   if (!isMaximized && !isFullscreen)
@@ -726,6 +742,83 @@ class _RemoteWindowChromeState extends ConsumerState<RemoteWindowChrome> {
         ),
       ],
     );
+  }
+}
+
+/// Wraps the user-supplied managed-window child with a build-time try/catch
+/// and a diagnostic post-frame log.  This keeps a crashing app window from
+/// taking the entire desktop shell with it, and lets us narrow failures to
+/// the child widget even when the Flutter view loses the host connection
+/// before the error card finishes drawing.
+class _GuardedWindowChild extends ConsumerStatefulWidget {
+  final RemoteWindow window;
+  const _GuardedWindowChild({required this.window});
+
+  @override
+  ConsumerState<_GuardedWindowChild> createState() =>
+      _GuardedWindowChildState();
+}
+
+class _GuardedWindowChildState extends ConsumerState<_GuardedWindowChild> {
+  bool _built = false;
+
+  RuntimeLog? get _localLog {
+    try {
+      return di.isRegistered<RuntimeLog>() ? di<RuntimeLog>() : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final log = _localLog;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(log?.info(
+        '[window-child] first frame painted id=${widget.window.id} '
+        'appId=${widget.window.appId}',
+      ));
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final log = _localLog;
+    if (!_built) {
+      _built = true;
+      unawaited(log?.info(
+        '[window-child] building id=${widget.window.id} '
+        'appId=${widget.window.appId} childType=${widget.window.child.runtimeType}',
+      ));
+    }
+    try {
+      return Builder(builder: (context) => widget.window.child);
+    } catch (error, stack) {
+      unawaited(log?.error(
+        AssertionError('[window-child] build threw for '
+            'id=${widget.window.id} appId=${widget.window.appId}: $error'),
+        stack,
+      ));
+      return Container(
+        color: const Color(0xFF8A2E36),
+        padding: const EdgeInsets.all(8),
+        child: SingleChildScrollView(
+          child: SelectableText.rich(
+            TextSpan(
+              style: const TextStyle(color: Colors.white, fontSize: 11),
+              children: [
+                TextSpan(
+                  text: 'App window ${widget.window.appId} failed to render.\n\n',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                TextSpan(text: '$error\n\n$stack'),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
   }
 }
 

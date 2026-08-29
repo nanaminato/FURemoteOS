@@ -305,9 +305,14 @@ class _ProcessRow extends StatelessWidget {
 }
 
 class HistoryPainter extends CustomPainter {
-  const HistoryPainter(this.values, this.color);
+  /// [maximum] mirrors Avalonia's `PerformanceLineChart.Maximum`: when
+  /// provided, the chart's Y axis is anchored to that value instead of being
+  /// derived from the largest sample, so resource tabs whose current value is
+  /// a rate (disk/network) keep a stable scale across samples.
+  const HistoryPainter(this.values, this.color, {this.maximum});
   final List<double> values;
   final Color color;
+  final double? maximum;
   @override
   void paint(Canvas canvas, Size size) {
     final grid = Paint()
@@ -318,8 +323,10 @@ class HistoryPainter extends CustomPainter {
           Offset(size.width, size.height * step / 4), grid);
     }
     if (values.length < 2) return;
-    final max =
-        values.reduce((a, b) => a > b ? a : b).clamp(1, double.infinity);
+    final dataMax = values.reduce((a, b) => a > b ? a : b);
+    // Avalonia clamps the chart maximum to >= 1 so an all-zero sample does
+    // not collapse the curve to the top of the panel.
+    final max = (maximum ?? dataMax).clamp(1, double.infinity);
     final path = Path();
     for (var index = 0; index < values.length; index++) {
       final point = Offset(size.width * index / (values.length - 1),
@@ -340,7 +347,7 @@ class HistoryPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(HistoryPainter old) =>
-      old.values != values || old.color != color;
+      old.values != values || old.color != color || old.maximum != maximum;
 }
 
 String _label(PerformanceResource resource) => switch (resource) {
