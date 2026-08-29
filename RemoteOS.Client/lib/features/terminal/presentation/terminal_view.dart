@@ -167,6 +167,12 @@ class _TerminalViewState extends ConsumerState<TerminalView> {
       );
       _scheduleOutputFlush();
     });
+    // A post-frame callback is passive: when the terminal is otherwise idle,
+    // registering one does not create a frame. SignalR output can therefore
+    // remain queued until unrelated pointer/window activity schedules paint.
+    // Requesting a frame is idempotent when one is already pending and keeps
+    // the existing one-flush-per-frame backpressure policy intact.
+    WidgetsBinding.instance.scheduleFrame();
   }
 
   void _onFrameTimings(List<FrameTiming> timings) {
