@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_code_editor/flutter_code_editor.dart';
+import 'package:highlight/languages/dart.dart' as dart;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:remoteos_client/core/theme/theme_palette_defaults.dart';
@@ -62,11 +64,15 @@ void main() {
       expect(vm.state.value.workspaceRoots.single.isLoaded, isTrue);
     });
 
-    testWidgets('uses a top-aligned multiline editor for the active document',
+    testWidgets('uses a highlighted multiline editor with a line-number gutter',
         (tester) async {
-      final vm = CodeEditorViewModel(repository: _FakeCodeEditorRepository({}));
+      final vm = CodeEditorViewModel(
+        repository: _FakeCodeEditorRepository({
+          '/src/main.dart': "void main() {\n  print('ready');\n}",
+        }),
+      );
       addTearDown(vm.dispose);
-      vm.newDocument();
+      await vm.openPath('/src/main.dart');
       final palette = ThemePalette(ThemePaletteDefaults.resolve(null, false));
 
       await tester.pumpWidget(
@@ -87,12 +93,15 @@ void main() {
         ),
       );
 
+      expect(find.byType(CodeField), findsOneWidget);
+      final field = tester.widget<CodeField>(find.byType(CodeField));
+      expect(field.controller.language, same(dart.dart));
+      expect(find.text('3'), findsOneWidget);
+
       final editor = tester.widget<TextField>(find.byType(TextField));
       expect(editor.expands, isTrue);
       expect(editor.maxLines, isNull);
       expect(editor.minLines, isNull);
-      expect(editor.textAlign, TextAlign.start);
-      expect(editor.textAlignVertical, TextAlignVertical.top);
     });
   });
 }

@@ -8,6 +8,7 @@ import '../../../../core/window_manager/window_manager.dart';
 import '../../application/code_editor_view_model.dart';
 import '../../domain/code_editor_models.dart';
 import '../../domain/code_editor_ui_state.dart';
+import 'code_editor_text_field.dart';
 
 class CodeEditorMenuBar extends StatelessWidget {
   const CodeEditorMenuBar({super.key, required this.vm});
@@ -218,7 +219,7 @@ class _DocumentWorkspace extends StatelessWidget {
         Expanded(
           child: state.activeDocument == null
               ? const SizedBox.shrink()
-              : _CodeTextEditor(vm: vm, state: state),
+              : CodeEditorTextField(vm: vm, state: state),
         ),
       ]);
 }
@@ -243,58 +244,6 @@ class _DocumentTabs extends StatelessWidget {
               ),
             ),
         ]),
-      );
-}
-
-class _CodeTextEditor extends StatefulWidget {
-  const _CodeTextEditor({required this.vm, required this.state});
-  final CodeEditorViewModel vm;
-  final CodeEditorUiState state;
-
-  @override
-  State<_CodeTextEditor> createState() => _CodeTextEditorState();
-}
-
-class _CodeTextEditorState extends State<_CodeTextEditor> {
-  late final TextEditingController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller =
-        TextEditingController(text: widget.state.activeDocument?.text);
-  }
-
-  @override
-  void didUpdateWidget(covariant _CodeTextEditor oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final text = widget.state.activeDocument?.text ?? '';
-    if (_controller.text != text) {
-      _controller.value = TextEditingValue(text: text);
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => TextField(
-        controller: _controller,
-        expands: true,
-        maxLines: null,
-        minLines: null,
-        textAlign: TextAlign.start,
-        textAlignVertical: TextAlignVertical.top,
-        keyboardType: TextInputType.multiline,
-        textInputAction: TextInputAction.newline,
-        style:
-            TextStyle(fontFamily: 'monospace', fontSize: widget.state.fontSize),
-        decoration: const InputDecoration(
-            border: InputBorder.none, contentPadding: EdgeInsets.all(12)),
-        onChanged: widget.vm.updateActiveDocument,
       );
 }
 
