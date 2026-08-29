@@ -1,0 +1,24 @@
+{
+  "Culture": "ja-JP",
+  "DisplayName": "日本語",
+  "SortOrder": 20,
+  "Strings": {
+    "image_viewer.open_image": "画像を開く",
+    "image_viewer.image_files": "画像ファイル (*.png;*.jpg;*.jpeg;*.gif;*.bmp;*.webp)",
+    "image_viewer.previous_image": "前の画像",
+    "image_viewer.next_image": "次の画像",
+    "image_viewer.zoom_out": "縮小",
+    "image_viewer.zoom_in": "拡大",
+    "image_viewer.actual_size": "実際のサイズ",
+    "image_viewer.image_information": "画像情報",
+    "image_viewer.no_image_open": "画像が開かれていません",
+    "image_viewer.open_image_prompt": "ファイル エクスプローラーから画像を開いて表示します。",
+    "image_viewer.load_failed": "この画像を読み込めません。",
+    "image_viewer.no_file_selected": "ファイルが選択されていません",
+    "image_viewer.name": "名前",
+    "image_viewer.dimensions": "サイズ",
+    "image_viewer.format": "形式",
+    "image_viewer.size": "容量",
+    "image_viewer.modified": "更新日時"
+  }
+}

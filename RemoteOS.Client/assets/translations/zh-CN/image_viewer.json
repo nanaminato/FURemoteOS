@@ -1,0 +1,24 @@
+{
+  "Culture": "zh-CN",
+  "DisplayName": "简体中文",
+  "SortOrder": 10,
+  "Strings": {
+    "image_viewer.open_image": "打开图片",
+    "image_viewer.image_files": "图片文件 (*.png;*.jpg;*.jpeg;*.gif;*.bmp;*.webp)",
+    "image_viewer.previous_image": "上一张图片",
+    "image_viewer.next_image": "下一张图片",
+    "image_viewer.zoom_out": "缩小",
+    "image_viewer.zoom_in": "放大",
+    "image_viewer.actual_size": "实际大小",
+    "image_viewer.image_information": "图片信息",
+    "image_viewer.no_image_open": "未打开图片",
+    "image_viewer.open_image_prompt": "从文件资源管理器打开图片以在此处查看。",
+    "image_viewer.load_failed": "无法加载此图片。",
+    "image_viewer.no_file_selected": "未选择文件",
+    "image_viewer.name": "名称",
+    "image_viewer.dimensions": "尺寸",
+    "image_viewer.format": "格式",
+    "image_viewer.size": "大小",
+    "image_viewer.modified": "修改时间"
+  }
+}

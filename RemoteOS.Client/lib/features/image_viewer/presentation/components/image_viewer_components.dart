@@ -1,12 +1,12 @@
 // Image Viewer feature components.
 //
 // Split by semantic role:
-//   * [ImageToolbar] — top chrome with zoom + info toggle + navigation
-//     (placeholder buttons until workspace activation lands).
+//   * [ImageToolbar] — top chrome with file, zoom, info and navigation actions.
 //   * [ImageCanvas] — the dark viewer surface with InteractiveViewer body.
 //   * [ImageInspector] — right-hand info column with file metadata rows.
 //   * [ImageStatusBar] — bottom chrome with the current file label.
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/theme_service.dart';
@@ -30,18 +30,22 @@ class ImageToolbar extends StatelessWidget {
           child: Row(
             children: [
               IconButton(
-                onPressed: () {},
-                tooltip: 'Open image',
+                onPressed: s.isLoading ? null : () => vm.openCommand.runAsync(),
+                tooltip: 'image_viewer.open_image'.tr(),
                 icon: const Icon(Icons.folder_open_outlined),
               ),
               IconButton(
-                onPressed: () {},
-                tooltip: 'Previous image',
+                onPressed: s.isLoading || !s.canGoPrevious
+                    ? null
+                    : () => vm.previousCommand.runAsync(),
+                tooltip: 'image_viewer.previous_image'.tr(),
                 icon: const Icon(Icons.navigate_before_rounded),
               ),
               IconButton(
-                onPressed: () {},
-                tooltip: 'Next image',
+                onPressed: s.isLoading || !s.canGoNext
+                    ? null
+                    : () => vm.nextCommand.runAsync(),
+                tooltip: 'image_viewer.next_image'.tr(),
                 icon: const Icon(Icons.navigate_next_rounded),
               ),
               Container(
@@ -56,7 +60,7 @@ class ImageToolbar extends StatelessWidget {
                   onPressed: vm.zoomOutCommand.canRun.value
                       ? () => vm.zoomOutCommand()
                       : null,
-                  tooltip: 'Zoom out',
+                  tooltip: 'image_viewer.zoom_out'.tr(),
                   icon: const Icon(Icons.zoom_out_rounded),
                 ),
               ),
@@ -77,7 +81,7 @@ class ImageToolbar extends StatelessWidget {
                   onPressed: vm.zoomInCommand.canRun.value
                       ? () => vm.zoomInCommand()
                       : null,
-                  tooltip: 'Zoom in',
+                  tooltip: 'image_viewer.zoom_in'.tr(),
                   icon: const Icon(Icons.zoom_in_rounded),
                 ),
               ),
@@ -87,7 +91,7 @@ class ImageToolbar extends StatelessWidget {
                   onPressed: vm.zoomResetCommand.canRun.value
                       ? () => vm.zoomResetCommand()
                       : null,
-                  child: const Text('Actual size'),
+                  child: Text('image_viewer.actual_size'.tr()),
                 ),
               ),
               const Spacer(),
@@ -97,7 +101,7 @@ class ImageToolbar extends StatelessWidget {
                   onPressed: vm.toggleInfoCommand.canRun.value
                       ? () => vm.toggleInfoCommand()
                       : null,
-                  tooltip: 'Image information',
+                  tooltip: 'image_viewer.image_information'.tr(),
                   icon: Icon(
                     Icons.info_outline_rounded,
                     color: s.showInfo ? palette.accent : palette.textSecondary,
@@ -112,11 +116,50 @@ class ImageToolbar extends StatelessWidget {
   }
 }
 
-class ImageCanvas extends StatelessWidget {
+class ImageCanvas extends StatefulWidget {
   const ImageCanvas({super.key, required this.vm});
   final ImageViewerViewModel vm;
 
+  @override
+  State<ImageCanvas> createState() => _ImageCanvasState();
+}
+
+class _ImageCanvasState extends State<ImageCanvas> {
   static const _bg = Color(0xFF191919);
+  final _transformationController = TransformationController();
+  double _appliedZoom = 1;
+  String? _displayedPath;
+
+  ImageViewerViewModel get _vm => widget.vm;
+
+  @override
+  void initState() {
+    super.initState();
+    _vm.state.addListener(_applyState);
+  }
+
+  @override
+  void dispose() {
+    _vm.state.removeListener(_applyState);
+    _transformationController.dispose();
+    super.dispose();
+  }
+
+  void _applyState() {
+    final state = _vm.state.value;
+    if (state.remotePath != _displayedPath) {
+      _displayedPath = state.remotePath;
+      _appliedZoom = 1;
+      _transformationController.value = Matrix4.identity();
+    }
+    if (state.zoom == _appliedZoom) return;
+    _appliedZoom = state.zoom;
+    _transformationController.value = Matrix4.diagonal3Values(
+      state.zoom,
+      state.zoom,
+      1,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -128,19 +171,41 @@ class ImageCanvas extends StatelessWidget {
 
   Widget _body() {
     return ListenableBuilder(
-      listenable: vm.state,
+      listenable: _vm.state,
       builder: (context, _) {
-        final s = vm.state.value;
+        final s = _vm.state.value;
         if (s.imageBytes != null) {
-          return InteractiveViewer(
-            minScale: 0.1,
-            maxScale: 5,
-            child: Image.memory(s.imageBytes!, fit: BoxFit.contain),
+          return LayoutBuilder(
+            builder: (context, constraints) => InteractiveViewer(
+              transformationController: _transformationController,
+              minScale: 0.1,
+              maxScale: 5,
+              onInteractionEnd: (_) {
+                final zoom =
+                    _transformationController.value.getMaxScaleOnAxis();
+                _appliedZoom = zoom;
+                _vm.setZoom(zoom);
+              },
+              child: SizedBox(
+                width: constraints.maxWidth,
+                height: constraints.maxHeight,
+                child: Image.memory(
+                  s.imageBytes!,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => Center(
+                    child: Text(
+                      'image_viewer.load_failed'.tr(),
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           );
         }
         if (s.errorMessage != null) {
           return Text(
-            s.errorMessage!,
+            s.errorMessage!.tr(),
             textAlign: TextAlign.center,
             style: const TextStyle(color: Colors.white),
           );
@@ -157,13 +222,13 @@ class ImageCanvas extends StatelessWidget {
               color: Colors.white.withValues(alpha: .45),
             ),
             const SizedBox(height: 14),
-            const Text(
-              'No image open',
-              style: TextStyle(fontSize: 16, color: Colors.white),
+            Text(
+              'image_viewer.no_image_open'.tr(),
+              style: const TextStyle(fontSize: 16, color: Colors.white),
             ),
             const SizedBox(height: 5),
             Text(
-              'Open an image from File Explorer to view it here.',
+              'image_viewer.open_image_prompt'.tr(),
               style: TextStyle(
                 fontSize: 12,
                 color: Colors.white.withValues(alpha: .55),
@@ -195,7 +260,7 @@ class ImageInspector extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'IMAGE INFORMATION',
+                'image_viewer.image_information'.tr().toUpperCase(),
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
@@ -205,11 +270,11 @@ class ImageInspector extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               for (final item in [
-                ('Name', s.fileName ?? '—'),
-                ('Dimensions', '—'),
-                ('Format', '—'),
-                ('Size', '—'),
-                ('Modified', '—'),
+                ('image_viewer.name'.tr(), s.fileName ?? '—'),
+                ('image_viewer.dimensions'.tr(), '—'),
+                ('image_viewer.format'.tr(), '—'),
+                ('image_viewer.size'.tr(), '—'),
+                ('image_viewer.modified'.tr(), '—'),
               ])
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
@@ -243,21 +308,27 @@ class ImageInspector extends StatelessWidget {
 }
 
 class ImageStatusBar extends StatelessWidget {
-  const ImageStatusBar({super.key, required this.label});
-  final String label;
+  const ImageStatusBar({super.key, required this.vm});
+  final ImageViewerViewModel vm;
 
   @override
   Widget build(BuildContext context) {
     final palette = context.palette;
-    return Container(
-      height: 26,
-      color: palette.surface,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      alignment: Alignment.centerLeft,
-      child: Text(
-        label,
-        style: TextStyle(fontSize: 11, color: palette.textTertiary),
-      ),
+    return ListenableBuilder(
+      listenable: vm.state,
+      builder: (context, _) {
+        final state = vm.state.value;
+        return Container(
+          height: 26,
+          color: palette.surface,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          alignment: Alignment.centerLeft,
+          child: Text(
+            state.fileName ?? 'image_viewer.no_file_selected'.tr(),
+            style: TextStyle(fontSize: 11, color: palette.textTertiary),
+          ),
+        );
+      },
     );
   }
 }

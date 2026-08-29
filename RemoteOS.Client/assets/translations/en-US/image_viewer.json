@@ -1,0 +1,24 @@
+{
+  "Culture": "en-US",
+  "DisplayName": "English",
+  "SortOrder": 0,
+  "Strings": {
+    "image_viewer.open_image": "Open image",
+    "image_viewer.image_files": "Image files (*.png;*.jpg;*.jpeg;*.gif;*.bmp;*.webp)",
+    "image_viewer.previous_image": "Previous image",
+    "image_viewer.next_image": "Next image",
+    "image_viewer.zoom_out": "Zoom out",
+    "image_viewer.zoom_in": "Zoom in",
+    "image_viewer.actual_size": "Actual size",
+    "image_viewer.image_information": "Image information",
+    "image_viewer.no_image_open": "No image open",
+    "image_viewer.open_image_prompt": "Open an image from File Explorer to view it here.",
+    "image_viewer.load_failed": "Unable to load this image.",
+    "image_viewer.no_file_selected": "No file selected",
+    "image_viewer.name": "Name",
+    "image_viewer.dimensions": "Dimensions",
+    "image_viewer.format": "Format",
+    "image_viewer.size": "Size",
+    "image_viewer.modified": "Modified"
+  }
+}

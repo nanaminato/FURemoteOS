@@ -135,6 +135,7 @@ class LanguageCatalog {
         'docker',
         'explorer',
         'firewall',
+        'image_viewer',
         'login',
         'notepad',
         'settings',

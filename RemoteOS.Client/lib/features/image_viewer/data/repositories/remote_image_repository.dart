@@ -15,4 +15,21 @@ class RemoteImageRepository implements ImageRepository {
     final bytes = await _files.readBytes(remotePath);
     return Uint8List.fromList(bytes);
   }
+
+  @override
+  Future<List<ImageFile>> listImages(String directoryPath) async {
+    final entries = await _files.list(directoryPath);
+    final images = entries
+        .where((entry) => !entry.isDirectory && _isSupportedImage(entry.name))
+        .map((entry) => ImageFile(name: entry.name, path: entry.path))
+        .toList()
+      ..sort((left, right) =>
+          left.name.toLowerCase().compareTo(right.name.toLowerCase()));
+    return images;
+  }
+
+  static bool _isSupportedImage(String name) {
+    final normalized = name.toLowerCase();
+    return imageViewerExtensions.any(normalized.endsWith);
+  }
 }
