@@ -304,8 +304,8 @@ class ContainerDetailsDialog extends ConsumerWidget {
           padding: const EdgeInsets.all(20),
           child: Column(children: [
             Expanded(
-                child:
-                    Center(child: HintText('docker.not_found'.tr(), palette))),
+                child: Center(
+                    child: HintText('docker.problem.failed'.tr(), palette))),
             DialogFooter(actions: [
               OutlinedButton(
                   onPressed: () =>

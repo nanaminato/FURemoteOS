@@ -75,7 +75,7 @@ class SettingsViewModel extends ViewModel {
     final imageMirrors = <ImageMirrorUi>[
       ImageMirrorUi(
         id: '',
-        name: 'settings.image_mirrors.docker_hub'.tr(),
+        name: 'settings.image_mirrors.docker'.tr(),
         endpoint: 'registry-1.docker.io',
         isDefault: true,
         isSelected: true,

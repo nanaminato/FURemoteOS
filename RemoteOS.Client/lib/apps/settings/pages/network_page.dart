@@ -28,10 +28,10 @@ class SettingsNetworkPage extends ConsumerWidget {
             palette: palette,
             icon: Icons.network_check_rounded,
             title: 'settings.page.network'.tr(),
-            subtitle: 'settings.network.description'.tr()),
+            subtitle: 'settings.connection_test.description'.tr()),
         const SizedBox(height: 20),
         SettingsSectionTitle(
-            palette: palette, title: 'settings.network.connection'.tr()),
+            palette: palette, title: 'settings.connection_status'.tr()),
         const SizedBox(height: 8),
         SettingsCard(palette: palette, children: [
           SettingsInfoRow(
@@ -52,7 +52,7 @@ class SettingsNetworkPage extends ConsumerWidget {
               value: auth.workspaceName ?? '—'),
           SettingsInfoRow(
               palette: palette,
-              label: 'settings.network.latency'.tr(),
+              label: 'settings.connection_test'.tr(),
               value: state.networkLatencyText.isEmpty
                   ? 'settings.network.not_tested'.tr()
                   : state.networkLatencyText),
@@ -80,7 +80,7 @@ class SettingsNetworkPage extends ConsumerWidget {
         ]),
         const SizedBox(height: 20),
         SettingsSectionTitle(
-            palette: palette, title: 'settings.network.addresses'.tr()),
+            palette: palette, title: 'settings.server_ip_addresses'.tr()),
         const SizedBox(height: 8),
         SettingsCard(palette: palette, children: [
           Row(
@@ -102,7 +102,7 @@ class SettingsNetworkPage extends ConsumerWidget {
                         height: 14,
                         child: CircularProgressIndicator(strokeWidth: 2))
                     : const Icon(Icons.refresh_rounded, size: 16),
-                label: Text('settings.network.refresh_addresses'.tr(),
+                label: Text('common.refresh'.tr(),
                     style: const TextStyle(fontSize: 12)),
               ),
             ],

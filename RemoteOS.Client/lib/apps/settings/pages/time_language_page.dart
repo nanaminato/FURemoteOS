@@ -52,12 +52,13 @@ class SettingsTimeLanguagePage extends ConsumerWidget {
             title: 'settings.page.time_language'.tr(),
             subtitle: 'settings.language_region.description'.tr()),
         const SizedBox(height: 20),
-        SettingsSectionTitle(palette: palette, title: 'settings.clock'.tr()),
+        SettingsSectionTitle(
+            palette: palette, title: 'settings.time.section'.tr()),
         const SizedBox(height: 8),
         SettingsCard(palette: palette, children: [
           SettingsLabeledRow(
             palette: palette,
-            label: 'settings.time_format'.tr(),
+            label: 'settings.time.format'.tr(),
             description: timeSample,
             control: SettingsComboBox<String>(
               palette: palette,
@@ -66,8 +67,7 @@ class SettingsTimeLanguagePage extends ConsumerWidget {
                 for (final f in timeFormats)
                   DropdownMenuItem(
                       value: f,
-                      child: Text('settings.time_format.$f'.tr(),
-                          style: const TextStyle(fontSize: 13))),
+                      child: Text(f, style: const TextStyle(fontSize: 13))),
               ],
               onChanged: (v) {
                 if (v == null) return;
@@ -82,7 +82,7 @@ class SettingsTimeLanguagePage extends ConsumerWidget {
           const SizedBox(height: 8),
           SettingsLabeledRow(
             palette: palette,
-            label: 'settings.date_format'.tr(),
+            label: 'settings.date.format'.tr(),
             description: dateSample,
             control: SettingsComboBox<String>(
               palette: palette,
@@ -106,12 +106,12 @@ class SettingsTimeLanguagePage extends ConsumerWidget {
           const SizedBox(height: 8),
           SettingsInfoRow(
               palette: palette,
-              label: 'settings.timezone'.tr(),
+              label: 'settings.time_zone'.tr(),
               value: ctrl.timeZoneDisplayName()),
         ]),
         const SizedBox(height: 20),
         SettingsSectionTitle(
-            palette: palette, title: 'settings.region_language'.tr()),
+            palette: palette, title: 'settings.language_region.section'.tr()),
         const SizedBox(height: 8),
         SettingsCard(palette: palette, children: [
           SettingsLabeledRow(
@@ -148,7 +148,7 @@ class SettingsTimeLanguagePage extends ConsumerWidget {
           const SizedBox(height: 8),
           SettingsLabeledRow(
             palette: palette,
-            label: 'settings.region'.tr(),
+            label: 'settings.region_format'.tr(),
             control: SettingsComboBox<String>(
               palette: palette,
               value: regions.contains(region) ? region : 'en-US',

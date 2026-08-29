@@ -142,7 +142,7 @@ class WorkspaceSettingsRepository implements SettingsRepository {
       jsonText = data?.text;
     } catch (_) {}
     if (jsonText == null || jsonText.trim().isEmpty) {
-      return 'settings.theme_import.clipboard_empty'.tr();
+      return 'settings.theme_import.invalid'.tr();
     }
     ThemePaletteDto dto;
     try {
@@ -187,7 +187,7 @@ class WorkspaceSettingsRepository implements SettingsRepository {
     );
     theme.setPreferences(updated);
     queueTheme(theme, workspace);
-    return 'settings.theme_import.complete'.tr();
+    return 'settings.theme_import'.tr();
   }
 
   @override
@@ -202,7 +202,7 @@ class WorkspaceSettingsRepository implements SettingsRepository {
     try {
       await Clipboard.setData(
           ClipboardData(text: jsonEncode(palette.toJson())));
-      return 'settings.theme_export.copied'.tr(args: [palette.name]);
+      return 'settings.theme_export'.tr();
     } catch (_) {
       return 'settings.theme_export.failed'.tr();
     }
@@ -221,8 +221,8 @@ class WorkspaceSettingsRepository implements SettingsRepository {
         .cast<ThemePaletteDto?>()
         .firstWhere((c) => c?.id == id, orElse: () => null);
     if (palette == null) return false;
-    final ok = await confirm('settings.theme_delete.confirmation.title'.tr(),
-        'settings.theme_delete.confirmation.message'.tr(args: [palette.name]));
+    final ok = await confirm('settings.theme_delete'.tr(),
+        'settings.theme_delete.confirmation'.tr(args: [palette.name]));
     if (ok != true) return false;
     final remaining =
         prefs.customPalettes.where((p) => p.id != id).toList(growable: false);

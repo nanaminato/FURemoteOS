@@ -255,8 +255,10 @@ class DockerViewModel extends ViewModel {
       state.value = state.value.copyWith(
         containerLogs: joined,
         statusText: logs == null
-            ? 'docker.action.failed'
-                .tr(args: [_opText('logs'), 'docker.not_found'])
+            ? 'docker.action.failed'.tr(args: [
+                _opText('logs'),
+                _problemText('docker.operation_failed')
+              ])
             : 'docker.action.succeeded'.tr(args: [_opText('logs'), c.name]),
       );
     });
@@ -274,8 +276,10 @@ class DockerViewModel extends ViewModel {
       state.value = state.value.copyWith(
         containerStats: text,
         statusText: stats == null
-            ? 'docker.action.failed'
-                .tr(args: [_opText('stats'), 'docker.not_found'])
+            ? 'docker.action.failed'.tr(args: [
+                _opText('stats'),
+                _problemText('docker.operation_failed')
+              ])
             : 'docker.action.succeeded'.tr(args: [_opText('stats'), c.name]),
       );
     });
@@ -291,8 +295,10 @@ class DockerViewModel extends ViewModel {
         containerDetailsText:
             details == null ? '' : _formatContainerDetails(details),
         statusText: details == null
-            ? 'docker.action.failed'
-                .tr(args: ['docker.container.details'.tr(), 'docker.not_found'])
+            ? 'docker.action.failed'.tr(args: [
+                'docker.container.details'.tr(),
+                _problemText('docker.operation_failed'),
+              ])
             : 'docker.container.details_loaded'.tr(args: [c.name]),
       );
     });
@@ -742,7 +748,12 @@ class DockerViewModel extends ViewModel {
         'logs' => 'docker.container.logs'.tr(),
         'stats' => 'docker.container.stats'.tr(),
         'delete' => 'common.delete'.tr(),
-        _ => 'docker.action.$operation'.tr(),
+        'start' => 'docker.action.start'.tr(),
+        'stop' => 'docker.action.stop'.tr(),
+        'restart' => 'docker.action.restart'.tr(),
+        'pause' => 'docker.action.pause'.tr(),
+        'unpause' => 'docker.action.unpause'.tr(),
+        _ => operation,
       };
 
   static String _problemText(String problemCode) => switch (problemCode) {

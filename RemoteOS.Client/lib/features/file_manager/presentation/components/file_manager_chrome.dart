@@ -40,7 +40,7 @@ class FileManagerToolbar extends StatelessWidget {
             onPressed: state.canGoForward
                 ? () => vm.navigateForwardCommand.run()
                 : null),
-        _toolButton(palette, Icons.arrow_upward_rounded, 'common.up'.tr(),
+        _toolButton(palette, Icons.arrow_upward_rounded, 'explorer.up'.tr(),
             onPressed: state.canGoUp ? () => vm.goUpCommand.run() : null),
         const SizedBox(width: 4),
         if (!pickerMode) ...[
@@ -69,20 +69,20 @@ class FileManagerToolbar extends StatelessWidget {
               onPressed:
                   state.hasClipboard ? () => vm.pasteCommand.runAsync() : null),
           const _Divider(),
-          _toolButton(
-              palette, Icons.upload_file_outlined, 'explorer.upload_files'.tr(),
+          _toolButton(palette, Icons.upload_file_outlined,
+              'explorer.select_upload_file'.tr(),
               onPressed: () => vm.uploadFilesCommand.runAsync()),
           _toolButton(palette, Icons.folder_open_outlined,
               'explorer.upload_folder'.tr(),
               onPressed: () => vm.uploadFolderCommand.runAsync()),
-          _toolButton(
-              palette, Icons.download_outlined, 'explorer.download'.tr(),
+          _toolButton(palette, Icons.download_outlined,
+              'explorer.save_download_file'.tr(),
               onPressed: state.hasSelection
                   ? () => vm.downloadCommand.runAsync()
                   : null),
           const _Divider(),
           _toolButton(
-              palette, Icons.terminal_outlined, 'explorer.terminal'.tr(),
+              palette, Icons.terminal_outlined, 'explorer.open_terminal'.tr(),
               onPressed: state.currentPath.isNotEmpty
                   ? () => vm.openTerminal?.call(state.currentPath)
                   : null),
@@ -182,7 +182,7 @@ class FileManagerAddressBar extends StatelessWidget {
               isDense: true,
               prefixIcon: Icon(Icons.location_on_outlined,
                   size: 16, color: palette.textSecondary),
-              hintText: 'explorer.address_hint'.tr(),
+              hintText: 'explorer.destination_path_prompt'.tr(),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
               constraints: const BoxConstraints(maxHeight: 36),
@@ -200,7 +200,7 @@ class FileManagerAddressBar extends StatelessWidget {
               isDense: true,
               prefixIcon: Icon(Icons.search_outlined,
                   size: 16, color: palette.textSecondary),
-              hintText: 'common.search'.tr(),
+              hintText: 'common.find'.tr(),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
               constraints: const BoxConstraints(maxHeight: 36),
@@ -379,8 +379,8 @@ class FileManagerStatusBar extends StatelessWidget {
 
   static String _formatStatus(FileManagerUiState s) {
     final ready = 'explorer.status.ready'.tr();
-    final itemsText =
-        'explorer.status.items_count'.tr(args: ['${s.entries.length}']);
+    final itemsText = 'explorer.status.directory_ready'
+        .tr(args: ['0', '${s.entries.length}']);
     if (s.isTransferActive) {
       final label = s.transferText.isEmpty ? ready : s.transferText;
       return '$label  ${s.transferProgressPercent.toStringAsFixed(1)}%';
@@ -395,7 +395,7 @@ class FileManagerStatusBar extends StatelessWidget {
         return '${s.statusText}  ·  $itemsText';
       }
     }
-    final loading = s.isLoading ? ' · ${'common.loading'.tr()}…' : '';
+    final loading = s.isLoading ? ' · ${'explorer.status.loading'.tr()}' : '';
     return '$ready  ·  $itemsText$loading';
   }
 }

@@ -115,7 +115,7 @@ class _FirewallViewState extends ConsumerState<FirewallView> {
         const Divider(height: 1, thickness: 1),
         Expanded(
           child: s.isLoading && s.rules.isEmpty
-              ? Center(child: Text('common.loading'.tr()))
+              ? Center(child: Text('firewall.status.loading'.tr()))
               : SingleChildScrollView(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                   child: Column(
@@ -153,7 +153,7 @@ class _FirewallViewState extends ConsumerState<FirewallView> {
           children: [
             _ToolbarButton(
               icon: Icons.refresh,
-              label: 'firewall.actions.refresh'.tr(),
+              label: 'common.refresh'.tr(),
               palette: palette,
               enabled: vm.canRefresh(),
               command: vm.refreshCommand,
@@ -161,7 +161,7 @@ class _FirewallViewState extends ConsumerState<FirewallView> {
             const SizedBox(width: 8),
             _ToolbarButton(
               icon: Icons.toggle_on,
-              label: 'firewall.actions.enable'.tr(),
+              label: 'firewall.enable'.tr(),
               palette: palette,
               enabled: vm.canEnable(),
               command: vm.enableCommand,
@@ -169,7 +169,7 @@ class _FirewallViewState extends ConsumerState<FirewallView> {
             const SizedBox(width: 8),
             _ToolbarButton(
               icon: Icons.toggle_off,
-              label: 'firewall.actions.disable'.tr(),
+              label: 'firewall.disable'.tr(),
               palette: palette,
               enabled: vm.canDisable(),
               command: vm.disableCommand,
@@ -177,7 +177,7 @@ class _FirewallViewState extends ConsumerState<FirewallView> {
             _ToolbarSeparator(palette: palette),
             _ToolbarButton(
               icon: Icons.save,
-              label: 'firewall.actions.save_defaults'.tr(),
+              label: 'firewall.save_defaults'.tr(),
               palette: palette,
               enabled: vm.canManageAction(),
               command: vm.saveDefaultsCommand,
@@ -185,7 +185,7 @@ class _FirewallViewState extends ConsumerState<FirewallView> {
             const SizedBox(width: 8),
             _ToolbarButton(
               icon: Icons.add,
-              label: 'firewall.actions.add_rule'.tr(),
+              label: 'firewall.rule.add'.tr(),
               palette: palette,
               enabled: vm.canManageAction(),
               command: vm.addRuleCommand,
@@ -193,7 +193,7 @@ class _FirewallViewState extends ConsumerState<FirewallView> {
             const SizedBox(width: 8),
             _ToolbarButton(
               icon: Icons.edit,
-              label: 'firewall.actions.update_rule'.tr(),
+              label: 'firewall.rule.update'.tr(),
               palette: palette,
               enabled: vm.canEditRule(),
               command: vm.updateRuleCommand,
@@ -201,7 +201,7 @@ class _FirewallViewState extends ConsumerState<FirewallView> {
             const SizedBox(width: 8),
             _ToolbarButton(
               icon: Icons.delete_outline,
-              label: 'firewall.actions.delete_rule'.tr(),
+              label: 'firewall.rule.delete'.tr(),
               palette: palette,
               enabled: vm.canEditRule(),
               command: vm.deleteRuleCommand,
@@ -270,7 +270,7 @@ class _FirewallViewState extends ConsumerState<FirewallView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'firewall.defaults.title'.tr(),
+            'firewall.rule.editor_title'.tr(),
             style: TextStyle(
               color: palette.textPrimary,
               fontSize: 14,
@@ -283,7 +283,7 @@ class _FirewallViewState extends ConsumerState<FirewallView> {
             runSpacing: 12,
             children: [
               FirewallChoiceField(
-                label: 'firewall.defaults.incoming'.tr(),
+                label: 'firewall.default_incoming'.tr(),
                 value: s.incomingPolicy,
                 choices: FirewallRepository.policies,
                 width: 220,
@@ -292,7 +292,7 @@ class _FirewallViewState extends ConsumerState<FirewallView> {
                 },
               ),
               FirewallChoiceField(
-                label: 'firewall.defaults.outgoing'.tr(),
+                label: 'firewall.default_outgoing'.tr(),
                 value: s.outgoingPolicy,
                 choices: FirewallRepository.policies,
                 width: 220,
@@ -328,7 +328,7 @@ class _FirewallViewState extends ConsumerState<FirewallView> {
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
             child: Text(
-              'firewall.rules.title'.tr(),
+              'firewall.rule.editor_title'.tr(),
               style: TextStyle(
                 color: palette.textPrimary,
                 fontSize: 14,
@@ -343,7 +343,7 @@ class _FirewallViewState extends ConsumerState<FirewallView> {
                     height: 120,
                     child: Center(
                       child: Text(
-                        'firewall.rules.empty'.tr(),
+                        'firewall.status.ready'.tr(),
                         style: TextStyle(color: palette.textSecondary),
                       ),
                     ),

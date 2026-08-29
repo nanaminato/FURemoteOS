@@ -301,7 +301,7 @@ class _FooterHint extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'settings.footer.sync_note'.tr(),
+                'settings.sync_hint'.tr(),
                 style: TextStyle(
                     fontSize: 11, color: palette.textPrimary, height: 1.3),
               ),

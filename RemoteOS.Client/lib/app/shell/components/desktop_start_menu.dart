@@ -181,7 +181,7 @@ class _DesktopStartMenuState extends ConsumerState<DesktopStartMenu> {
       child: Row(
         children: [
           Text(
-            'shell.taskbar.all_apps'.tr(),
+            'shell.desktop_display.title'.tr(),
             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
           ),
         ],

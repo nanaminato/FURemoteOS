@@ -43,7 +43,7 @@ class SettingsDeveloperPage extends ConsumerWidget {
                             fontSize: 14,
                             fontWeight: FontWeight.w600)),
                     const SizedBox(height: 4),
-                    Text('settings.developer_mode.hint'.tr(),
+                    Text('settings.developer_mode.note'.tr(),
                         style: TextStyle(
                             color: palette.textSecondary, fontSize: 12)),
                   ],
@@ -58,7 +58,7 @@ class SettingsDeveloperPage extends ConsumerWidget {
           const SizedBox(height: 8),
           SettingsInfoRow(
               palette: palette,
-              label: 'settings.endpoint'.tr(),
+              label: 'settings.connection_address'.tr(),
               value: devEndpoint),
           Padding(
             padding: const EdgeInsets.only(top: 8),
@@ -91,7 +91,7 @@ class SettingsDeveloperPage extends ConsumerWidget {
                         OutlinedButton.icon(
                           onPressed: ctrl.regeneratePairingToken,
                           icon: const Icon(Icons.autorenew_rounded, size: 14),
-                          label: Text('settings.token.regenerate'.tr(),
+                          label: Text('settings.regenerate'.tr(),
                               style: const TextStyle(fontSize: 11)),
                         ),
                       ],
@@ -104,7 +104,7 @@ class SettingsDeveloperPage extends ConsumerWidget {
         ]),
         const SizedBox(height: 16),
         SettingsSectionTitle(
-            palette: palette, title: 'settings.network_inspector.title'.tr()),
+            palette: palette, title: 'settings.network_inspector'.tr()),
         const SizedBox(height: 8),
         SettingsCard(palette: palette, children: [
           Row(
@@ -113,7 +113,7 @@ class SettingsDeveloperPage extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('settings.network_inspector.title'.tr(),
+                    Text('settings.network_inspector'.tr(),
                         style: TextStyle(
                             color: palette.textPrimary,
                             fontSize: 13,
@@ -129,9 +129,9 @@ class SettingsDeveloperPage extends ConsumerWidget {
                 onPressed: state.devModeEnabled
                     ? () {
                         showInfoSnack(
-                            context, 'settings.network_inspector.opening'.tr(),
+                            context, 'settings.network_inspector.ready'.tr(),
                             onFallback: () => ctrl.setImageMirrorStatus(
-                                'settings.network_inspector.opening'.tr()));
+                                'settings.network_inspector.ready'.tr()));
                       }
                     : null,
                 icon: const Icon(Icons.open_in_new_rounded, size: 16),

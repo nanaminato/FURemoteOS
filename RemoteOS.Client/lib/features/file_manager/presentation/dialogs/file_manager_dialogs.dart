@@ -143,18 +143,18 @@ class FmPropertiesDialog extends ConsumerWidget {
     final dialogId = RemoteModalScope.of(context).windowId;
     final rows = <(String, String)>[
       ('common.name'.tr(), properties.name),
-      ('common.kind'.tr(), properties.type),
-      ('common.location'.tr(), properties.path),
+      ('common.type'.tr(), properties.type),
+      ('explorer.properties.general'.tr(), properties.path),
       (
-        'common.size'.tr(),
+        'explorer.size'.tr(),
         properties.size == null ? '—' : _formatBytes(properties.size!)
       ),
       (
-        'common.created'.tr(),
+        'explorer.properties.created'.tr(),
         properties.created?.toLocal().toString().split('.').first ?? '—'
       ),
       (
-        'common.modified'.tr(),
+        'explorer.modified'.tr(),
         properties.modified?.toLocal().toString().split('.').first ?? '—'
       ),
       if (properties.permissions?.isNotEmpty == true)
@@ -288,7 +288,7 @@ class _FmOpenWithDialogState extends ConsumerState<FmOpenWithDialog> {
               value: _always,
               onChanged: (v) => setState(() => _always = v == true)),
           Expanded(
-              child: Text('explorer.open_with_always'.tr(),
+              child: Text('explorer.open_with.always_use'.tr(),
                   style: TextStyle(color: palette.textSecondary))),
         ]),
         const SizedBox(height: 12),
@@ -371,7 +371,7 @@ List<ContextMenuEntry> buildFileManagerContextMenu({
       ..add(const ContextMenuDivider())
       ..add(ContextMenuAction(
         icon: Icons.download_outlined,
-        label: 'explorer.download'.tr(),
+        label: 'common.download'.tr(),
         enabled: s.hasSelection && !entry.isFolder,
         onSelected: () {
           if (s.hasSelection && !entry.isFolder) vm.downloadCommand.runAsync();
@@ -408,7 +408,7 @@ List<ContextMenuEntry> buildFileManagerContextMenu({
       ..add(const ContextMenuDivider())
       ..add(ContextMenuAction(
         icon: Icons.terminal_outlined,
-        label: 'explorer.terminal'.tr(),
+        label: 'explorer.open_terminal'.tr(),
         enabled: s.currentPath.isNotEmpty && vm.openTerminal != null,
         onSelected: () {
           if (s.currentPath.isNotEmpty) vm.openTerminal?.call(s.currentPath);

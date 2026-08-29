@@ -173,7 +173,7 @@ Future<List<String>?> showRemoteMultiFilePicker(
   return modals.open<List<String>>(
     ownerId: ownerId,
     spec: ModalSpec(
-      title: title ?? 'explorer.picker.open_files'.tr(),
+      title: title ?? 'explorer.open_file'.tr(),
       icon: Icons.file_open_outlined,
       preferredSize: preferredSize,
       child: Builder(
@@ -213,7 +213,7 @@ Future<String?> showRemoteSaveFilePicker(
   return modals.open<String>(
     ownerId: ownerId,
     spec: ModalSpec(
-      title: title ?? 'explorer.picker.save_file'.tr(),
+      title: title ?? 'common.save'.tr(),
       icon: Icons.save_outlined,
       preferredSize: preferredSize,
       child: Builder(

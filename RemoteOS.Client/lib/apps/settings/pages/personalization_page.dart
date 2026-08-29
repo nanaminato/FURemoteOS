@@ -62,7 +62,7 @@ class _SettingsPersonalizationPageState
             palette: widget.palette,
             icon: Icons.palette_rounded,
             title: 'settings.theme'.tr(),
-            subtitle: 'settings.personalization.description'.tr()),
+            subtitle: 'settings.theme.description'.tr()),
         const SizedBox(height: 20),
         _wallpaperSection(widget.palette, wallpaperKey, ctrl),
         const SizedBox(height: 20),
@@ -86,7 +86,7 @@ class _SettingsPersonalizationPageState
         SettingsCard(palette: p, children: [
           SettingsLabeledRow(
             palette: p,
-            label: 'settings.wallpaper.preset'.tr(),
+            label: 'settings.wallpaper'.tr(),
             control: SettingsComboBox<String>(
               palette: p,
               value: wallpaperKey,
@@ -196,7 +196,7 @@ class _SettingsPersonalizationPageState
         SettingsCard(palette: p, children: [
           SettingsLabeledRow(
             palette: p,
-            label: 'settings.palette.select'.tr(),
+            label: 'settings.palette'.tr(),
             description: 'settings.palette.preview'.tr(),
             control: SettingsComboBox<String>(
               palette: p,
@@ -291,7 +291,7 @@ class _SettingsPersonalizationPageState
           SettingsLabeledRow(
             palette: p,
             label: 'settings.accent'.tr(),
-            description: 'settings.accent.description'.tr(),
+            description: 'settings.accent.hint'.tr(),
             control: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

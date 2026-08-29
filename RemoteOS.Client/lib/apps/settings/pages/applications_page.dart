@@ -53,7 +53,7 @@ class _InstalledAppsList extends ConsumerWidget {
         ],
         const SizedBox(height: 20),
         SettingsSectionTitle(
-            palette: palette, title: 'settings.apps.installed'.tr()),
+            palette: palette, title: 'settings.page.applications'.tr()),
         const SizedBox(height: 8),
         SettingsCard(palette: palette, children: [
           for (final entry in registry.all)
@@ -84,7 +84,7 @@ class _InstalledAppsList extends ConsumerWidget {
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600)),
                           const SizedBox(height: 2),
-                          Text('settings.apps.built_in_hint'.tr(),
+                          Text('settings.built_in'.tr(),
                               style: TextStyle(
                                   color: palette.textSecondary, fontSize: 12)),
                         ],
@@ -141,7 +141,7 @@ class _AppDetails extends ConsumerWidget {
                 Icon(Icons.arrow_back_ios_new_rounded,
                     size: 14, color: palette.textSecondary),
                 const SizedBox(width: 4),
-                Text('settings.apps.back_to_list'.tr(),
+                Text('settings.back_to_apps'.tr(),
                     style: TextStyle(
                         color: palette.textSecondary,
                         fontSize: 12,
@@ -184,9 +184,9 @@ class _AppDetails extends ConsumerWidget {
                     Text(() {
                       // ignore: dead_code
                       if (canUninstall) {
-                        return 'settings.apps.uninstall_available'.tr();
+                        return 'settings.uninstall_available'.tr();
                       }
-                      return 'settings.apps.built_in'.tr();
+                      return 'settings.built_in'.tr();
                     }(),
                         style: TextStyle(
                             color: palette.textSecondary, fontSize: 12)),
@@ -203,7 +203,7 @@ class _AppDetails extends ConsumerWidget {
                   onPressed: () => ctrl.launchApp(appId, entry.nameKey.tr(),
                       context: context),
                   icon: const Icon(Icons.open_in_new_rounded, size: 16),
-                  label: Text('settings.apps.open'.tr(),
+                  label: Text('common.open'.tr(),
                       style: const TextStyle(fontSize: 12)),
                 ),
               ),
@@ -214,11 +214,11 @@ class _AppDetails extends ConsumerWidget {
                     await showInfoDialog(
                         context,
                         ref,
-                        'settings.apps.permissions.title'.tr(),
+                        'settings.app_permissions'.tr(),
                         permissions.join('\n'));
                   },
                   icon: const Icon(Icons.edit_note_rounded, size: 16),
-                  label: Text('settings.apps.edit_permissions'.tr(),
+                  label: Text('settings.manage_permissions'.tr(),
                       style: const TextStyle(fontSize: 12)),
                 ),
               ),
@@ -233,7 +233,7 @@ class _AppDetails extends ConsumerWidget {
                     if (!canUninstall) return;
                   },
                   icon: const Icon(Icons.delete_sweep_outlined, size: 16),
-                  label: Text('settings.apps.uninstall'.tr(),
+                  label: Text('settings.uninstall'.tr(),
                       style: const TextStyle(fontSize: 12)),
                 ),
               ),
@@ -242,7 +242,7 @@ class _AppDetails extends ConsumerWidget {
                 child: OutlinedButton.icon(
                   onPressed: ctrl.clearLocalAppData,
                   icon: const Icon(Icons.cleaning_services_outlined, size: 16),
-                  label: Text('settings.apps.clear_data'.tr(),
+                  label: Text('settings.clear_data'.tr(),
                       style: const TextStyle(fontSize: 12)),
                 ),
               ),
@@ -255,7 +255,7 @@ class _AppDetails extends ConsumerWidget {
         ],
         const SizedBox(height: 16),
         SettingsSectionTitle(
-            palette: palette, title: 'settings.apps.permissions.title'.tr()),
+            palette: palette, title: 'settings.app_permissions'.tr()),
         const SizedBox(height: 8),
         SettingsCard(palette: palette, children: [
           Text(
@@ -287,7 +287,7 @@ class _AppDetails extends ConsumerWidget {
         if (isBrowser) ...[
           const SizedBox(height: 16),
           SettingsSectionTitle(
-              palette: palette, title: 'settings.apps.browser.title'.tr()),
+              palette: palette, title: 'settings.apps.browser.settings'.tr()),
           const SizedBox(height: 8),
           SettingsCard(palette: palette, children: [
             Text('settings.apps.browser.link_open_target'.tr(),
@@ -299,7 +299,7 @@ class _AppDetails extends ConsumerWidget {
             RadioListTile<int>(
               contentPadding: EdgeInsets.zero,
               dense: true,
-              title: Text('settings.apps.browser.target_builtin'.tr(),
+              title: Text('settings.apps.browser.link_open_target'.tr(),
                   style: TextStyle(color: palette.textPrimary, fontSize: 13)),
               value: 0,
               groupValue: state.browserLinkTarget,
@@ -308,7 +308,7 @@ class _AppDetails extends ConsumerWidget {
             RadioListTile<int>(
               contentPadding: EdgeInsets.zero,
               dense: true,
-              title: Text('settings.apps.browser.target_host'.tr(),
+              title: Text('settings.apps.browser.link_open_target'.tr(),
                   style: TextStyle(color: palette.textPrimary, fontSize: 13)),
               value: 1,
               groupValue: state.browserLinkTarget,

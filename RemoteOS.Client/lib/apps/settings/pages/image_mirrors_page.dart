@@ -115,7 +115,7 @@ class _SettingsImageMirrorsPageState
             title: 'settings.image_mirrors.registries'.tr()),
         const SizedBox(height: 8),
         if (state.imageMirrors.isEmpty)
-          Text('settings.image_mirrors.empty'.tr(),
+          Text('settings.image_mirrors.docker'.tr(),
               style:
                   TextStyle(color: widget.palette.textTertiary, fontSize: 12))
         else

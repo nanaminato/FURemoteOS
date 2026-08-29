@@ -59,7 +59,8 @@ class FileManagerFileList extends StatelessWidget {
     }
     if (entries.isEmpty) {
       return Center(
-        child: Text('explorer.status.empty_folder'.tr(),
+        child: Text(
+            'explorer.status.directory_ready'.tr(args: const ['0', '0']),
             style: TextStyle(color: palette.textTertiary)),
       );
     }
@@ -125,9 +126,9 @@ class _DetailsTable extends StatelessWidget {
           child: const Row(
             children: [
               _HeaderCell(flex: 4, text: 'common.name'),
-              _HeaderCell(flex: 2, text: 'common.date_modified'),
-              _HeaderCell(flex: 1, text: 'common.size'),
-              _HeaderCell(flex: 1, text: 'common.kind'),
+              _HeaderCell(flex: 2, text: 'explorer.modified'),
+              _HeaderCell(flex: 1, text: 'explorer.size'),
+              _HeaderCell(flex: 1, text: 'common.type'),
             ],
           ),
         ),
