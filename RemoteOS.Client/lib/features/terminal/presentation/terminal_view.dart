@@ -16,7 +16,6 @@
 // buffer write.
 
 import 'dart:async';
-import 'dart:ui' show FrameTiming;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -67,7 +66,6 @@ class _TerminalViewState extends ConsumerState<TerminalView> {
   // ---- Output coalescing ----
   static const _maxOutputCodeUnitsPerFrame = 32 * 1024;
   final TerminalOutputQueue _pendingOutput = TerminalOutputQueue();
-  final Stopwatch _renderClock = Stopwatch()..start();
   bool _outputFlushScheduled = false;
 
   // Resizing a desktop window can change the xterm grid dozens of times per
@@ -92,7 +90,6 @@ class _TerminalViewState extends ConsumerState<TerminalView> {
       ..onResize = _handleResize
       ..onTitleChange = widget.vm.setTitle;
     _terminalController.addListener(_onControllerChanged);
-    WidgetsBinding.instance.addTimingsCallback(_onFrameTimings);
     // Kick off the PTY handshake once the xterm controller knows its size.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -104,12 +101,6 @@ class _TerminalViewState extends ConsumerState<TerminalView> {
         workingDirectory: widget.workingDirectory,
         resumeSessionId: widget.resumeSessionId,
       ));
-      _reportRenderSurface(
-        _terminal.viewWidth,
-        _terminal.viewHeight,
-        0,
-        0,
-      );
       if (widget.vm.startCommand.canRun.value) {
         widget.vm.startCommand();
       }
@@ -119,7 +110,6 @@ class _TerminalViewState extends ConsumerState<TerminalView> {
   @override
   void dispose() {
     _terminalController.removeListener(_onControllerChanged);
-    WidgetsBinding.instance.removeTimingsCallback(_onFrameTimings);
     _resizeDebounceTimer?.cancel();
     _pendingResize = null;
     _pendingOutput.clear();
@@ -146,7 +136,6 @@ class _TerminalViewState extends ConsumerState<TerminalView> {
   void _scheduleOutputFlush() {
     if (_outputFlushScheduled || _pendingOutput.isEmpty) return;
     _outputFlushScheduled = true;
-    final scheduledAt = _renderClock.elapsed;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _outputFlushScheduled = false;
       if (!mounted) {
@@ -154,17 +143,8 @@ class _TerminalViewState extends ConsumerState<TerminalView> {
         return;
       }
       if (_pendingOutput.isEmpty) return;
-      final queuedCodeUnits = _pendingOutput.pendingCodeUnits;
       final chunk = _pendingOutput.takeUpTo(_maxOutputCodeUnitsPerFrame);
-      final writeStopwatch = Stopwatch()..start();
       _terminal.write(chunk);
-      writeStopwatch.stop();
-      widget.vm.reportRenderFlush(
-        renderedCodeUnits: chunk.length,
-        queuedCodeUnits: queuedCodeUnits,
-        postFrameWait: _renderClock.elapsed - scheduledAt,
-        terminalWrite: writeStopwatch.elapsed,
-      );
       _scheduleOutputFlush();
     });
     // A post-frame callback is passive: when the terminal is otherwise idle,
@@ -173,16 +153,6 @@ class _TerminalViewState extends ConsumerState<TerminalView> {
     // Requesting a frame is idempotent when one is already pending and keeps
     // the existing one-flush-per-frame backpressure policy intact.
     WidgetsBinding.instance.scheduleFrame();
-  }
-
-  void _onFrameTimings(List<FrameTiming> timings) {
-    for (final timing in timings) {
-      widget.vm.reportFrameTiming(
-        build: timing.buildDuration,
-        raster: timing.rasterDuration,
-        total: timing.totalSpan,
-      );
-    }
   }
 
   // ---- Input / resize → VM ----
@@ -195,7 +165,6 @@ class _TerminalViewState extends ConsumerState<TerminalView> {
   }
 
   void _handleResize(int cols, int rows, int wpx, int hpx) {
-    _reportRenderSurface(cols, rows, wpx, hpx);
     if (!widget.vm.canResize()) return;
     _pendingResize = (
       columns: cols,
@@ -205,17 +174,6 @@ class _TerminalViewState extends ConsumerState<TerminalView> {
     );
     _resizeDebounceTimer?.cancel();
     _resizeDebounceTimer = Timer(_resizeDebounce, _flushPendingResize);
-  }
-
-  void _reportRenderSurface(
-      int columns, int rows, int widthPixels, int heightPixels) {
-    widget.vm.reportRenderSurface(
-      columns: columns,
-      rows: rows,
-      widthPixels: widthPixels,
-      heightPixels: heightPixels,
-      windowState: RemoteWindowScope.of(context).window.state.name,
-    );
   }
 
   void _flushPendingResize() {

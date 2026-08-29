@@ -15,13 +15,10 @@ import 'dart:async';
 import 'package:command_it/command_it.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../../app/dependency_injection.dart' as app_di;
 import '../../../core/commands/base_view_model.dart';
-import '../../../core/runtime/desktop_runtime.dart';
 import '../data/repositories/signalr_terminal_repository.dart';
 import '../domain/terminal_repository.dart';
 import '../domain/terminal_ui_state.dart';
-import 'terminal_performance_diagnostics.dart';
 
 /// Sink installed by the View so the repository's inbound bytes can reach
 /// the xterm Terminal controller without the VM importing xterm2 types.
@@ -31,34 +28,16 @@ typedef TerminalOutputSink = void Function(String text);
 /// its own repository and streams.
 TerminalViewModel createTerminalViewModel() => TerminalViewModel(
       repository: SignalRTerminalRepository(),
-      diagnostics: TerminalPerformanceDiagnostics(
-        log: _optionalRuntimeLog()?.info,
-      ),
     );
 
-RuntimeLog? _optionalRuntimeLog() {
-  try {
-    return app_di.di.isRegistered<RuntimeLog>()
-        ? app_di.di<RuntimeLog>()
-        : null;
-  } catch (_) {
-    return null;
-  }
-}
-
 class TerminalViewModel extends ViewModel {
-  TerminalViewModel({
-    required TerminalRepository repository,
-    TerminalPerformanceDiagnostics? diagnostics,
-  })  : _repository = repository,
-        _diagnostics = diagnostics ?? TerminalPerformanceDiagnostics() {
+  TerminalViewModel({required TerminalRepository repository})
+      : _repository = repository {
     trackDisposable(state);
     trackDisposable(startCommand);
-    _diagnostics.start();
   }
 
   final TerminalRepository _repository;
-  final TerminalPerformanceDiagnostics _diagnostics;
 
   StreamSubscription<String>? _outputSubscription;
   StreamSubscription<int?>? _exitSubscription;
@@ -113,7 +92,6 @@ class TerminalViewModel extends ViewModel {
       // are routed to the View's terminal controller.
       _outputSubscription?.cancel();
       _outputSubscription = _repository.onOutput.listen((chunk) {
-        _diagnostics.recordInboundOutput(chunk.length);
         outputSink?.call(chunk);
       });
       _exitSubscription?.cancel();
@@ -150,69 +128,14 @@ class TerminalViewModel extends ViewModel {
           sessionId: _repository.sessionId,
           errorMessage: failure,
         ));
-    _diagnostics.updateSession(_repository.sessionId);
   });
 
   // ---- Parameterised operations (plain async methods per command_it v9.x) ----
 
   Future<void> sendInput(String value) async {
     if (!canSendInput()) return;
-    final stopwatch = Stopwatch()..start();
-    try {
-      await _repository.sendInput(value);
-      stopwatch.stop();
-      _diagnostics.recordInputDispatch(
-        codeUnits: value.length,
-        elapsed: stopwatch.elapsed,
-        failed: false,
-      );
-    } catch (_) {
-      stopwatch.stop();
-      _diagnostics.recordInputDispatch(
-        codeUnits: value.length,
-        elapsed: stopwatch.elapsed,
-        failed: true,
-      );
-      rethrow;
-    }
+    await _repository.sendInput(value);
   }
-
-  /// Reports UI-isolate timings from the View. The View owns xterm and frame
-  /// callbacks; this ViewModel-owned diagnostic object owns log aggregation.
-  void reportRenderFlush({
-    required int renderedCodeUnits,
-    required int queuedCodeUnits,
-    required Duration postFrameWait,
-    required Duration terminalWrite,
-  }) =>
-      _diagnostics.recordRenderFlush(
-        renderedCodeUnits: renderedCodeUnits,
-        queuedCodeUnits: queuedCodeUnits,
-        postFrameWait: postFrameWait,
-        terminalWrite: terminalWrite,
-      );
-
-  void reportFrameTiming({
-    required Duration build,
-    required Duration raster,
-    required Duration total,
-  }) =>
-      _diagnostics.recordFrame(build: build, raster: raster, total: total);
-
-  void reportRenderSurface({
-    required int columns,
-    required int rows,
-    required int widthPixels,
-    required int heightPixels,
-    required String windowState,
-  }) =>
-      _diagnostics.updateRenderSurface(
-        columns: columns,
-        rows: rows,
-        widthPixels: widthPixels,
-        heightPixels: heightPixels,
-        windowState: windowState,
-      );
 
   Future<void> resize(int columns, int rows,
       {int widthPx = 0, int heightPx = 0}) async {
@@ -265,7 +188,6 @@ class TerminalViewModel extends ViewModel {
     // transport-level error here is swallowed and the subsequent
     // `_repository.dispose()` still closes the local streams + hub.
     unawaited(_terminateAndDetach().whenComplete(_repository.dispose));
-    _diagnostics.dispose();
     super.dispose();
   }
 }
