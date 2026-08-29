@@ -10,6 +10,8 @@ import '../../core/auth/auth_service.dart';
 import '../../core/apps/app_registry.dart';
 import '../../core/window_manager/window_manager.dart';
 import '../../core/window_manager/context_menu_host.dart';
+import '../../apps/terminal/terminal_app.dart';
+import '../../features/terminal/application/terminal_session_discovery.dart';
 import '../../features/workspace/application/workspace_sync_coordinator.dart';
 import '../../features/workspace/domain/workspace_models.dart';
 import '../widgets/taskbar.dart';
@@ -63,7 +65,47 @@ class _DesktopScreenState extends ConsumerState<DesktopScreen> {
       if (language.isNotEmpty) await context.setLocale(language.first.locale);
     }
     if (!mounted) return;
+    // Restore terminal sessions before opening the Welcome window so the user
+    // lands on a desktop whose previously-running terminals are already
+    // reattached (PTY lifecycle is server-side; we just reattach).
+    await _restoreTerminalSessions();
+    if (!mounted) return;
     _autoOpenWelcome();
+  }
+
+  /// Discovers the user's still-running terminal sessions on the server and
+  /// reopens one managed [TerminalApp] window per session, each wired to its
+  /// original `sessionId` so the SignalR `Start` handshake resumes the PTY
+  /// buffer instead of spawning a new shell. Matches the Avalonia lifecycle
+  /// where closing a terminal window only detaches from the PTY.
+  Future<void> _restoreTerminalSessions() async {
+    final auth = ref.read(authProvider);
+    final sessions =
+        await ref.read(terminalSessionDiscoveryProvider).discover(auth);
+    if (!mounted || sessions.isEmpty) return;
+    final entry = ref.read(appRegistryProvider).get('terminal');
+    if (entry == null) return;
+    final screen = MediaQuery.of(context).size;
+    // Cascade opened windows so they don't all stack on the desktop centre.
+    const step = 32.0;
+    var index = 0;
+    for (final session in sessions) {
+      final offset = step * index;
+      ref.read(windowManagerProvider.notifier).openApp(
+            entry: entry,
+            child: TerminalApp(sessionId: session.sessionId),
+            initialBounds: Rect.fromLTWH(
+              ((screen.width - entry.defaultSize.width) / 2 + offset)
+                  .clamp(0.0, screen.width - entry.defaultSize.width),
+              ((screen.height - entry.defaultSize.height) / 2 - 20 + offset)
+                  .clamp(0.0, screen.height - entry.defaultSize.height),
+              entry.defaultSize.width,
+              entry.defaultSize.height,
+            ),
+            screenSize: screen,
+          );
+      index++;
+    }
   }
 
   void _toggleStartMenu() => setState(() => _startMenuOpen = !_startMenuOpen);

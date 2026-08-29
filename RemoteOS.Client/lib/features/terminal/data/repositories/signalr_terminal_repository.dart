@@ -10,6 +10,7 @@ import 'dart:convert';
 import 'package:signalr_hub/signalr_client.dart';
 
 import '../../domain/terminal_repository.dart';
+import '../../domain/terminal_session_info.dart';
 
 class SignalRTerminalRepository implements TerminalRepository {
   SignalRTerminalRepository();
@@ -115,6 +116,49 @@ class SignalRTerminalRepository implements TerminalRepository {
       // A dropping transport is equivalent to a closed attachment.
     }
     _state = TerminalConnectionState.disconnected;
+  }
+
+  @override
+  Future<List<TerminalSessionInfo>> listSessions({
+    required String serverUrl,
+    required String accessToken,
+  }) async {
+    // Short-lived connection used only for the ListSessions invocation: we do
+    // not want to attach to a PTY here, nor share the long-lived
+    // [_connection] owned by the open-terminal handshake. Failure to stop the
+    // discovery connection would otherwise leave an extra attachment record
+    // on the server for the same user.
+    final discovery = HubConnectionBuilder()
+        .withUrl(
+          Uri.parse(serverUrl).resolve('/hubs/terminals').toString(),
+          options: HttpConnectionOptions(
+            accessTokenFactory: () async => accessToken,
+          ),
+        )
+        .build();
+    try {
+      await discovery.start();
+      final result = await discovery.invoke('ListSessions');
+      final raw = result is List ? result : const [];
+      return raw
+          .whereType<Map>()
+          .map((item) =>
+              TerminalSessionInfo.fromJson(Map<String, dynamic>.from(item)))
+          .where((info) =>
+              info.sessionId.isNotEmpty &&
+              // The server turns an attach to a HasExited session into a new
+              // PTY, so skipping them keeps "restore" semantics honest.
+              !info.hasExited)
+          .toList();
+    } finally {
+      try {
+        await discovery.stop();
+      } catch (_) {
+        // Stopping the discovery transport is best-effort: the server's
+        // OnDisconnectedAsync only detaches, so a leaked connection does not
+        // kill any PTY.
+      }
+    }
   }
 
   @override

@@ -9,6 +9,8 @@
 
 import 'dart:async';
 
+import 'terminal_session_info.dart';
+
 /// Lifecycle state of the remote terminal attachment.
 enum TerminalConnectionState { connecting, connected, exited, disconnected }
 
@@ -40,6 +42,20 @@ abstract interface class TerminalRepository {
     required int rows,
     String? workingDirectory,
     String? resumeSessionId,
+  });
+
+  // ---- Discovery ----
+
+  /// Fetch the user's terminal session summaries from the server.
+  ///
+  /// Unlike [connect], this does not attach to a PTY: it opens a short-lived
+  /// hub connection, invokes `ListSessions`, and closes the transport. Used by
+  /// the desktop shell on sign-in to discover terminal sessions that should be
+  /// restored (PTY lifecycle is decoupled from hub connections per
+  /// `TerminalHub` — closing a window only detaches).
+  Future<List<TerminalSessionInfo>> listSessions({
+    required String serverUrl,
+    required String accessToken,
   });
 
   // ---- Client → server ----
