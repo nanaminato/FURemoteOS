@@ -71,6 +71,34 @@ void main() {
     await tester.pump();
     expect(controller.isOpen, isFalse);
   });
+
+  testWidgets('an explicitly expanded positioned stack consumes its viewport',
+      (tester) async {
+    const desktopKey = Key('desktop-stack');
+    final controller = RemoteContextMenuController();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: LayoutBuilder(
+            builder: (context, constraints) => SizedBox.expand(
+              child: ContextMenuHost(
+                controller: controller,
+                child: Stack(
+                  key: desktopKey,
+                  children: const [
+                    Positioned.fill(child: ColoredBox(color: Colors.blue)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(tester.getSize(find.byKey(desktopKey)), const Size(800, 600));
+  });
 }
 
 void _noop() {}
