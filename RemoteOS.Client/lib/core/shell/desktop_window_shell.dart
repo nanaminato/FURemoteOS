@@ -35,7 +35,16 @@ class _DesktopWindowShellState extends State<DesktopWindowShell>
   @override
   void initState() {
     super.initState();
-    _shellEntry = OverlayEntry(builder: _buildShellContent);
+    // This is the only non-positioned entry in the shell overlay.  It must
+    // participate in Overlay sizing: MaterialApp.builder can hand the shell
+    // loose constraints while the Navigator is rebuilding after login.  With
+    // the default false value, the Overlay may shrink to 0×0 and propagate
+    // that empty viewport to the routed desktop.
+    _shellEntry = OverlayEntry(
+      canSizeOverlay: true,
+      opaque: true,
+      builder: _buildShellContent,
+    );
     windowManager.addListener(this);
     _loadWindowState();
   }
