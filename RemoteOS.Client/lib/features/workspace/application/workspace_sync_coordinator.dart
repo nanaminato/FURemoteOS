@@ -162,6 +162,18 @@ class WorkspaceSyncCoordinator extends StateNotifier<WorkspaceSyncState> {
     _pendingLayoutWrite?.cancel();
     super.dispose();
   }
+
+  // ---------------------------------------------------------------------------
+  // Public read-only snapshots intended for non-riverpod consumers (e.g. the
+  // new MVVM ViewModel stack which cannot call the protected `state` getter
+  // from outside this library).  These intentionally do not publish setters —
+  // mutations still go through the existing queue* methods so debouncing and
+  // server writes stay centralised.
+  // ---------------------------------------------------------------------------
+
+  WorkspaceWindowLayouts debugLayoutsSnapshot() => state.layouts;
+  WorkspacePreferences? debugPreferencesSnapshot() => state.preferences;
+  WorkspaceSyncState debugStateSnapshot() => state;
 }
 
 final workspaceSyncProvider =

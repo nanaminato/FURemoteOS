@@ -7,6 +7,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:go_router/go_router.dart';
 
+import 'app/bootstrap.dart';
 import 'core/theme/theme_service.dart';
 import 'core/theme/theme_models.dart';
 import 'core/auth/auth_service.dart';
@@ -17,7 +18,7 @@ import 'core/runtime/desktop_runtime.dart';
 import 'core/runtime/startup_failure_app.dart';
 import 'features/workspace/application/workspace_sync_coordinator.dart';
 import 'screens/login/login_screen.dart';
-import 'screens/desktop/desktop_screen.dart';
+import 'app/shell/desktop_shell_view.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -57,7 +58,7 @@ void main() async {
     });
 
     runApp(ProviderScope(
-      overrides: [languageCatalogProvider.overrideWithValue(languageCatalog)],
+      overrides: bootstrapRemoteOs(catalog: languageCatalog),
       child: _RootLocalizationWrapper(catalog: languageCatalog),
     ));
   } catch (error, stackTrace) {
@@ -116,7 +117,7 @@ class _RemoteOSAppState extends ConsumerState<RemoteOSApp> {
         ),
         GoRoute(
           path: '/desktop',
-          builder: (context, state) => const DesktopScreen(),
+          builder: (context, state) => const DesktopShellView(),
         ),
       ],
       errorBuilder: (context, state) =>
@@ -163,7 +164,17 @@ class _RemoteOSAppState extends ConsumerState<RemoteOSApp> {
         child: DesktopWindowShell(
           child: child ?? const SizedBox.shrink(),
           onCloseRequested: () async {
-            await ref.read(workspaceSyncProvider.notifier).flush();
+            // Best-effort flush: logout flush happens in DesktopScreen too;
+            // the app shell flush protects against closing via the host
+            // window chrome before any managed desktop is mounted.
+            try {
+              await ref
+                  .read(workspaceSyncProvider.notifier)
+                  .flush()
+                  .timeout(const Duration(seconds: 2));
+            } catch (_) {
+              // Persisting workspace data is best-effort during shutdown.
+            }
             await windowManager.close();
           },
         ),

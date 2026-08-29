@@ -74,6 +74,28 @@ class ThemePalette {
 class ThemeNotifier extends StateNotifier<ThemeState> {
   ThemeNotifier() : super(const ThemeState());
 
+  // --- Public state accessors ---------------------------------------------
+  //
+  // MVVM services and repositories read current theme state via get_it; the
+  // standard riverpod `state` field is package-private so access must go
+  // through this explicit getter.  This matches AGENTS.md § 2 (don't bypass
+  // StateNotifier privacy without documenting the intentionality).
+  ThemeState get currentState => state;
+
+  ThemePreferencesDto get preferences => state.preferences;
+
+  /// Resolve the current ThemePalette without a BuildContext.  Falls back
+  /// to `platformDispatcher.platformBrightness` because the settings repo
+  /// is invoked during clipboard actions outside a Flutter view.
+  ThemePalette currentPalette() {
+    final brightness = WidgetsBinding.instance.platformDispatcher.platformBrightness;
+    return state.resolvePalette(
+      state.kind == ThemeKind.system
+          ? brightness
+          : (state.kind == ThemeKind.dark ? Brightness.dark : Brightness.light),
+    );
+  }
+
   void setThemeKind(ThemeKind kind) {
     state = state.copyWith(kind: kind);
   }
