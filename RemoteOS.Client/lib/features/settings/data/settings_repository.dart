@@ -222,7 +222,7 @@ class WorkspaceSettingsRepository implements SettingsRepository {
         .firstWhere((c) => c?.id == id, orElse: () => null);
     if (palette == null) return false;
     final ok = await confirm('settings.theme_delete'.tr(),
-        'settings.theme_delete.confirmation'.tr(args: [palette.name]));
+        'settings.theme_delete.confirmation'.tr(namedArgs: {'name': palette.name}));
     if (ok != true) return false;
     final remaining =
         prefs.customPalettes.where((p) => p.id != id).toList(growable: false);
@@ -257,12 +257,12 @@ class WorkspaceSettingsRepository implements SettingsRepository {
       return (
         ok: false,
         text:
-            'settings.network.test_failed'.tr(args: ['HTTP ${resp.statusCode}'])
+            'settings.network.test_failed'.tr(namedArgs: {'error': 'HTTP ${resp.statusCode}'})
       );
     } catch (e) {
       return (
         ok: false,
-        text: 'settings.network.test_failed'.tr(args: [e.toString()])
+        text: 'settings.network.test_failed'.tr(namedArgs: {'error': e.toString()})
       );
     }
   }

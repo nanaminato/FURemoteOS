@@ -315,7 +315,8 @@ class FileManagerViewModel extends ViewModel {
   Future<void> loadRoot() async {
     state.value = _s.copyWith(
       isLoading: true,
-      statusText: 'explorer.status.loading_navigation',
+      statusKey: 'explorer.status.loading_navigation',
+      statusArgs: const {},
     );
     try {
       final results = await Future.wait([
@@ -387,7 +388,8 @@ class FileManagerViewModel extends ViewModel {
         navigationNodes: nodes,
         isLoading: false,
         loadError: null,
-        statusText: 'explorer.status.root_ready',
+        statusKey: 'explorer.status.root_ready',
+        statusArgs: const {},
         currentPath: _initialCurrentPath(_s, initialPath),
         locationName: _initialCurrentPath(_s, initialLocation),
         history: _initialHistory(_s, initialPath),
@@ -397,7 +399,8 @@ class FileManagerViewModel extends ViewModel {
     } catch (error) {
       state.value = _s.copyWith(
         isLoading: false,
-        statusText: 'explorer.status.load_failed|${_err(error)}',
+        statusKey: 'explorer.status.load_failed',
+        statusArgs: {'error': _err(error)},
       );
     }
     if (_s.currentPath.isNotEmpty) {
@@ -441,7 +444,8 @@ class FileManagerViewModel extends ViewModel {
       state.value = state.value.copyWith(
         isLoading: false,
         loadError: error.toString(),
-        statusText: 'explorer.status.path_load_failed|$path|${_err(error)}',
+        statusKey: 'explorer.status.path_load_failed',
+        statusArgs: {'path': path, 'error': _err(error)},
       );
     }
   }

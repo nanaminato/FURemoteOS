@@ -293,7 +293,7 @@ class _TerminalViewState extends ConsumerState<TerminalView> {
               return Padding(
                 padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
                 child: Text(
-                  'terminal.status.start_failed'.tr(args: [err]),
+                  'terminal.status.start_failed'.tr(namedArgs: {'error': err}),
                   style: TextStyle(color: palette.bad, fontSize: 12),
                 ),
               );
@@ -464,7 +464,7 @@ class _TerminalViewState extends ConsumerState<TerminalView> {
         final code = s.exitCode;
         if (code == null) return 'terminal.status.process_exited'.tr();
         return 'terminal.status.process_exited_with_code'
-            .tr(args: [code.toString()]);
+            .tr(namedArgs: {'code': code.toString()});
       case TerminalConnectionState.disconnected:
         return 'terminal.status.process_exited'.tr();
     }

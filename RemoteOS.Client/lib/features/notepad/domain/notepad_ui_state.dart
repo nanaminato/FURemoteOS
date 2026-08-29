@@ -18,14 +18,16 @@ class NotepadUiState {
     required this.fontSize,
     required this.isDirty,
     required this.isLoading,
-    required this.statusText,
+    required this.statusKey,
+    required this.statusArgs,
     required this.wordWrap,
     required this.showLineNumbers,
     required this.cursor,
     required this.text,
     required this.showFindReplace,
     required this.isReplaceMode,
-    required this.findStatus,
+    required this.findKey,
+    required this.findArgs,
     required this.findOptions,
   });
 
@@ -39,14 +41,16 @@ class NotepadUiState {
       fontSize: 14,
       isDirty: false,
       isLoading: false,
-      statusText: '',
+      statusKey: 'notepad.status.ready',
+      statusArgs: const {},
       wordWrap: true,
       showLineNumbers: true,
       cursor: CursorPosition.initial,
       text: '',
       showFindReplace: false,
       isReplaceMode: false,
-      findStatus: '',
+      findKey: '',
+      findArgs: const {},
       findOptions: const FindOptions(caseSensitive: false, useRegex: false),
     );
   }
@@ -59,7 +63,8 @@ class NotepadUiState {
   final double fontSize;
   final bool isDirty;
   final bool isLoading;
-  final String statusText;
+  final String statusKey;
+  final Map<String, String> statusArgs;
 
   // ---- Editor view preferences ----
 
@@ -75,7 +80,8 @@ class NotepadUiState {
 
   final bool showFindReplace;
   final bool isReplaceMode;
-  final String findStatus;
+  final String findKey;
+  final Map<String, String> findArgs;
   final FindOptions findOptions;
 
   // ---- Derived helpers ----
@@ -106,14 +112,16 @@ class NotepadUiState {
     double? fontSize,
     bool? isDirty,
     bool? isLoading,
-    String? statusText,
+    String? statusKey,
+    Map<String, String>? statusArgs,
     bool? wordWrap,
     bool? showLineNumbers,
     CursorPosition? cursor,
     String? text,
     bool? showFindReplace,
     bool? isReplaceMode,
-    String? findStatus,
+    String? findKey,
+    Map<String, String>? findArgs,
     FindOptions? findOptions,
   }) {
     return NotepadUiState(
@@ -123,14 +131,16 @@ class NotepadUiState {
       fontSize: fontSize ?? this.fontSize,
       isDirty: isDirty ?? this.isDirty,
       isLoading: isLoading ?? this.isLoading,
-      statusText: statusText ?? this.statusText,
+      statusKey: statusKey ?? this.statusKey,
+      statusArgs: statusArgs ?? this.statusArgs,
       wordWrap: wordWrap ?? this.wordWrap,
       showLineNumbers: showLineNumbers ?? this.showLineNumbers,
       cursor: cursor ?? this.cursor,
       text: text ?? this.text,
       showFindReplace: showFindReplace ?? this.showFindReplace,
       isReplaceMode: isReplaceMode ?? this.isReplaceMode,
-      findStatus: findStatus ?? this.findStatus,
+      findKey: findKey ?? this.findKey,
+      findArgs: findArgs ?? this.findArgs,
       findOptions: findOptions ?? this.findOptions,
     );
   }

@@ -385,23 +385,13 @@ class FileManagerStatusBar extends StatelessWidget {
   static String _formatStatus(FileManagerUiState s) {
     final ready = 'explorer.status.ready'.tr();
     final itemsText = 'explorer.status.directory_ready'
-        .tr(args: ['0', '${s.entries.length}']);
+        .tr(namedArgs: {'folders': '0', 'files': '${s.entries.length}'});
     if (s.isTransferActive) {
       final label = s.transferText.isEmpty ? ready : s.transferText;
       return '$label  ${s.transferProgressPercent.toStringAsFixed(1)}%';
     }
-    if (s.statusText.isNotEmpty) {
-      final parts = s.statusText.split('|');
-      final key = parts.first;
-      final args = parts.skip(1).toList();
-      try {
-        return '${key.tr(args: args.isEmpty ? null : args)}  ·  $itemsText';
-      } catch (_) {
-        return '${s.statusText}  ·  $itemsText';
-      }
-    }
-    final loading = s.isLoading ? ' · ${'explorer.status.loading'.tr()}' : '';
-    return '$ready  ·  $itemsText$loading';
+    final statusLabel = s.statusKey.tr(namedArgs: s.statusArgs);
+    return '$statusLabel  ·  $itemsText';
   }
 }
 

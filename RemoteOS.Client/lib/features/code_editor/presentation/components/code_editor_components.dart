@@ -257,14 +257,15 @@ class CodeEditorStatusBar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12),
         child: Row(children: [
           Expanded(
-              child: Text(state.statusKey.tr(args: state.statusArguments),
+              child: Text(state.statusKey.tr(namedArgs: state.statusArgs),
                   overflow: TextOverflow.ellipsis)),
           if (state.hasOpenFile) Text(state.activeDocument!.encodingName),
           const SizedBox(width: 14),
-          Text('common.line_count_format'.tr(args: ['${state.lineCount}'])),
+          Text('common.line_count_format'
+              .tr(namedArgs: {'line': '${state.lineCount}'})),
           const SizedBox(width: 14),
           Text('common.character_count_format'
-              .tr(args: ['${state.characterCount}'])),
+              .tr(namedArgs: {'count': '${state.characterCount}'})),
         ]),
       );
 }
@@ -281,7 +282,8 @@ class CodeEditorDiscardDialog extends ConsumerWidget {
       padding: const EdgeInsets.all(20),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(
-            'code_editor.close_dirty_message'.tr(args: [document.displayName])),
+            'code_editor.close_dirty_message'
+                .tr(namedArgs: {'name': document.displayName})),
         const Spacer(),
         Row(mainAxisAlignment: MainAxisAlignment.end, children: [
           TextButton(

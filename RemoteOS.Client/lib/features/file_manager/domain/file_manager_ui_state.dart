@@ -25,7 +25,8 @@ class FileManagerUiState {
     required this.transferText,
     required this.transferProgressPercent,
     required this.loadError,
-    required this.statusText,
+    required this.statusKey,
+    required this.statusArgs,
     required this.history,
     required this.historyIndex,
     required this.clipboardPaths,
@@ -54,7 +55,8 @@ class FileManagerUiState {
       transferText: '',
       transferProgressPercent: 0,
       loadError: null,
-      statusText: '',
+      statusKey: 'explorer.status.ready',
+      statusArgs: const {},
       history: const [],
       historyIndex: -1,
       clipboardPaths: null,
@@ -86,7 +88,8 @@ class FileManagerUiState {
   final String transferText;
   final double transferProgressPercent;
   final String? loadError;
-  final String statusText;
+  final String statusKey;
+  final Map<String, String> statusArgs;
 
   // ---- History ----
   final List<String> history;
@@ -148,7 +151,8 @@ class FileManagerUiState {
     double? transferProgressPercent,
     String? loadError,
     bool clearLoadError = false,
-    String? statusText,
+    String? statusKey,
+    Map<String, String>? statusArgs,
     List<String>? history,
     int? historyIndex,
     List<String>? clipboardPaths,
@@ -176,7 +180,8 @@ class FileManagerUiState {
       transferProgressPercent:
           transferProgressPercent ?? this.transferProgressPercent,
       loadError: clearLoadError ? null : (loadError ?? this.loadError),
-      statusText: statusText ?? this.statusText,
+      statusKey: statusKey ?? this.statusKey,
+      statusArgs: statusArgs ?? this.statusArgs,
       history: history ?? this.history,
       historyIndex: historyIndex ?? this.historyIndex,
       clipboardPaths:

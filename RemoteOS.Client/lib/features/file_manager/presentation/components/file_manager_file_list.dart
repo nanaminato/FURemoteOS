@@ -53,14 +53,15 @@ class FileManagerFileList extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         child: Text(
             'explorer.status.path_load_failed'
-                .tr(args: [state.currentPath, state.loadError!]),
+                .tr(namedArgs: {'path': state.currentPath, 'error': state.loadError!}),
             style: TextStyle(color: palette.textSecondary)),
       ));
     }
     if (entries.isEmpty) {
       return Center(
         child: Text(
-            'explorer.status.directory_ready'.tr(args: const ['0', '0']),
+            'explorer.status.directory_ready'
+                .tr(namedArgs: {'folders': '0', 'files': '0'}),
             style: TextStyle(color: palette.textTertiary)),
       );
     }

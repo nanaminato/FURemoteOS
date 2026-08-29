@@ -370,7 +370,7 @@ class NotepadFindReplaceToolbar extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              _formatFindStatus(state.findStatus),
+              state.findKey.isEmpty ? '' : state.findKey.tr(namedArgs: state.findArgs),
               style: TextStyle(color: palette.textTertiary, fontSize: 11),
               overflow: TextOverflow.ellipsis,
             ),
@@ -435,19 +435,7 @@ class NotepadFindReplaceToolbar extends StatelessWidget {
     );
   }
 
-  static String _formatFindStatus(String raw) {
-    // `raw` is either a bare localization key or `key|arg1|arg2`.
-    if (raw.isEmpty) return '';
-    final parts = raw.split('|');
-    final key = parts.first;
-    final args = parts.skip(1).toList();
-    // Fall back without `.tr()` if a raw legacy string was stored.
-    try {
-      return key.tr(args: args.isEmpty ? null : args);
-    } catch (_) {
-      return raw;
-    }
-  }
+
 }
 
 // ---------- Status bar ----------
@@ -476,19 +464,20 @@ class NotepadStatusBar extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              _formatStatus(state.statusText),
+              state.statusKey.tr(namedArgs: state.statusArgs),
               overflow: TextOverflow.ellipsis,
               style: TextStyle(color: palette.textTertiary, fontSize: 11),
             ),
           ),
           Text(
             'notepad.status.ln_col'
-                .tr(args: ['${state.cursor.line}', '${state.cursor.column}']),
+                .tr(namedArgs: {'line': '${state.cursor.line}', 'column': '${state.cursor.column}'}),
             style: TextStyle(color: palette.textTertiary, fontSize: 11),
           ),
           const SizedBox(width: 14),
           Text(
-            'notepad.status.offset'.tr(args: ['${state.cursor.offset}']),
+            'notepad.status.offset'
+                .tr(namedArgs: {'offset': '${state.cursor.offset}'}),
             style: TextStyle(color: palette.textTertiary, fontSize: 11),
           ),
           const SizedBox(width: 14),
@@ -507,29 +496,19 @@ class NotepadStatusBar extends StatelessWidget {
             const SizedBox(width: 14),
           ],
           Text(
-            'common.line_count_format'.tr(args: ['${state.lineCount}']),
+            'common.line_count_format'
+                .tr(namedArgs: {'line': '${state.lineCount}'}),
             style: TextStyle(color: palette.textTertiary, fontSize: 11),
           ),
           const SizedBox(width: 14),
           Text(
-            'common.character_count_format'.tr(args: ['${state.charCount}']),
+            'common.character_count_format'
+                .tr(namedArgs: {'count': '${state.charCount}'}),
             style: TextStyle(color: palette.textTertiary, fontSize: 11),
           ),
         ],
       ),
     );
-  }
-
-  static String _formatStatus(String raw) {
-    if (raw.isEmpty) return 'notepad.status.ready'.tr();
-    final parts = raw.split('|');
-    final key = parts.first;
-    final args = parts.skip(1).toList();
-    try {
-      return key.tr(args: args.isEmpty ? null : args);
-    } catch (_) {
-      return raw;
-    }
   }
 }
 

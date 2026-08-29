@@ -54,8 +54,8 @@ class _SettingsPersonalizationPageState
       if (!mounted) return;
       final reason = error is RemoteOsApiException
           ? error.message
-          : 'settings.wallpaper.upload_failed'.tr(args: ['unknown error']);
-      final message = 'settings.wallpaper.upload_failed'.tr(args: [reason]);
+          : 'settings.wallpaper.upload_failed'.tr(namedArgs: {'error': 'unknown error'});
+      final message = 'settings.wallpaper.upload_failed'.tr(namedArgs: {'error': reason});
       showInfoSnack(context, message);
     } finally {
       if (mounted) setState(() => _uploadingWallpaper = false);

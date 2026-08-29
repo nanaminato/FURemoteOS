@@ -233,14 +233,14 @@ class NotepadViewModel extends ViewModel {
     state.value = _s.copyWith(
       showFindReplace: true,
       isReplaceMode: replaceMode,
-      findStatus: '',
+      findKey: '', findArgs: const {},
     );
   }
 
   void closeFindReplace() {
     state.value = _s.copyWith(
       showFindReplace: false,
-      findStatus: '',
+      findKey: '', findArgs: const {},
     );
   }
 
@@ -286,19 +286,20 @@ class NotepadViewModel extends ViewModel {
   TextSelection? findNext(String query, String text, int caret) {
     final matches = findAllMatches(query, text);
     if (matches.isEmpty) {
-      state.value = _s.copyWith(findStatus: 'notepad.find.not_found');
+      state.value = _s.copyWith(findKey: 'notepad.find.not_found', findArgs: const {});
       return null;
     }
     final idx = findNextIndex(matches, caret);
     state.value = _s.copyWith(
-        findStatus: 'notepad.found_n_of_m|${idx + 1}|${matches.length}');
+        findKey: 'notepad.found_n_of_m',
+        findArgs: {'current': '${idx + 1}', 'total': '${matches.length}'});
     return matches[idx];
   }
 
   TextSelection? findPrev(String query, String text, int caret) {
     final matches = findAllMatches(query, text);
     if (matches.isEmpty) {
-      state.value = _s.copyWith(findStatus: 'notepad.find.not_found');
+      state.value = _s.copyWith(findKey: 'notepad.find.not_found', findArgs: const {});
       return null;
     }
     var idx = matches.length - 1;
@@ -309,7 +310,8 @@ class NotepadViewModel extends ViewModel {
       }
     }
     state.value = _s.copyWith(
-        findStatus: 'notepad.found_n_of_m|${idx + 1}|${matches.length}');
+        findKey: 'notepad.found_n_of_m',
+        findArgs: {'current': '${idx + 1}', 'total': '${matches.length}'});
     return matches[idx];
   }
 
@@ -322,7 +324,7 @@ class NotepadViewModel extends ViewModel {
   ) {
     final matches = findAllMatches(query, text);
     if (matches.isEmpty) {
-      state.value = _s.copyWith(findStatus: 'notepad.find.not_found');
+      state.value = _s.copyWith(findKey: 'notepad.find.not_found', findArgs: const {});
       return null;
     }
     final idx = findNextIndex(matches, caret);
@@ -331,7 +333,7 @@ class NotepadViewModel extends ViewModel {
     final newSelection =
         TextSelection.collapsed(offset: match.start + replacement.length);
     state.value =
-        _s.copyWith(findStatus: 'notepad.replace.replaced_one|${idx + 1}');
+        _s.copyWith(findKey: 'notepad.replace.replaced_one', findArgs: {'count': '${idx + 1}'});
     return (newText, newSelection);
   }
 
@@ -342,7 +344,7 @@ class NotepadViewModel extends ViewModel {
   ) {
     final matches = findAllMatches(query, text);
     if (matches.isEmpty) {
-      state.value = _s.copyWith(findStatus: 'notepad.find.not_found');
+      state.value = _s.copyWith(findKey: 'notepad.find.not_found', findArgs: const {});
       return null;
     }
     final buffer = StringBuffer();
@@ -354,7 +356,7 @@ class NotepadViewModel extends ViewModel {
     }
     buffer.write(text.substring(cursor));
     state.value = _s.copyWith(
-        findStatus: 'notepad.replace.replaced_all|${matches.length}');
+        findKey: 'notepad.replace.replaced_all', findArgs: {'count': '${matches.length}'});
     return (buffer.toString(), matches.length);
   }
 
@@ -378,7 +380,8 @@ class NotepadViewModel extends ViewModel {
       fontSize: _s.fontSize,
       wordWrap: _s.wordWrap,
       showLineNumbers: _s.showLineNumbers,
-      statusText: 'notepad.status.new_document',
+      statusKey: 'notepad.status.new_document',
+      statusArgs: const {},
     );
     _isBulkTextUpdate = false;
     seedInitialSnapshot('', const TextSelection.collapsed(offset: 0));
@@ -396,7 +399,10 @@ class NotepadViewModel extends ViewModel {
     try {
       final decoded = await _repository.readText(path, encoding);
       if (decoded == null) {
-        state.value = _s.copyWith(statusText: 'notepad.status.file_missing');
+        state.value = _s.copyWith(
+          statusKey: 'notepad.status.file_missing',
+          statusArgs: const {},
+        );
         return;
       }
       _isBulkTextUpdate = true;
@@ -412,11 +418,13 @@ class NotepadViewModel extends ViewModel {
       seedInitialSnapshot(decoded, const TextSelection.collapsed(offset: 0));
       state.value = _s.copyWith(
         isLoading: false,
-        statusText: 'notepad.status.opened|${_baseName(path)}|$encoding',
+        statusKey: 'notepad.status.opened',
+        statusArgs: {'file': _baseName(path), 'app': encoding},
       );
     } catch (error) {
       state.value = _s.copyWith(
-        statusText: 'notepad.status.open_failed|${_errorMsg(error)}',
+        statusKey: 'notepad.status.open_failed',
+        statusArgs: {'path': _errorMsg(error)},
         isLoading: false,
       );
     } finally {
@@ -448,12 +456,13 @@ class NotepadViewModel extends ViewModel {
       state.value = _s.copyWith(
         currentPath: path,
         isDirty: false,
-        statusText:
-            'notepad.status.saved|${_baseName(path)}|${_s.encodingName}',
+        statusKey: 'notepad.status.saved',
+        statusArgs: {'file': _baseName(path), 'app': _s.encodingName},
       );
     } catch (error) {
       state.value = _s.copyWith(
-        statusText: 'notepad.status.save_failed|${_errorMsg(error)}',
+        statusKey: 'notepad.status.save_failed',
+        statusArgs: {'path': _errorMsg(error)},
       );
     }
   }

@@ -90,7 +90,7 @@ class CodeEditorViewModel extends ViewModel {
       documents: [..._s.documents, document],
       activeDocumentId: document.id,
       statusKey: 'code_editor.status.new_document',
-      statusArguments: const [],
+      statusArgs: const {},
     ));
   }
 
@@ -108,7 +108,7 @@ class CodeEditorViewModel extends ViewModel {
     if (existing?.isDirty == true) {
       _set(_s.copyWith(
         statusKey: 'code_editor.status.save_or_discard',
-        statusArguments: const [],
+        statusArgs: const {},
       ));
       return;
     }
@@ -120,7 +120,7 @@ class CodeEditorViewModel extends ViewModel {
         _set(_s.copyWith(
           isLoading: false,
           statusKey: 'code_editor.status.file_missing',
-          statusArguments: const [],
+          statusArgs: const {},
         ));
         return;
       }
@@ -145,13 +145,13 @@ class CodeEditorViewModel extends ViewModel {
         activeDocumentId: document.id,
         isLoading: false,
         statusKey: 'code_editor.status.opened',
-        statusArguments: [document.displayName, encoding],
+        statusArgs: {'file': document.displayName, 'app': encoding},
       ));
     } catch (_) {
       _set(_s.copyWith(
         isLoading: false,
         statusKey: 'code_editor.status.open_failed',
-        statusArguments: const [],
+        statusArgs: const {},
       ));
     }
   }
@@ -191,13 +191,13 @@ class CodeEditorViewModel extends ViewModel {
         ],
         isLoading: false,
         statusKey: 'code_editor.status.saved',
-        statusArguments: [saved.displayName, saved.encodingName],
+        statusArgs: {'file': saved.displayName, 'app': saved.encodingName},
       ));
     } catch (_) {
       _set(_s.copyWith(
         isLoading: false,
         statusKey: 'code_editor.status.save_failed',
-        statusArguments: const [],
+        statusArgs: const {},
       ));
     }
   }
@@ -305,7 +305,7 @@ class CodeEditorViewModel extends ViewModel {
       workspaceRoots:
           _s.workspaceRoots.where((item) => item.path != root.path).toList(),
       statusKey: 'code_editor.status.folder_removed',
-      statusArguments: [root.name],
+      statusArgs: {'path': root.name},
     ));
   }
 

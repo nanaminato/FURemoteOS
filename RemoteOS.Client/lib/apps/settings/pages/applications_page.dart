@@ -262,7 +262,7 @@ class _AppDetails extends ConsumerWidget {
               permissions.isEmpty
                   ? 'settings.apps.no_permissions'.tr()
                   : 'settings.apps.permissions_requested'
-                      .tr(args: ['${permissions.length}']),
+                      .tr(namedArgs: {'count': '${permissions.length}'}),
               style: TextStyle(color: palette.textSecondary, fontSize: 12)),
           if (permissions.isNotEmpty) ...[
             const SizedBox(height: 8),

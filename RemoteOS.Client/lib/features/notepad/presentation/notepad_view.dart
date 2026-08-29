@@ -54,11 +54,6 @@ class _NotepadViewState extends ConsumerState<NotepadView> {
     _vm = widget.vm ?? app_di.di<NotepadViewModel>();
     _controller.addListener(_onTextChanged);
     _controller.addListener(_onSelectionChanged);
-    // Initial status text translation.
-    if (_vm.state.value.statusText.isEmpty) {
-      _vm.state.value =
-          _vm.state.value.copyWith(statusText: 'notepad.status.ready');
-    }
   }
 
   @override

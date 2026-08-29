@@ -196,7 +196,7 @@ class SettingsViewModel extends ViewModel {
       networkAddrStatus: addresses.isEmpty
           ? 'settings.network.no_addresses'.tr()
           : 'settings.network.addresses_found'
-              .tr(args: ['${addresses.length}']),
+              .tr(namedArgs: {'count': '${addresses.length}'}),
     );
   }
 
@@ -238,7 +238,7 @@ class SettingsViewModel extends ViewModel {
         child: entry.windowBuilder(ctx),
       );
       state.value = state.value.copyWith(
-          appsActionStatus: 'settings.apps.opened'.tr(args: [displayName]));
+          appsActionStatus: 'settings.apps.opened'.tr(namedArgs: {'name': displayName}));
     } catch (_) {
       state.value = state.value
           .copyWith(appsActionStatus: 'settings.apps.not_launchable'.tr());
@@ -291,7 +291,7 @@ class SettingsViewModel extends ViewModel {
     ];
     final status = mirror.isDefault
         ? 'settings.image_mirrors.default_selected'.tr()
-        : 'settings.image_mirrors.selected'.tr(args: [mirror.name]);
+        : 'settings.image_mirrors.selected'.tr(namedArgs: {'name': mirror.name});
     state.value =
         state.value.copyWith(imageMirrors: next, imageMirrorStatus: status);
   }

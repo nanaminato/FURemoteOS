@@ -14,7 +14,7 @@ class CodeEditorUiState {
     required this.fontSize,
     required this.defaultEncodingName,
     required this.statusKey,
-    required this.statusArguments,
+    required this.statusArgs,
     required this.isLoading,
   });
 
@@ -29,7 +29,7 @@ class CodeEditorUiState {
         fontSize: 14,
         defaultEncodingName: defaultEncodingName,
         statusKey: 'code_editor.status.ready',
-        statusArguments: const [],
+        statusArgs: const {},
         isLoading: false,
       );
 
@@ -42,7 +42,7 @@ class CodeEditorUiState {
   final double fontSize;
   final String defaultEncodingName;
   final String statusKey;
-  final List<String> statusArguments;
+  final Map<String, String> statusArgs;
   final bool isLoading;
 
   CodeEditorDocument? get activeDocument {
@@ -73,7 +73,7 @@ class CodeEditorUiState {
     double? fontSize,
     String? defaultEncodingName,
     String? statusKey,
-    List<String>? statusArguments,
+    Map<String, String>? statusArgs,
     bool? isLoading,
   }) {
     return CodeEditorUiState(
@@ -88,7 +88,7 @@ class CodeEditorUiState {
       fontSize: fontSize ?? this.fontSize,
       defaultEncodingName: defaultEncodingName ?? this.defaultEncodingName,
       statusKey: statusKey ?? this.statusKey,
-      statusArguments: statusArguments ?? this.statusArguments,
+      statusArgs: statusArgs ?? this.statusArgs,
       isLoading: isLoading ?? this.isLoading,
     );
   }

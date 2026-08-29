@@ -205,15 +205,19 @@ class DockerViewModel extends ViewModel {
         engineVersion: version,
         enginePlatform: platform.isEmpty ? '—' : platform,
         statusText: available
-            ? 'docker.status.available'
-                .tr(args: [status.version ?? '', status.operatingSystem ?? ''])
-            : 'docker.status.unavailable'.tr(args: [status.problemCode]),
+            ? 'docker.status.available'.tr(namedArgs: {
+                'version': status.version ?? '',
+                'os': status.operatingSystem ?? '',
+              })
+            : 'docker.status.unavailable'
+                .tr(namedArgs: {'code': status.problemCode}),
         isLoading: false,
       );
     } catch (error) {
       state.value = state.value.copyWith(
         isDockerInstallRequired: false,
-        statusText: 'docker.status.failed'.tr(args: ['$error']),
+        statusText:
+            'docker.status.failed'.tr(namedArgs: {'error': '$error'}),
         isLoading: false,
       );
     }
@@ -228,11 +232,18 @@ class DockerViewModel extends ViewModel {
     return _runOperation(
       () => _repository.containerAction(c.id, action, confirmed: confirmed),
       (result) => result.success
-          ? 'docker.action.succeeded'.tr(args: [_opText(action), c.name])
-          : 'docker.action.failed'
-              .tr(args: [_opText(action), _problemText(result.problemCode)]),
-      operationName: 'docker.operation.container_action'
-          .tr(args: [_opText(action), c.name]),
+          ? 'docker.action.succeeded'.tr(namedArgs: {
+              'action': _opText(action),
+              'name': c.name,
+            })
+          : 'docker.action.failed'.tr(namedArgs: {
+              'action': _opText(action),
+              'reason': _problemText(result.problemCode),
+            }),
+      operationName: 'docker.operation.container_action'.tr(namedArgs: {
+        'action': _opText(action),
+        'name': c.name,
+      }),
     );
   }
 
@@ -240,7 +251,8 @@ class DockerViewModel extends ViewModel {
     final c = selectedContainer;
     if (c == null) return;
     final ok = await onConfirmDelete(
-        'docker.container.delete_confirmation'.tr(args: [c.name]));
+        'docker.container.delete_confirmation'
+            .tr(namedArgs: {'name': c.name}));
     if (!ok) return;
     await applyContainerAction('delete', confirmed: true);
   }
@@ -255,11 +267,14 @@ class DockerViewModel extends ViewModel {
       state.value = state.value.copyWith(
         containerLogs: joined,
         statusText: logs == null
-            ? 'docker.action.failed'.tr(args: [
-                _opText('logs'),
-                _problemText('docker.operation_failed')
-              ])
-            : 'docker.action.succeeded'.tr(args: [_opText('logs'), c.name]),
+            ? 'docker.action.failed'.tr(namedArgs: {
+                'action': _opText('logs'),
+                'reason': _problemText('docker.operation_failed'),
+              })
+            : 'docker.action.succeeded'.tr(namedArgs: {
+                'action': _opText('logs'),
+                'name': c.name,
+              }),
       );
     });
   }
@@ -276,11 +291,14 @@ class DockerViewModel extends ViewModel {
       state.value = state.value.copyWith(
         containerStats: text,
         statusText: stats == null
-            ? 'docker.action.failed'.tr(args: [
-                _opText('stats'),
-                _problemText('docker.operation_failed')
-              ])
-            : 'docker.action.succeeded'.tr(args: [_opText('stats'), c.name]),
+            ? 'docker.action.failed'.tr(namedArgs: {
+                'action': _opText('stats'),
+                'reason': _problemText('docker.operation_failed'),
+              })
+            : 'docker.action.succeeded'.tr(namedArgs: {
+                'action': _opText('stats'),
+                'name': c.name,
+              }),
       );
     });
   }
@@ -295,11 +313,12 @@ class DockerViewModel extends ViewModel {
         containerDetailsText:
             details == null ? '' : _formatContainerDetails(details),
         statusText: details == null
-            ? 'docker.action.failed'.tr(args: [
-                'docker.container.details'.tr(),
-                _problemText('docker.operation_failed'),
-              ])
-            : 'docker.container.details_loaded'.tr(args: [c.name]),
+            ? 'docker.action.failed'.tr(namedArgs: {
+                'action': 'docker.container.details'.tr(),
+                'reason': _problemText('docker.operation_failed'),
+              })
+            : 'docker.container.details_loaded'
+                .tr(namedArgs: {'name': c.name}),
       );
     });
     if (state.value.containerDetails != null) {
@@ -321,10 +340,12 @@ class DockerViewModel extends ViewModel {
     return _runOperation(
       () => _repository.renameContainer(c.id, t),
       (result) => result.success
-          ? 'docker.container.updated'.tr(args: [t])
-          : 'docker.container.update_failed'
-              .tr(args: [_problemText(result.problemCode)]),
-      operationName: 'docker.operation.update_container'.tr(args: [c.name]),
+          ? 'docker.container.updated'.tr(namedArgs: {'name': t})
+          : 'docker.container.update_failed'.tr(namedArgs: {
+              'error': _problemText(result.problemCode),
+            }),
+      operationName:
+          'docker.operation.update_container'.tr(namedArgs: {'name': c.name}),
     );
   }
 
@@ -356,10 +377,12 @@ class DockerViewModel extends ViewModel {
         restartPolicy: restartPolicy,
       )),
       (result) => result.success
-          ? 'docker.container.created'.tr(args: [trimmed])
-          : 'docker.container.create_failed'
-              .tr(args: [_problemText(result.problemCode)]),
-      operationName: 'docker.operation.create_container'.tr(args: [trimmed]),
+          ? 'docker.container.created'.tr(namedArgs: {'name': trimmed})
+          : 'docker.container.create_failed'.tr(namedArgs: {
+              'error': _problemText(result.problemCode),
+            }),
+      operationName:
+          'docker.operation.create_container'.tr(namedArgs: {'name': trimmed}),
     );
   }
 
@@ -402,12 +425,19 @@ class DockerViewModel extends ViewModel {
             ? result.messages.first
             : result.problemCode;
         return result.success
-            ? 'docker.stack.succeeded'.tr(args: [_opText('deploy'), name])
-            : 'docker.stack.failed'
-                .tr(args: [_opText('deploy'), _problemText(detail)]);
+            ? 'docker.stack.succeeded'.tr(namedArgs: {
+                'action': _opText('deploy'),
+                'name': name,
+              })
+            : 'docker.stack.failed'.tr(namedArgs: {
+                'action': _opText('deploy'),
+                'reason': _problemText(detail),
+              });
       },
-      operationName:
-          'docker.operation.stack'.tr(args: [_opText('deploy'), name]),
+      operationName: 'docker.operation.stack'.tr(namedArgs: {
+        'action': _opText('deploy'),
+        'name': name,
+      }),
     );
   }
 
@@ -417,11 +447,18 @@ class DockerViewModel extends ViewModel {
     return _runOpRaw<DockerStackOperationResult>(
       () => _repository.stackAction(s.name, action, confirmed: confirmed),
       (result) => result.success
-          ? 'docker.stack.succeeded'.tr(args: [_opText(action), s.name])
-          : 'docker.stack.failed'
-              .tr(args: [_opText(action), _problemText(result.problemCode)]),
-      operationName:
-          'docker.operation.stack'.tr(args: [_opText(action), s.name]),
+          ? 'docker.stack.succeeded'.tr(namedArgs: {
+              'action': _opText(action),
+              'name': s.name,
+            })
+          : 'docker.stack.failed'.tr(namedArgs: {
+              'action': _opText(action),
+              'reason': _problemText(result.problemCode),
+            }),
+      operationName: 'docker.operation.stack'.tr(namedArgs: {
+        'action': _opText(action),
+        'name': s.name,
+      }),
     );
   }
 
@@ -429,7 +466,7 @@ class DockerViewModel extends ViewModel {
     final s = selectedStack;
     if (s == null) return;
     final ok = await onConfirmDelete(
-        'docker.stack.delete_confirmation'.tr(args: [s.name]));
+        'docker.stack.delete_confirmation'.tr(namedArgs: {'name': s.name}));
     if (!ok) return;
     await applyStackAction('delete', confirmed: true);
   }
@@ -441,8 +478,10 @@ class DockerViewModel extends ViewModel {
       final list = await _repository.stackServices(s.name);
       state.value = state.value.copyWith(
         stackServices: list,
-        statusText:
-            'docker.stack.services_loaded'.tr(args: [s.name, '${list.length}']),
+        statusText: 'docker.stack.services_loaded'.tr(namedArgs: {
+          'name': s.name,
+          'count': '${list.length}',
+        }),
       );
     });
   }
@@ -456,7 +495,7 @@ class DockerViewModel extends ViewModel {
       state.value = state.value.copyWith(
         statusText: def == null
             ? 'docker.stack.source_unavailable'.tr()
-            : 'docker.stack.source_loaded'.tr(args: [s.name]),
+            : 'docker.stack.source_loaded'.tr(namedArgs: {'name': s.name}),
       );
     });
     final d = def;
@@ -482,10 +521,10 @@ class DockerViewModel extends ViewModel {
     return _runOperation(
       () => _repository.pullImage(t),
       (result) => result.success
-          ? 'docker.image.pull_succeeded'.tr(args: [t])
+          ? 'docker.image.pull_succeeded'.tr(namedArgs: {'name': t})
           : 'docker.image.pull_failed'
-              .tr(args: [_problemText(result.problemCode)]),
-      operationName: 'docker.operation.pull'.tr(args: [t]),
+              .tr(namedArgs: {'error': _problemText(result.problemCode)}),
+      operationName: 'docker.operation.pull'.tr(namedArgs: {'name': t}),
     );
   }
 
@@ -493,15 +532,17 @@ class DockerViewModel extends ViewModel {
     final img = selectedImage;
     if (img == null) return;
     final ok = await onConfirmDelete(
-        'docker.image.delete_confirmation'.tr(args: [img.repository]));
+        'docker.image.delete_confirmation'
+            .tr(namedArgs: {'name': img.repository}));
     if (!ok) return;
     await _runOperation(
       () => _repository.deleteImage(img.id),
       (result) => result.success
-          ? 'docker.image.deleted'.tr(args: [img.repository])
+          ? 'docker.image.deleted'.tr(namedArgs: {'name': img.repository})
           : 'docker.image.delete_failed'
-              .tr(args: [_problemText(result.problemCode)]),
-      operationName: 'docker.operation.delete_image'.tr(args: [img.repository]),
+              .tr(namedArgs: {'error': _problemText(result.problemCode)}),
+      operationName:
+          'docker.operation.delete_image'.tr(namedArgs: {'name': img.repository}),
     );
   }
 
@@ -517,10 +558,10 @@ class DockerViewModel extends ViewModel {
     return _runOperation(
       () => _repository.createNetwork(t, driver: driver),
       (result) => result.success
-          ? 'docker.network.created'.tr(args: [t])
+          ? 'docker.network.created'.tr(namedArgs: {'name': t})
           : 'docker.network.create_failed'
-              .tr(args: [_problemText(result.problemCode)]),
-      operationName: 'docker.operation.create_network'.tr(args: [t]),
+              .tr(namedArgs: {'error': _problemText(result.problemCode)}),
+      operationName: 'docker.operation.create_network'.tr(namedArgs: {'name': t}),
     );
   }
 
@@ -528,15 +569,15 @@ class DockerViewModel extends ViewModel {
     final n = selectedNetwork;
     if (n == null) return;
     final ok = await onConfirmDelete(
-        'docker.network.delete_confirmation'.tr(args: [n.name]));
+        'docker.network.delete_confirmation'.tr(namedArgs: {'name': n.name}));
     if (!ok) return;
     await _runOperation(
       () => _repository.deleteNetwork(n.id),
       (result) => result.success
-          ? 'docker.network.deleted'.tr(args: [n.name])
+          ? 'docker.network.deleted'.tr(namedArgs: {'name': n.name})
           : 'docker.network.delete_failed'
-              .tr(args: [_problemText(result.problemCode)]),
-      operationName: 'docker.operation.delete_network'.tr(args: [n.name]),
+              .tr(namedArgs: {'error': _problemText(result.problemCode)}),
+      operationName: 'docker.operation.delete_network'.tr(namedArgs: {'name': n.name}),
     );
   }
 
@@ -552,10 +593,10 @@ class DockerViewModel extends ViewModel {
     return _runOperation(
       () => _repository.createVolume(t, driver: driver),
       (result) => result.success
-          ? 'docker.volume.created'.tr(args: [t])
+          ? 'docker.volume.created'.tr(namedArgs: {'name': t})
           : 'docker.volume.create_failed'
-              .tr(args: [_problemText(result.problemCode)]),
-      operationName: 'docker.operation.create_volume'.tr(args: [t]),
+              .tr(namedArgs: {'error': _problemText(result.problemCode)}),
+      operationName: 'docker.operation.create_volume'.tr(namedArgs: {'name': t}),
     );
   }
 
@@ -563,15 +604,15 @@ class DockerViewModel extends ViewModel {
     final v = selectedVolume;
     if (v == null) return;
     final ok = await onConfirmDelete(
-        'docker.volume.delete_confirmation'.tr(args: [v.name]));
+        'docker.volume.delete_confirmation'.tr(namedArgs: {'name': v.name}));
     if (!ok) return;
     await _runOperation(
       () => _repository.deleteVolume(v.name),
       (result) => result.success
-          ? 'docker.volume.deleted'.tr(args: [v.name])
+          ? 'docker.volume.deleted'.tr(namedArgs: {'name': v.name})
           : 'docker.volume.delete_failed'
-              .tr(args: [_problemText(result.problemCode)]),
-      operationName: 'docker.operation.delete_volume'.tr(args: [v.name]),
+              .tr(namedArgs: {'error': _problemText(result.problemCode)}),
+      operationName: 'docker.operation.delete_volume'.tr(namedArgs: {'name': v.name}),
     );
   }
 
@@ -613,7 +654,8 @@ class DockerViewModel extends ViewModel {
         await _showUnavailableForProblem(prob);
       }
     } catch (error) {
-      final st = 'docker.status.failed'.tr(args: ['$error']);
+      final st =
+          'docker.status.failed'.tr(namedArgs: {'error': '$error'});
       state.value = state.value.copyWith(statusText: st);
       _appendLog(['$error']);
       _completeOp(st);
@@ -636,7 +678,8 @@ class DockerViewModel extends ViewModel {
       await op();
       _completeOp(state.value.statusText);
     } catch (error) {
-      final st = 'docker.status.failed'.tr(args: ['$error']);
+      final st =
+          'docker.status.failed'.tr(namedArgs: {'error': '$error'});
       state.value = state.value.copyWith(statusText: st);
       _appendLog(['$error']);
       _completeOp(st);
@@ -666,7 +709,8 @@ class DockerViewModel extends ViewModel {
     state.value = state.value.copyWith(
       isDockerAvailable: false,
       isDockerInstallRequired: _isInstallRequired(false, problemCode),
-      statusText: 'docker.status.unavailable'.tr(args: [problemCode]),
+      statusText:
+          'docker.status.unavailable'.tr(namedArgs: {'code': problemCode}),
     );
     await _showUnavailableDialog();
   }
@@ -679,7 +723,8 @@ class DockerViewModel extends ViewModel {
       state.value = state.value.copyWith(
         isDockerAvailable: false,
         isDockerInstallRequired: _isInstallRequired(false, status.problemCode),
-        statusText: 'docker.status.unavailable'.tr(args: [status.problemCode]),
+        statusText: 'docker.status.unavailable'
+            .tr(namedArgs: {'code': status.problemCode}),
         containers: snap.containers,
         images: snap.images,
         networks: snap.networks,
@@ -712,9 +757,10 @@ class DockerViewModel extends ViewModel {
         : name!;
     state.value = state.value.copyWith(
       operationTitle: title,
-      operationLog: 'docker.operation.started'.tr(args: [title]),
+      operationLog:
+          'docker.operation.started'.tr(namedArgs: {'title': title}),
       isOperationRunning: true,
-      statusText: 'docker.operation.running'.tr(args: [title]),
+      statusText: 'docker.operation.running'.tr(namedArgs: {'title': title}),
       isLoading: true,
     );
   }
@@ -734,7 +780,7 @@ class DockerViewModel extends ViewModel {
     state.value = state.value.copyWith(
       operationLog: [
         cur,
-        'docker.operation.finished'.tr(args: [outcome])
+        'docker.operation.finished'.tr(namedArgs: {'outcome': outcome})
       ].join('\n'),
     );
   }

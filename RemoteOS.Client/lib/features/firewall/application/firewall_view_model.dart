@@ -344,12 +344,12 @@ class FirewallViewModel extends ViewModel {
                 ? ((status.isEnabled
                         ? 'firewall.status.ready_enabled'
                         : 'firewall.status.ready_disabled')
-                    .tr(args: [status.backend, status.version ?? '']))
-                : 'firewall.status.unavailable'.tr(args: [status.problemCode]),
+                    .tr(namedArgs: {'backend': status.backend, 'version': status.version ?? ''}))
+                : 'firewall.status.unavailable'.tr(namedArgs: {'code': status.problemCode}),
           ));
     } catch (error) {
       _mutate((s) => FirewallUiState.initial().copyWith(
-            statusText: 'firewall.status.failed'.tr(args: ['$error']),
+            statusText: 'firewall.status.failed'.tr(namedArgs: {'error': '$error'}),
           ));
     } finally {
       _mutate((s) => s.copyWith(isLoading: false));
@@ -373,12 +373,12 @@ class FirewallViewModel extends ViewModel {
       _mutate((s) => s.copyWith(
             statusText: result.success
                 ? 'firewall.operation.succeeded'.tr()
-                : 'firewall.operation.failed'.tr(args: [result.problemCode]),
+                : 'firewall.operation.failed'.tr(namedArgs: {'code': result.problemCode}),
           ));
       success = result.success;
     } catch (error) {
       _mutate((s) => s.copyWith(
-            statusText: 'firewall.operation.failed'.tr(args: ['$error']),
+            statusText: 'firewall.operation.failed'.tr(namedArgs: {'error': '$error'}),
           ));
     } finally {
       _mutate((s) => s.copyWith(isLoading: false));

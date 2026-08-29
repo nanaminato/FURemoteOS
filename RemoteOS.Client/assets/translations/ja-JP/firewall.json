@@ -1,12 +1,12 @@
-﻿{
+{
     "Strings": {
         "firewall.login_required": "ファイアウォールを管理するには RemoteOS Server にサインインしてください。",
         "firewall.status.loading": "ファイアウォールの状態を読み込んでいます…",
-        "firewall.status.ready": "準備完了 — {0} {1}",
-        "firewall.status.ready_enabled": "ファイアウォールは有効です — {0} {1}",
-        "firewall.status.ready_disabled": "ファイアウォールは無効です — {0} {1}",
-        "firewall.status.unavailable": "ファイアウォールを利用できません: {0}",
-        "firewall.status.failed": "ファイアウォールの状態を読み込めません: {0}",
+        "firewall.status.ready": "準備完了 — backend version",
+        "firewall.status.ready_enabled": "ファイアウォールは有効です — backend version",
+        "firewall.status.ready_disabled": "ファイアウォールは無効です — backend version",
+        "firewall.status.unavailable": "ファイアウォールを利用できません: backend",
+        "firewall.status.failed": "ファイアウォールの状態を読み込めません: backend",
         "firewall.warning": "ファイアウォールを変更すると、この RemoteOS セッションが切断される可能性があります。適用前に管理アクセスを確認してください。",
         "firewall.enable": "ファイアウォールを有効化",
         "firewall.disable": "ファイアウォールを無効化",
@@ -49,7 +49,7 @@
         "firewall.validation.address_invalid": "送信元と送信先には、任意または有効な IP/CIDR（例: 192.0.2.10、2001:db8::/32）を入力してください。",
         "firewall.validation.port_invalid": "ポートは 1～65535、または 開始:終了 の範囲で入力してください。",
         "firewall.operation.succeeded": "ファイアウォールの設定を更新しました。",
-        "firewall.operation.failed": "ファイアウォールの変更に失敗しました: {0}",
+        "firewall.operation.failed": "ファイアウォールの変更に失敗しました: backend",
         "firewall.permission.read_required": "ファイアウォールにアクセスするには、「ファイアウォール設定を読み取る」アクセス許可が必要です。",
         "firewall.permission.manage_required": "ファイアウォールを変更するには、「ファイアウォール設定を管理する」アクセス許可が必要です。"
     }

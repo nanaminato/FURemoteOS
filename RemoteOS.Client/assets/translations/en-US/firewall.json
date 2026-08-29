@@ -1,12 +1,12 @@
-﻿{
+{
     "Strings": {
         "firewall.login_required": "Sign in to a RemoteOS Server to manage its firewall.",
         "firewall.status.loading": "Loading firewall status…",
-        "firewall.status.ready": "Ready — {0} {1}",
-        "firewall.status.ready_enabled": "Firewall is enabled — {0} {1}",
-        "firewall.status.ready_disabled": "Firewall is disabled — {0} {1}",
-        "firewall.status.unavailable": "Firewall is unavailable: {0}",
-        "firewall.status.failed": "Unable to load firewall status: {0}",
+        "firewall.status.ready": "Ready — backend version",
+        "firewall.status.ready_enabled": "Firewall is enabled — backend version",
+        "firewall.status.ready_disabled": "Firewall is disabled — backend version",
+        "firewall.status.unavailable": "Firewall is unavailable: backend",
+        "firewall.status.failed": "Unable to load firewall status: backend",
         "firewall.warning": "Firewall changes can disconnect this RemoteOS session. Confirm your management access before applying a rule.",
         "firewall.enable": "Enable firewall",
         "firewall.disable": "Disable firewall",
@@ -49,7 +49,7 @@
         "firewall.validation.address_invalid": "Source and destination must be any or a valid IP/CIDR, such as 192.0.2.10 or 2001:db8::/32.",
         "firewall.validation.port_invalid": "Enter a port from 1 to 65535, or a start:end range.",
         "firewall.operation.succeeded": "Firewall configuration updated.",
-        "firewall.operation.failed": "Firewall change failed: {0}",
+        "firewall.operation.failed": "Firewall change failed: backend",
         "firewall.permission.read_required": "Firewall access requires the Read firewall configuration permission.",
         "firewall.permission.manage_required": "Changing the firewall requires the Manage firewall configuration permission."
     }
