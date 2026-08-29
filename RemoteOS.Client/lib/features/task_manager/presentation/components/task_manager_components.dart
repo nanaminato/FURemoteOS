@@ -329,8 +329,14 @@ class HistoryPainter extends CustomPainter {
     final max = (maximum ?? dataMax).clamp(1, double.infinity);
     final path = Path();
     for (var index = 0; index < values.length; index++) {
-      final point = Offset(size.width * index / (values.length - 1),
-          size.height - values[index] / max * size.height);
+      final rawY = size.height - values[index] / max * size.height;
+      // Defensive clamp: if a history value ever exceeds chartMaximum (e.g.
+      // after a fast peak followed by a very low current rate), the line
+      // would otherwise paint above the chart panel and look clipped.
+      // Avalonia's PerformanceLineChart clips the stroke to the panel, so
+      // we emulate that visually by clamping each sample to the chart bounds.
+      final y = rawY.clamp(0.0, size.height);
+      final point = Offset(size.width * index / (values.length - 1), y);
       if (index == 0) {
         path.moveTo(point.dx, point.dy);
       } else {
