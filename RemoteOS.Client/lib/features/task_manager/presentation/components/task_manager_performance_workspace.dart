@@ -121,9 +121,9 @@ class _PerformanceDetail extends StatelessWidget {
           // Row 3: "60 秒" (left) | "现在" (right) — chart axis labels.
           Row(
             children: [
-              Text('60 秒', style: labelStyle),
+              Text('task_manager.timeline_60s'.tr(), style: labelStyle),
               const Spacer(),
-              Text('现在', style: labelStyle),
+              Text('task_manager.timeline_now'.tr(), style: labelStyle),
             ],
           ),
           const SizedBox(height: 10),

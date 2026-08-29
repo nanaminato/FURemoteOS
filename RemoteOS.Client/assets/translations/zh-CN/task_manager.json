@@ -1,5 +1,5 @@
 {
   "Strings": {
-    "task_manager.cpu": "CPU", "task_manager.performance": "性能", "task_manager.processes": "进程", "task_manager.auto_refresh": "自动刷新 (2s)", "task_manager.memory": "内存", "task_manager.filesystem": "文件系统", "task_manager.disk": "磁盘", "task_manager.network": "网络", "task_manager.filter_placeholder": "按名称、PID 或用户筛选…", "task_manager.end_task": "结束任务", "task_manager.status.collecting": "正在收集系统数据…", "task_manager.status.collect_failed": "收集系统数据失败。", "task_manager.last_60_seconds": "最近 60 秒", "task_manager.all_resources": "所有资源"
+    "task_manager.cpu": "CPU", "task_manager.performance": "性能", "task_manager.processes": "进程", "task_manager.auto_refresh": "自动刷新 (2s)", "task_manager.memory": "内存", "task_manager.filesystem": "文件系统", "task_manager.disk": "磁盘", "task_manager.network": "网络", "task_manager.filter_placeholder": "按名称、PID 或用户筛选…", "task_manager.end_task": "结束任务", "task_manager.status.collecting": "正在收集系统数据…", "task_manager.status.collect_failed": "收集系统数据失败。", "task_manager.last_60_seconds": "最近 60 秒", "task_manager.all_resources": "所有资源", "task_manager.timeline_60s": "60 秒", "task_manager.timeline_now": "现在"
   }
 }

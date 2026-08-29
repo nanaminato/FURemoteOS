@@ -1,5 +1,5 @@
 {
   "Strings": {
-    "task_manager.cpu": "CPU", "task_manager.performance": "性能", "task_manager.processes": "プロセス", "task_manager.auto_refresh": "自動更新 (2s)", "task_manager.memory": "メモリ", "task_manager.filesystem": "ファイル システム", "task_manager.disk": "ディスク", "task_manager.network": "ネットワーク", "task_manager.filter_placeholder": "名前、PID、またはユーザーでフィルター…", "task_manager.end_task": "タスクの終了", "task_manager.status.collecting": "システム データを収集しています…", "task_manager.status.collect_failed": "データ収集に失敗しました。", "task_manager.last_60_seconds": "最近 60 秒", "task_manager.all_resources": "すべてのリソース"
+    "task_manager.cpu": "CPU", "task_manager.performance": "性能", "task_manager.processes": "プロセス", "task_manager.auto_refresh": "自動更新 (2s)", "task_manager.memory": "メモリ", "task_manager.filesystem": "ファイル システム", "task_manager.disk": "ディスク", "task_manager.network": "ネットワーク", "task_manager.filter_placeholder": "名前、PID、またはユーザーでフィルター…", "task_manager.end_task": "タスクの終了", "task_manager.status.collecting": "システム データを収集しています…", "task_manager.status.collect_failed": "データ収集に失敗しました。", "task_manager.last_60_seconds": "最近 60 秒", "task_manager.all_resources": "すべてのリソース", "task_manager.timeline_60s": "60 秒", "task_manager.timeline_now": "現在"
   }
 }

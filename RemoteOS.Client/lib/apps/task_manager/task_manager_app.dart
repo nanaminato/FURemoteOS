@@ -45,6 +45,15 @@ class _TaskManagerAppState extends ConsumerState<TaskManagerApp> {
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(authProvider);
+    // Keep the PerformanceHub alive for the lifetime of this window.
+    // The hub is exposed as Provider.autoDispose, and ref.read in initState
+    // does not establish a dependency, so riverpod would otherwise auto-
+    // dispose the hub (closing the SignalR stream and the snapshot
+    // StreamController) the moment initState returns — even though the
+    // ViewModel is still listening on the stream.  Watching it here anchors
+    // the provider to this widget's lifetime so realtime snapshots keep
+    // flowing until the window closes.
+    ref.watch(performanceHubProvider);
     final vm = _vm;
     if (!session.isAuthenticated || vm == null) {
       return const Padding(
