@@ -18,7 +18,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:watch_it/watch_it.dart' hide di;
 import 'package:window_manager/window_manager.dart' as desktop_wm;
 
 import '../../../app/dependency_injection.dart';
@@ -369,9 +368,11 @@ class _IconsColumn extends StatelessWidget {
   }
 }
 
-/// Reactive composition: observes [DesktopShellViewModel.overlay] via
-/// [watch_it] and mounts/unmounts the start menu region accordingly.
-class _DesktopOverlayObserver extends WatchingWidget {
+/// Reactive composition that mounts/unmounts the start menu as soon as the
+/// shell ViewModel changes its overlay state.  A [ValueListenableBuilder] is
+/// required here: reading `overlay.value` alone does not subscribe this
+/// subtree, which left the menu waiting for an unrelated rebuild.
+class _DesktopOverlayObserver extends StatelessWidget {
   const _DesktopOverlayObserver({
     required this.vm,
     required this.taskbarHeight,
@@ -388,28 +389,34 @@ class _DesktopOverlayObserver extends WatchingWidget {
 
   @override
   Widget build(BuildContext context) {
-    final open = vm.overlay.value == DesktopOverlay.startMenu;
-    if (!open) return const SizedBox.shrink();
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: GestureDetector(
-            onTap: vm.closeOverlay,
-            behavior: HitTestBehavior.translucent,
-            child: const SizedBox.expand(),
-          ),
-        ),
-        Positioned(
-          left: 8,
-          bottom: taskbarHeight + 8,
-          child: DesktopStartMenu(
-            onAppSelected: onAppSelected,
-            onClose: vm.closeOverlay,
-            onLogout: onLogout,
-            onShutdown: onShutdown,
-          ),
-        ),
-      ],
+    return ValueListenableBuilder<DesktopOverlay>(
+      valueListenable: vm.overlay,
+      builder: (context, overlay, _) {
+        if (overlay != DesktopOverlay.startMenu) {
+          return const SizedBox.shrink();
+        }
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: vm.closeOverlay,
+                behavior: HitTestBehavior.translucent,
+                child: const SizedBox.expand(),
+              ),
+            ),
+            Positioned(
+              left: 8,
+              bottom: taskbarHeight + 8,
+              child: DesktopStartMenu(
+                onAppSelected: onAppSelected,
+                onClose: vm.closeOverlay,
+                onLogout: onLogout,
+                onShutdown: onShutdown,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
