@@ -1,6 +1,8 @@
 # AGENTS.md
 
 > Instructions for Codex, ChatGPT, Claude Code, Gemini CLI, Cursor agents and other coding agents working on RemoteOS Flutter.
+>
+> [中文版](AGENTS.zh-CN.md)
 
 ---
 
@@ -31,16 +33,16 @@ Do not optimize for producing the largest amount of code in the shortest time.
 Before making a non-trivial change, read:
 
 ```text
-ARCHITECTURE.md
-MIGRATION_RULES.md
-AGENTS.md
+[ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md)
+[MIGRATION_RULES.md](docs/MIGRATION_RULES.md)
+[AGENTS.md](AGENTS.md) / [中文版](AGENTS.zh-CN.md)
 ```
 
 For migration tasks, also inspect the corresponding implementation in the existing Avalonia client.
 
-Architecture rules in `ARCHITECTURE.md` are mandatory unless the task explicitly overrides them.
+Architecture rules in [`ARCHITECTURE.md`](docs/architecture/ARCHITECTURE.md) are mandatory unless the task explicitly overrides them.
 
-Migration rules in `MIGRATION_RULES.md` are mandatory for Avalonia-to-Flutter work.
+Migration rules in [`MIGRATION_RULES.md`](docs/MIGRATION_RULES.md) are mandatory for Avalonia-to-Flutter work.
 
 ---
 
