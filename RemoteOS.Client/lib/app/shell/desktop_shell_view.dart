@@ -14,6 +14,7 @@
 import 'dart:async';
 
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -45,6 +46,7 @@ class _DesktopShellViewState extends ConsumerState<DesktopShellView> {
   late final DesktopShellViewModel _vm;
   final _desktopMenu = RemoteContextMenuController();
   Size _desktopSize = Size.zero;
+  BoxConstraints? _lastReportedEmptyConstraints;
 
   @override
   void initState() {
@@ -67,6 +69,44 @@ class _DesktopShellViewState extends ConsumerState<DesktopShellView> {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Captures the complete ancestor layout chain in one log record when the
+  /// desktop receives an invalid viewport. This avoids requiring a separate
+  /// DevTools screenshot for every parent of the collapsed desktop container.
+  void _reportEmptyLayoutChain(
+      BuildContext context, BoxConstraints constraints) {
+    if (!kDebugMode ||
+        (constraints.maxWidth > 0 && constraints.maxHeight > 0) ||
+        _lastReportedEmptyConstraints == constraints) {
+      return;
+    }
+    _lastReportedEmptyConstraints = constraints;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final lines = <String>[
+        '[desktop-layout] invalid LayoutBuilder constraints: $constraints',
+      ];
+      context.visitAncestorElements((element) {
+        final renderObject = element.renderObject;
+        if (renderObject is RenderBox) {
+          lines.add(
+            '  ${element.widget.runtimeType} '
+            'render=${renderObject.runtimeType} '
+            'size=${renderObject.size} '
+            'constraints=${renderObject.constraints}',
+          );
+        } else {
+          lines.add(
+            '  ${element.widget.runtimeType} '
+            'render=${renderObject?.runtimeType ?? '<none>'}',
+          );
+        }
+        return true;
+      });
+      unawaited(_optionalRuntimeLog()?.info(lines.join('\n')));
+    });
   }
 
   /// Waits for the actual desktop layout to reach a non-trivial size before
@@ -97,7 +137,8 @@ class _DesktopShellViewState extends ConsumerState<DesktopShellView> {
       if (!mounted) break;
     }
     if (!mounted) {
-      unawaited(log?.info('[desktop] viewport ready but widget unmounted; aborting restore'));
+      unawaited(log?.info(
+          '[desktop] viewport ready but widget unmounted; aborting restore'));
       return;
     }
     final workArea = Size(size.width, (size.height - taskbarHeight).clamp(240.0, 4320.0));
@@ -197,6 +238,7 @@ class _DesktopShellViewState extends ConsumerState<DesktopShellView> {
         body: LayoutBuilder(
           builder: (context, constraints) {
             const taskbarHeight = 48.0;
+            _reportEmptyLayoutChain(context, constraints);
             // LayoutBuilder receives the area below DesktopWindowShell's
             // custom title bar, unlike the root MediaQuery size.
             _desktopSize = constraints.biggest;
