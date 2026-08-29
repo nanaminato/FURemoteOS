@@ -8,6 +8,7 @@ import 'package:window_manager/window_manager.dart';
 import 'package:go_router/go_router.dart';
 
 import 'app/bootstrap.dart';
+import 'app/dependency_injection.dart';
 import 'core/theme/theme_service.dart';
 import 'core/theme/theme_models.dart';
 import 'core/auth/auth_service.dart';
@@ -58,7 +59,10 @@ void main() async {
     });
 
     runApp(ProviderScope(
-      overrides: bootstrapRemoteOs(catalog: languageCatalog),
+      overrides: bootstrapRemoteOs(
+        catalog: languageCatalog,
+        runtimeLog: runtime.log,
+      ),
       child: _RootLocalizationWrapper(catalog: languageCatalog),
     ));
   } catch (error, stackTrace) {
@@ -100,29 +104,64 @@ class _RemoteOSAppState extends ConsumerState<RemoteOSApp> {
   @override
   void initState() {
     super.initState();
+    final log = _optionalLog;
     _router = GoRouter(
       initialLocation: '/login',
+      debugLogDiagnostics: true,
       redirect: (context, state) {
         final auth = ref.read(authProvider);
         final atLogin = state.matchedLocation == '/login';
 
-        if (!auth.isAuthenticated && !atLogin) return '/login';
-        if (auth.isAuthenticated && atLogin) return '/desktop';
-        return null;
+        final redirected = !auth.isAuthenticated && !atLogin ? '/login'
+            : auth.isAuthenticated && atLogin ? '/desktop'
+            : null;
+        if (log != null) {
+          unawaited(log.info(
+            '[router] request=${state.uri} auth={authenticated:${auth.isAuthenticated}'
+            ' state:${auth.state} error:${auth.errorMessage == null ? null : '<redacted>'}} '
+            'matched=${state.matchedLocation} redirectedTo=${redirected ?? '<stay>'}',
+          ));
+        }
+        return redirected;
       },
       routes: [
         GoRoute(
           path: '/login',
-          builder: (context, state) => const LoginScreen(),
+          builder: (context, state) {
+            if (log != null) {
+              unawaited(log.info('[router] Building LoginScreen uri=${state.uri}'));
+            }
+            return const LoginScreen();
+          },
         ),
         GoRoute(
           path: '/desktop',
-          builder: (context, state) => const DesktopShellView(),
+          builder: (context, state) {
+            if (log != null) {
+              unawaited(log.info('[router] Building DesktopShellView uri=${state.uri}'));
+            }
+            return const DesktopShellView();
+          },
         ),
       ],
-      errorBuilder: (context, state) =>
-          Scaffold(body: Center(child: Text('Page not found: ${state.uri}'))),
+      errorBuilder: (context, state) {
+        if (log != null) {
+          unawaited(log.info('[router] errorBuilder uri=${state.uri} '
+              'error=${state.error ?? '<none>'}'));
+        }
+        return Scaffold(
+          body: Center(child: Text('Page not found: ${state.uri}\n${state.error}')),
+        );
+      },
     );
+  }
+
+  RuntimeLog? get _optionalLog {
+    try {
+      return di.isRegistered<RuntimeLog>() ? di<RuntimeLog>() : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   @override
@@ -139,6 +178,50 @@ class _RemoteOSAppState extends ConsumerState<RemoteOSApp> {
     final brightness = themeState.resolveBrightness(context);
     final palette = themeState.resolvePalette(brightness);
     final themeData = buildThemeData(palette, brightness);
+    final log = _optionalLog;
+
+    // Replace the default grey/red error box with a readable on-screen card
+    // so that if the desktop frame throws during its first build, the user
+    // still sees something actionable instead of a pure-white screen.
+    ErrorWidget.builder = (details) {
+      final msg = 'Build error: ${details.exceptionAsString()}';
+      if (log != null) {
+        unawaited(log.error(details.exception, details.stack ?? StackTrace.current));
+      }
+      return Container(
+        color: const Color(0xFF2A0F12),
+        padding: const EdgeInsets.all(24),
+        alignment: Alignment.center,
+        child: SingleChildScrollView(
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF3B1518),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFF8A2E36)),
+            ),
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: SelectableText.rich(
+              TextSpan(
+                style: const TextStyle(color: Color(0xFFFFF1F2), fontSize: 13, height: 1.45),
+                children: [
+                  const TextSpan(
+                    text: 'RemoteOS build failure (non-fatal, reported to remoteos.log)\n\n',
+                    style: TextStyle(fontWeight: FontWeight.w700, color: Color(0xFFFFB3B9)),
+                  ),
+                  TextSpan(text: msg),
+                  const TextSpan(text: '\n\nStack:\n'),
+                  TextSpan(
+                    text: (details.stack?.toString() ?? '').split('\n').take(40).join('\n'),
+                    style: const TextStyle(color: Color(0xFFF8C9CD)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    };
 
     return MaterialApp.router(
       title: 'RemoteOS',
@@ -157,25 +240,37 @@ class _RemoteOSAppState extends ConsumerState<RemoteOSApp> {
         ThemeKind.system => ThemeMode.system,
       },
       routerConfig: _router,
-      builder: (context, child) => VirtualWindowFrame(
-        child: DesktopWindowShell(
-          child: child ?? const SizedBox.shrink(),
-          onCloseRequested: () async {
-            // Best-effort flush: logout flush happens in DesktopScreen too;
-            // the app shell flush protects against closing via the host
-            // window chrome before any managed desktop is mounted.
-            try {
-              await ref
-                  .read(workspaceSyncProvider.notifier)
-                  .flush()
-                  .timeout(const Duration(seconds: 2));
-            } catch (_) {
-              // Persisting workspace data is best-effort during shutdown.
-            }
-            await windowManager.close();
-          },
-        ),
-      ),
+      builder: (context, child) {
+        final viewport = View.of(context);
+        final physical = viewport.physicalSize;
+        final logical = MediaQuery.sizeOf(context);
+        if (log != null) {
+          unawaited(log.info(
+            '[shell] MaterialApp builder; child=${child?.runtimeType}'
+            ' physical=${physical.width.toStringAsFixed(0)}x${physical.height.toStringAsFixed(0)}'
+            ' logical=${logical.width.toStringAsFixed(1)}x${logical.height.toStringAsFixed(1)}',
+          ));
+        }
+        return VirtualWindowFrame(
+          child: DesktopWindowShell(
+            child: child ?? const SizedBox.shrink(),
+            onCloseRequested: () async {
+              // Best-effort flush: logout flush happens in DesktopScreen too;
+              // the app shell flush protects against closing via the host
+              // window chrome before any managed desktop is mounted.
+              try {
+                await ref
+                    .read(workspaceSyncProvider.notifier)
+                    .flush()
+                    .timeout(const Duration(seconds: 2));
+              } catch (_) {
+                // Persisting workspace data is best-effort during shutdown.
+              }
+              await windowManager.close();
+            },
+          ),
+        );
+      },
     );
   }
 }

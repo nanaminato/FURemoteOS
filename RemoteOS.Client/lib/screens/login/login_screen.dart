@@ -1,11 +1,14 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
-import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/dependency_injection.dart';
 import '../../core/auth/auth_service.dart';
 import '../../core/localization/language_catalog.dart';
+import '../../core/runtime/desktop_runtime.dart';
 import '../../core/theme/theme_service.dart';
 
 /// Remote Desktop Connection-style sign-in surface.
@@ -72,26 +75,52 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _connect() async {
     if (!_formKey.currentState!.validate()) return;
+    final log = _optionalRuntimeLog();
+    final server = _serverController.text.trim();
+    final username = _usernameController.text.trim();
+    unawaited(log?.info(
+      '[login] connect requested server=$server username=$username '
+      'rememberServer=$_rememberServer rememberPassword=$_rememberPassword',
+    ));
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
+    final stopwatch = Stopwatch()..start();
     final success = await ref.read(authProvider.notifier).login(
-          serverUrl: _serverController.text.trim(),
-          username: _usernameController.text.trim(),
+          serverUrl: server,
+          username: username,
           password: _passwordController.text,
           rememberServer: _rememberServer,
           rememberPassword: _rememberPassword,
         );
+    stopwatch.stop();
 
-    if (!mounted) return;
+    if (!mounted) {
+      unawaited(log?.info('[login] widget unmounted before login response'));
+      return;
+    }
     setState(() => _isLoading = false);
     final authState = ref.read(authProvider);
+    unawaited(log?.info(
+      '[login] finished in ${stopwatch.elapsedMilliseconds}ms success=$success '
+      'authState=${authState.state} authenticated=${authState.isAuthenticated} '
+      'hasError=${authState.errorMessage != null}',
+    ));
     if (success && authState.isAuthenticated) {
+      unawaited(log?.info('[login] navigating to /desktop'));
       context.go('/desktop');
     } else if (authState.errorMessage != null) {
       setState(() => _errorMessage = authState.errorMessage);
+    }
+  }
+
+  RuntimeLog? _optionalRuntimeLog() {
+    try {
+      return di.isRegistered<RuntimeLog>() ? di<RuntimeLog>() : null;
+    } catch (_) {
+      return null;
     }
   }
 

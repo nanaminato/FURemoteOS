@@ -1,10 +1,14 @@
+import 'dart:async';
+
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
-import 'package:easy_localization/easy_localization.dart';
-import 'dart:async';
+
+import '../../app/dependency_injection.dart';
 import '../apps/app_registry.dart';
-import '../../core/theme/theme_service.dart';
+import '../runtime/desktop_runtime.dart';
+import '../theme/theme_service.dart';
 
 /// Window state constants.
 enum RemoteWindowState { normal, minimized, maximized, fullscreen }
@@ -58,9 +62,21 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
     Size? initialSize,
     Size? screenSize,
   }) {
+    final log = _optionalLog;
+    unawaited(log?.info(
+      '[windows] openApp appId=${entry.id} title=${title ?? entry.nameKey} '
+      'allowMultipleInstances=${entry.allowMultipleInstances} '
+      'initialBounds=$initialBounds initialSize=$initialSize '
+      'screenSize=$screenSize defaultSize=${entry.defaultSize} '
+      'minimumSize=${entry.minimumSize}',
+    ));
     if (!entry.allowMultipleInstances) {
       final existing = state.where((w) => w.appId == entry.id).toList();
       if (existing.isNotEmpty) {
+        unawaited(log?.info(
+          '[windows] openApp existing instance found id=${existing.first.id} '
+          'state=${existing.first.state}; focusing instead',
+        ));
         focus(existing.first.id);
         if (existing.first.state == RemoteWindowState.minimized) {
           restore(existing.first.id);
@@ -80,6 +96,11 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
           safeInitial ?? entry.defaultSize,
           safeScreen,
         );
+    unawaited(log?.info(
+      '[windows] openApp computing bounds safeScreen=${safeScreen.width}x${safeScreen.height} '
+      'safeInitial=${safeInitial == null ? '<registry>' : '${safeInitial.width}x${safeInitial.height}'} '
+      'bounds=LTWH(${defaultRect.left},${defaultRect.top},${defaultRect.width},${defaultRect.height})',
+    ));
     final window = RemoteWindow(
       id: id,
       appId: entry.id,
@@ -92,7 +113,18 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
       zOrder: _zCounter++,
     );
     state = [...state, window];
+    unawaited(log?.info(
+      '[windows] openApp created windowId=$id totalWindows=${state.length}',
+    ));
     return window;
+  }
+
+  RuntimeLog? get _optionalLog {
+    try {
+      return di.isRegistered<RuntimeLog>() ? di<RuntimeLog>() : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   Size _sanitizeSize(Size? input, Size fallback) {

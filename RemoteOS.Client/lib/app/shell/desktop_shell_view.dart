@@ -11,15 +11,19 @@
 // The view explicitly does NOT call HTTP, read repositories or write
 // persistent settings — all of that lives in the VM layer / below.
 
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:watch_it/watch_it.dart';
+import 'package:watch_it/watch_it.dart' hide di;
 import 'package:window_manager/window_manager.dart' as desktop_wm;
 
+import '../../../app/dependency_injection.dart';
 import '../../../core/apps/app_registry.dart';
 import '../../../core/auth/auth_service.dart';
+import '../../../core/runtime/desktop_runtime.dart';
 import '../../../core/theme/theme_service.dart';
 import '../../../core/window_manager/context_menu_host.dart';
 import '../../../core/window_manager/window_manager.dart';
@@ -48,9 +52,20 @@ class _DesktopShellViewState extends ConsumerState<DesktopShellView> {
       currentLocale: () => context.locale,
       setLocale: (locale) => context.setLocale(locale),
     );
+    final log = _optionalRuntimeLog();
+    unawaited(log?.info('[desktop] initState mounted=$mounted'));
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(log?.info('[desktop] first post-frame callback, awaiting size'));
       _restoreWhenSized();
     });
+  }
+
+  RuntimeLog? _optionalRuntimeLog() {
+    try {
+      return di.isRegistered<RuntimeLog>() ? di<RuntimeLog>() : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Waits for the host viewport to reach a non-trivial size before asking the
@@ -61,6 +76,7 @@ class _DesktopShellViewState extends ConsumerState<DesktopShellView> {
   /// after sign-in.
   Future<void> _restoreWhenSized() async {
     const taskbarHeight = 48.0;
+    final log = _optionalRuntimeLog();
     var size = Size.zero;
     int attempts = 0;
     while (mounted) {
@@ -70,17 +86,38 @@ class _DesktopShellViewState extends ConsumerState<DesktopShellView> {
       if (attempts >= 50) {
         // Give up: use the shipped minimum host size as a safe default so the
         // user still sees the desktop even if the OS window reports garbage.
+        unawaited(log?.info(
+          '[desktop] viewport size stalled at ${size.width.toStringAsFixed(1)}x'
+          '${size.height.toStringAsFixed(1)} after ${attempts} polls; '
+          'falling back to default 1280x800',
+        ));
         size = const Size(1280, 800);
         break;
       }
       await Future<void>.delayed(const Duration(milliseconds: 20));
+      if (!mounted) break;
     }
-    if (!mounted) return;
+    if (!mounted) {
+      unawaited(log?.info('[desktop] viewport ready but widget unmounted; aborting restore'));
+      return;
+    }
     final workArea = Size(size.width, (size.height - taskbarHeight).clamp(240.0, 4320.0));
-    _vm.restoreDesktopCommand.run(RestoreDesktopRequest(
-      screen: workArea,
-      welcomeBuilder: (entry) => entry.windowBuilder(context),
+    unawaited(log?.info(
+      '[desktop] viewport ready viewport=${size.width.toStringAsFixed(1)}x'
+      '${size.height.toStringAsFixed(1)} workArea=${workArea.width.toStringAsFixed(1)}x'
+      '${workArea.height.toStringAsFixed(1)} attempts=$attempts; '
+      'invoking restoreDesktopCommand',
     ));
+    try {
+      _vm.restoreDesktopCommand.run(RestoreDesktopRequest(
+        screen: workArea,
+        welcomeBuilder: (entry) => entry.windowBuilder(context),
+      ));
+      unawaited(log?.info('[desktop] restoreDesktopCommand finished synchronously'));
+    } catch (error, stack) {
+      unawaited(log?.error(error, stack));
+      rethrow;
+    }
   }
 
   @override
@@ -146,6 +183,13 @@ class _DesktopShellViewState extends ConsumerState<DesktopShellView> {
     ref.listen<List<RemoteWindow>>(windowManagerProvider, (_, windows) {
       _vm.saveWindowLayouts(windows);
     });
+
+    final log = _optionalRuntimeLog();
+    unawaited(log?.info(
+      '[desktop] build; authState=${authState.state} '
+      'authenticated=${authState.isAuthenticated} '
+      'theme=${themeState.kind} brightness=$brightness',
+    ));
 
     return Theme(
       data: themeData,

@@ -20,6 +20,7 @@ import '../core/apps/app_registry.dart';
 import '../core/auth/auth_service.dart';
 import '../core/localization/language_catalog.dart';
 import '../core/network/remoteos_api.dart';
+import '../core/runtime/desktop_runtime.dart';
 import '../core/theme/theme_service.dart';
 import '../core/window_manager/modal_manager.dart';
 import '../core/window_manager/window_manager.dart';
@@ -57,9 +58,17 @@ T getService<T extends Object>({String? instanceName}) =>
 /// Called from `main()` after window/runtime/localization are initialized.
 void registerCoreSingletons({
   required LanguageCatalog catalog,
+  RuntimeLog? runtimeLog,
 }) {
   // Localization
   di.registerSingleton<LanguageCatalog>(catalog);
+
+  // Diagnostic runtime log (optional).  When supplied, core desktop paths
+  // write structured INFO entries that help diagnose "white screen" or
+  // "lost connection to device" failures between sign-in and desktop mount.
+  if (runtimeLog != null) {
+    di.registerSingleton<RuntimeLog>(runtimeLog);
+  }
 
   // App registry
   di.registerSingleton<AppRegistry>(
