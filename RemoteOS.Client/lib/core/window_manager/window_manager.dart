@@ -158,12 +158,65 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
     return Rect.fromLTWH(left, top, size.width, size.height);
   }
 
-  /// Focus (raise to top) a window.
+  /// Focus (raise to top) a window, respecting modal chains.
+  ///
+  /// If `windowId` belongs to a modal family (owner or any descendant modal),
+  /// the entire chain from root owner down to the currently active topmost
+  /// modal is raised together as an atomic group. The topmost modal ends up
+  /// with the highest z-order so it stays visually on top of its owners, and
+  /// every owner in between is also brought above unrelated windows. This
+  /// matches desktop behavior where clicking any window in a modal chain
+  /// activates the deepest modal and lifts the whole group.
   void focus(String windowId) {
-    state = [
-      for (final w in state)
-        if (w.id == windowId) w..zOrder = _zCounter++ else w,
-    ];
+    final list = List<RemoteWindow>.of(state);
+    final byId = <String, RemoteWindow>{
+      for (final w in list) w.id: w,
+    };
+    final start = byId[windowId];
+    if (start == null) return;
+
+    // 1) Walk up to the root owner (window with no modal owner).
+    RemoteWindow root = start;
+    while (root.modalOwnerId != null) {
+      final parent = byId[root.modalOwnerId!];
+      if (parent == null) break;
+      root = parent;
+    }
+
+    // 2) Build the active chain root -> ... -> topmost active modal.
+    // At each level pick the direct child modal with the highest zOrder, i.e.
+    // the one that is currently visually above its siblings.
+    final activeChain = <RemoteWindow>[root];
+    while (true) {
+      final parent = activeChain.last;
+      RemoteWindow? topChild;
+      for (final w in list) {
+        if (w.modalOwnerId != parent.id) continue;
+        if (topChild == null || w.zOrder > topChild.zOrder) {
+          topChild = w;
+        }
+      }
+      if (topChild == null) break;
+      activeChain.add(topChild);
+    }
+
+    // 3) Raise the chain in root-first order so internal z-order is preserved:
+    // root < level-1 modal < ... < topmost, all above unrelated windows.
+    // Produce a new list so StateNotifier fires a change notification.
+    final chainIds = <String>{for (final w in activeChain) w.id};
+    final updated = <RemoteWindow>[];
+    // Emit unrelated windows first in their existing order.
+    for (final w in list) {
+      if (chainIds.contains(w.id)) continue;
+      updated.add(w);
+    }
+    // Append the chain with sequentially bumped z values. The view sorts
+    // windows by zOrder so root < level-1 < ... < topmost renders correctly.
+    for (final w in activeChain) {
+      w.zOrder = _zCounter++;
+      updated.add(w);
+    }
+    state = updated;
   }
 
   /// Close a window.

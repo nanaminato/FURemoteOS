@@ -125,6 +125,146 @@ void main() {
 
     expect(opened.bounds.size, const Size(720, 520));
   });
+
+  group('focus raises modal chain together', () {
+    RemoteWindow w(String id, {String? modalOwnerId, int z = 0}) =>
+        RemoteWindow(
+          id: id,
+          appId: 'test-app',
+          title: id,
+          child: const SizedBox.shrink(),
+          icon: Icons.widgets_outlined,
+          bounds: const Rect.fromLTWH(50, 50, 300, 200),
+          zOrder: z,
+          modalOwnerId: modalOwnerId,
+        );
+
+    test('focus owner raises owner and its single modal together', () {
+      // Setup: A (modal owner) with B (modal of A), plus unrelated E above.
+      // After focus(A) the chain [A, B] must both end up z-wise above E,
+      // and A.z < B.z (owner below its modal).
+      final manager = WindowManagerNotifier();
+      final a = w('A');
+      final b = w('B', modalOwnerId: 'A');
+      final e = w('E');
+      manager.state = [a, b, e];
+      // Seed z values via _zCounter: E above both.
+      manager.focus(e.id); // bump E
+      final eZbefore = e.zOrder;
+
+      manager.focus(a.id); // focus owner A
+
+      // Chain members both end up above unrelated E.
+      expect(a.zOrder, greaterThan(eZbefore));
+      expect(b.zOrder, greaterThan(eZbefore));
+      // Internal order preserved: owner below its modal.
+      expect(a.zOrder, lessThan(b.zOrder));
+    });
+
+    test('focus modal raises owner + modal (same as focusing owner)', () {
+      // A-模态B. Clicking B activates B (topmost) and lifts A too.
+      final manager = WindowManagerNotifier();
+      final a = w('A');
+      final b = w('B', modalOwnerId: 'A');
+      final e = w('E');
+      manager.state = [a, b, e];
+      manager.focus(e.id);
+      final eZbefore = e.zOrder;
+
+      manager.focus(b.id); // focus the modal itself
+
+      expect(a.zOrder, greaterThan(eZbefore));
+      expect(b.zOrder, greaterThan(eZbefore));
+      expect(a.zOrder, lessThan(b.zOrder));
+    });
+
+    test('focus chain member activates deep topmost for 3-level nesting', () {
+      // A -模态B -模态C,  D,  E-模态F.
+      // Click A or B or C → the topmost C should get highest z in chain,
+      // and [A, B, C] should all be raised above unrelated windows (D, E, F).
+      final manager = WindowManagerNotifier();
+      final a = w('A');
+      final b = w('B', modalOwnerId: 'A');
+      final c = w('C', modalOwnerId: 'B');
+      final d = w('D');
+      final e = w('E');
+      final f = w('F', modalOwnerId: 'E');
+      manager.state = [a, b, c, d, e, f];
+      // Raise D, E-F above everything initially to challenge the chain-lift.
+      manager.focus(d.id);
+      manager.focus(f.id); // lifts [E, F]
+      final dZbefore = d.zOrder;
+      final eZbefore = e.zOrder;
+      final fZbefore = f.zOrder;
+
+      // Focus middle-of-chain B.
+      manager.focus(b.id);
+
+      // The A-B-C chain is lifted as a group above the previously-raised
+      // (and now unrelated) windows D/E/F.
+      expect(a.zOrder, greaterThan(dZbefore));
+      expect(b.zOrder, greaterThan(dZbefore));
+      expect(c.zOrder, greaterThan(dZbefore));
+      expect(a.zOrder, greaterThan(eZbefore));
+      expect(a.zOrder, greaterThan(fZbefore));
+      // Internal chain order remains strict: A < B < C.
+      expect(a.zOrder, lessThan(b.zOrder));
+      expect(b.zOrder, lessThan(c.zOrder));
+      // Unrelated chain [E, F] keeps its own internal order untouched.
+      expect(e.zOrder, lessThan(f.zOrder));
+    });
+
+    test('focus topmost of sibling groups lifts only its own chain', () {
+      // Groups: (A-模态B) and (C-模态D) plus lone E.
+      // Focus B → only A and B should move; C, D, E relative order unchanged.
+      final manager = WindowManagerNotifier();
+      final a = w('A');
+      final b = w('B', modalOwnerId: 'A');
+      final c = w('C');
+      final d = w('D', modalOwnerId: 'C');
+      final e = w('E');
+      manager.state = [a, b, c, d, e];
+      // First lift group (C,D) so it is above (A,B) initially.
+      manager.focus(d.id);
+      final cZbefore = c.zOrder;
+      final dZbefore = d.zOrder;
+      final eZbefore = e.zOrder;
+
+      manager.focus(a.id); // now focus owner A of group (A,B)
+
+      // Group (A,B) is now on top of everything.
+      expect(b.zOrder, greaterThan(dZbefore));
+      expect(a.zOrder, greaterThan(dZbefore));
+      expect(a.zOrder, lessThan(b.zOrder));
+      // Unrelated group (C,D) and lone window E keep their exact z values.
+      expect(c.zOrder, equals(cZbefore));
+      expect(d.zOrder, equals(dZbefore));
+      expect(e.zOrder, equals(eZbefore));
+    });
+
+    test('focus a standalone window works like the old single-bump', () {
+      final manager = WindowManagerNotifier();
+      final lone = w('LONE');
+      manager.state = [lone];
+
+      manager.focus(lone.id);
+
+      // No throw, window remains present.
+      expect(manager.state, contains(lone));
+    });
+
+    test('focus unknown id is a no-op (preserves state list identity semantic)',
+        () {
+      final manager = WindowManagerNotifier();
+      final a = w('A');
+      final before = List<RemoteWindow>.of(manager.state = [a]);
+
+      manager.focus('does-not-exist');
+
+      // No change emitted: same count, same element, no z bumps visible.
+      expect(manager.state.length, equals(before.length));
+    });
+  });
 }
 
 Widget _emptyApp(BuildContext context) => const SizedBox.shrink();
