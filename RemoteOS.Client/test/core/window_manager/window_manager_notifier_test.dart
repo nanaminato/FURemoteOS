@@ -265,6 +265,109 @@ void main() {
       expect(manager.state.length, equals(before.length));
     });
   });
+
+  group('showDialog lifts owner chain (same semantics as focus)', () {
+    RemoteWindow plain(String id) => RemoteWindow(
+          id: id,
+          appId: 'test-app',
+          title: id,
+          child: const SizedBox.shrink(),
+          icon: Icons.widgets_outlined,
+          bounds: const Rect.fromLTWH(50, 50, 300, 200),
+        );
+
+    test('opening first dialog lifts owner + new modal above unrelated windows',
+        () async {
+      final manager = WindowManagerNotifier();
+      final a = plain('A');
+      final d = plain('D');
+      final e = plain('E');
+      // Seed with three windows, then bring D and E above A via focus.
+      manager.state = [a, d, e];
+      // Kick _zCounter so focus(d) and focus(e) produce strictly higher z
+      // values than A's freshly-assigned chain-lift z.
+      manager.focus(a.id); // A.z = 0, counter = 1
+      manager.focus(d.id); // D.z = 1, counter = 2
+      manager.focus(e.id); // E.z = 2, counter = 3
+      final dZbefore = d.zOrder;
+      final eZbefore = e.zOrder;
+      final aZbefore = a.zOrder;
+      // Sanity: after three focuses, A is strictly the lowest.
+      expect(aZbefore, lessThan(dZbefore));
+      expect(aZbefore, lessThan(eZbefore));
+      expect(dZbefore, lessThan(eZbefore));
+
+      // Open a modal dialog on top of A.
+      final future = manager.showDialog<int>(
+        owner: a,
+        title: 'Modal B',
+        icon: Icons.help_outline,
+        child: const SizedBox.shrink(),
+      );
+      final dialog = manager.state.singleWhere((w) => w.isModal);
+
+      // A and the new dialog B are both lifted above unrelated D and E.
+      expect(a.zOrder, greaterThan(dZbefore));
+      expect(a.zOrder, greaterThan(eZbefore));
+      expect(dialog.zOrder, greaterThan(d.zOrder));
+      expect(dialog.zOrder, greaterThan(e.zOrder));
+      // Owner stays strictly below its modal.
+      expect(a.zOrder, lessThan(dialog.zOrder));
+      // Unrelated D and E were not touched (kept their z values).
+      expect(d.zOrder, equals(dZbefore));
+      expect(e.zOrder, equals(eZbefore));
+      // Cleanup so Future doesn't leak.
+      manager.close(dialog.id);
+      await future;
+    });
+
+    test('opening nested dialog lifts root owner + intermediate + topmost',
+        () async {
+      final manager = WindowManagerNotifier();
+      final a = plain('A');
+      manager.state = [a];
+      // Open first-level modal B on A.
+      final fB = manager.showDialog<int>(
+        owner: a,
+        title: 'Modal B',
+        icon: Icons.help_outline,
+        child: const SizedBox.shrink(),
+      );
+      final b = manager.state.singleWhere((w) => w.isModal && w.modalOwnerId == a.id);
+      // Add unrelated E, focus E so it goes above [A, B].
+      final e = plain('E');
+      manager.state = [...manager.state, e];
+      manager.focus(e.id);
+      final eZbefore = e.zOrder;
+      expect(a.zOrder, lessThan(eZbefore));
+      expect(b.zOrder, lessThan(eZbefore));
+
+      // Open nested modal C owned by B.
+      final fC = manager.showDialog<int>(
+        owner: b,
+        title: 'Modal C',
+        icon: Icons.help_outline,
+        child: const SizedBox.shrink(),
+      );
+      final c = manager.state.singleWhere((w) => w.modalOwnerId == b.id);
+
+      // All three chain members are now above the unrelated E.
+      expect(a.zOrder, greaterThan(eZbefore));
+      expect(b.zOrder, greaterThan(eZbefore));
+      expect(c.zOrder, greaterThan(eZbefore));
+      // Strict internal ordering A < B < C.
+      expect(a.zOrder, lessThan(b.zOrder));
+      expect(b.zOrder, lessThan(c.zOrder));
+      // E's z has not been rewritten.
+      expect(e.zOrder, equals(eZbefore));
+
+      // Drain futures to avoid state leak warnings.
+      manager.close(c.id);
+      await fC;
+      manager.completeDialog(b.id);
+      await fB;
+    });
+  });
 }
 
 Widget _emptyApp(BuildContext context) => const SizedBox.shrink();

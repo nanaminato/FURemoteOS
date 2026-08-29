@@ -279,6 +279,10 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
       modalCompletion: completion,
     );
     state = [...state, dialog];
+    // Lifting the owner + any existing modals together with the new dialog
+    // matches the click/focus path: opening a modal raises the whole chain
+    // above unrelated windows, with the new dialog ending up topmost.
+    focus(id);
     return completion.future.then((value) => value as T?);
   }
 
