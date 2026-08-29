@@ -52,6 +52,25 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('gives the routed child the remaining viewport height',
+      (tester) async {
+    const bodyKey = Key('desktop-body');
+    await tester.binding.setSurfaceSize(const Size(900, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DesktopWindowShell(
+          child: Container(key: bodyKey),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(tester.getSize(find.byKey(bodyKey)), const Size(900, 664));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('restores the custom title bar after leaving full screen',
       (tester) async {
     await tester.pumpWidget(

@@ -217,8 +217,14 @@ class _DesktopWindowShellState extends State<DesktopWindowShell>
 
   @override
   Widget build(BuildContext context) {
-    return Overlay(
-      initialEntries: [_shellEntry],
+    // MaterialApp.builder may offer loose constraints. An Overlay containing
+    // only an entry with canSizeOverlay=false then shrink-wraps to 0×0,
+    // leaving the title bar visible but giving the routed desktop no area to
+    // paint. The host frame must always consume the full app viewport.
+    return SizedBox.expand(
+      child: Overlay(
+        initialEntries: [_shellEntry],
+      ),
     );
   }
 }
