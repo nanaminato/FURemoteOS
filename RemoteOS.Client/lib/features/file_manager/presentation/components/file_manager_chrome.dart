@@ -335,13 +335,18 @@ class FileManagerSideRail extends StatelessWidget {
     }
   }
 
-  String _label(String key) {
-    // Navigation labels are semantic keys like `explorer.home`.  Attempt
-    // localization first; fall back to the raw name if no key exists.
-    try {
-      return key.tr();
-    } catch (_) {
-      return key;
+  String _label(String name) {
+    // Only the three client-owned group names are localization keys. Folder
+    // names and drive labels originate at the remote host and must remain
+    // literal text (for example, `桌面` or `C:\`) rather than translation
+    // lookups. Easy Localization reports a missing key instead of throwing.
+    switch (name) {
+      case 'explorer.home':
+      case 'explorer.computer':
+      case 'explorer.network':
+        return name.tr();
+      default:
+        return name;
     }
   }
 }
