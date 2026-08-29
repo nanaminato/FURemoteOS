@@ -1,23 +1,23 @@
 {
-    "Strings":  {
-                    "app.welcome":  "ようこそ",
-                    "app.notepad":  "メモ帳",
-                    "app.code_editor":  "コード エディター",
-                    "app.image_viewer":  "画像ビューアー",
-                    "app.settings":  "設定",
-                    "app.terminal":  "ターミナル",
-                    "app.explorer":  "ファイル エクスプローラー",
-                    "app.browser":  "ブラウザー",
-                    "app.task_manager":  "タスク マネージャー",
-                    "app.docker_manager":  "Docker マネージャー",
-                    "app.firewall":  "ファイアウォール",
-                    "app.certificates":  "証明書",
-                    "app.web_servers":  "Web サーバー",
-                    "app.tunnels":  "トンネル",
-                    "app.git_client":  "Git クライアント",
-                    "app.port_forwarding":  "ポート転送",
-                    "app.process_guardian":  "プロセス ガーディアン",
-                    "app.app_installer":  "アプリ インストーラー",
-                    "apps.desktop_unknown":  "不明なアプリ"
-                }
+    "Strings": {
+        "app.welcome": "ようこそ",
+        "app.notepad": "メモ帳",
+        "app.code_editor": "コード エディター",
+        "app.image_viewer": "画像ビューアー",
+        "app.settings": "設定",
+        "app.terminal": "ターミナル",
+        "app.explorer": "ファイル エクスプローラー",
+        "app.browser": "ブラウザー",
+        "app.task_manager": "タスク マネージャー",
+        "app.docker_manager": "Docker マネージャー",
+        "app.firewall": "ファイアウォール",
+        "app.certificates": "証明書",
+        "app.web_servers": "Web サーバー",
+        "app.tunnels": "トンネル",
+        "app.git_client": "Git クライアント",
+        "app.port_forwarding": "ポート転送",
+        "app.process_guardian": "プロセス ガーディアン",
+        "app.app_installer": "アプリ インストーラー",
+        "apps.desktop_unknown": "不明なアプリ"
+    }
 }
