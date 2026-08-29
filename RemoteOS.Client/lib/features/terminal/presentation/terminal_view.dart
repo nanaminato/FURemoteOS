@@ -374,8 +374,8 @@ class _TerminalViewState extends State<TerminalView> {
     return Container(
       height: 32,
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      color: palette.surfaceRaised,
       decoration: BoxDecoration(
+        color: palette.surfaceRaised,
         border: Border(bottom: BorderSide(color: palette.borderDefault, width: 1)),
       ),
       child: Row(

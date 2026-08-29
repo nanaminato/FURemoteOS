@@ -140,6 +140,7 @@ class LanguageCatalog {
         'settings',
         'shell',
         'task_manager',
+        'terminal',
       ]) {
         final path = '$_assetRoot/$tag/$file.json';
         try {
