@@ -30,6 +30,7 @@ import '../application/terminal_view_model.dart';
 import '../domain/terminal_repository.dart';
 import '../domain/terminal_ui_state.dart';
 import 'dialogs/terminal_settings_dialog.dart';
+import 'terminal_output_queue.dart';
 
 class TerminalView extends ConsumerStatefulWidget {
   const TerminalView({
@@ -63,8 +64,16 @@ class _TerminalViewState extends ConsumerState<TerminalView> {
   String _fontFamily = 'Cascadia Mono';
 
   // ---- Output coalescing ----
-  final StringBuffer _pendingOutput = StringBuffer();
+  static const _maxOutputCodeUnitsPerFrame = 32 * 1024;
+  final TerminalOutputQueue _pendingOutput = TerminalOutputQueue();
   bool _outputFlushScheduled = false;
+
+  // Resizing a desktop window can change the xterm grid dozens of times per
+  // second. Coalescing the geometry before it crosses the SignalR boundary
+  // prevents a slow Windows PTY resize from competing with typing and paint.
+  static const _resizeDebounce = Duration(milliseconds: 80);
+  Timer? _resizeDebounceTimer;
+  ({int columns, int rows, int widthPixels, int heightPixels})? _pendingResize;
 
   // ---- Selection-aware menu state ----
   bool _hasSelection = false;
@@ -101,6 +110,9 @@ class _TerminalViewState extends ConsumerState<TerminalView> {
   @override
   void dispose() {
     _terminalController.removeListener(_onControllerChanged);
+    _resizeDebounceTimer?.cancel();
+    _pendingResize = null;
+    _pendingOutput.clear();
     widget.vm.requestSettingsAsync = null;
     widget.vm.outputSink = null;
     super.dispose();
@@ -117,8 +129,12 @@ class _TerminalViewState extends ConsumerState<TerminalView> {
   // ---- Coalesced output flush ----
 
   void _writeChunk(String chunk) {
-    _pendingOutput.write(chunk);
-    if (_outputFlushScheduled) return;
+    _pendingOutput.add(chunk);
+    _scheduleOutputFlush();
+  }
+
+  void _scheduleOutputFlush() {
+    if (_outputFlushScheduled || _pendingOutput.isEmpty) return;
     _outputFlushScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _outputFlushScheduled = false;
@@ -127,9 +143,10 @@ class _TerminalViewState extends ConsumerState<TerminalView> {
         return;
       }
       if (_pendingOutput.isEmpty) return;
-      final accumulated = _pendingOutput.toString();
-      _pendingOutput.clear();
-      _terminal.write(accumulated);
+      _terminal.write(
+        _pendingOutput.takeUpTo(_maxOutputCodeUnitsPerFrame),
+      );
+      _scheduleOutputFlush();
     });
   }
 
@@ -143,10 +160,28 @@ class _TerminalViewState extends ConsumerState<TerminalView> {
   }
 
   void _handleResize(int cols, int rows, int wpx, int hpx) {
-    if (widget.vm.canResize()) {
-      // ignore: discarded_futures
-      widget.vm.resize(cols, rows, widthPx: wpx, heightPx: hpx);
-    }
+    if (!widget.vm.canResize()) return;
+    _pendingResize = (
+      columns: cols,
+      rows: rows,
+      widthPixels: wpx,
+      heightPixels: hpx,
+    );
+    _resizeDebounceTimer?.cancel();
+    _resizeDebounceTimer = Timer(_resizeDebounce, _flushPendingResize);
+  }
+
+  void _flushPendingResize() {
+    final resize = _pendingResize;
+    _pendingResize = null;
+    if (!mounted || resize == null || !widget.vm.canResize()) return;
+    // ignore: discarded_futures
+    widget.vm.resize(
+      resize.columns,
+      resize.rows,
+      widthPx: resize.widthPixels,
+      heightPx: resize.heightPixels,
+    );
   }
 
   // ---- Context-menu actions (copy/paste/select-all/clear) ----
