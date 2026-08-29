@@ -35,7 +35,7 @@ class _SettingsPersonalizationPageState
     final isDark = themeState.resolveBrightness(context) == Brightness.dark;
     final resolved = ThemePaletteDefaults.resolve(prefs, isDark);
     final selectedIsCustom = prefs.paletteId.startsWith('custom:');
-    final paletteChoices = uniquePaletteChoices([
+    final paletteChoices = _uniquePaletteChoices([
       PaletteChoice(PaletteIds.remoteosBlue,
           'settings.palette.remoteos_blue'.tr(), false),
       PaletteChoice(PaletteIds.nord, 'settings.palette.nord'.tr(), false),
@@ -74,6 +74,15 @@ class _SettingsPersonalizationPageState
         _accentSection(widget.palette, accentError),
       ],
     );
+  }
+
+  /// A duplicated persisted palette ID must not reach DropdownButton: Flutter
+  /// requires exactly one menu item for its selected value.
+  List<PaletteChoice> _uniquePaletteChoices(Iterable<PaletteChoice> choices) {
+    final seenIds = <String>{};
+    return choices
+        .where((choice) => seenIds.add(choice.id))
+        .toList(growable: false);
   }
 
   Widget _wallpaperSection(
