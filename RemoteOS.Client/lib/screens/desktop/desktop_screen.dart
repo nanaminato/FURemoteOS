@@ -347,7 +347,11 @@ class _DesktopScreenState extends ConsumerState<DesktopScreen> {
                       ? null
                       : sorted.firstWhere(
                           (item) => item.id == window.modalOwnerId)),
-            RemoteWindowChrome(window: window, workArea: workArea),
+            RemoteWindowChrome(
+              key: ValueKey('remote-window-${window.id}'),
+              window: window,
+              workArea: workArea,
+            ),
           ],
         ]),
       ),

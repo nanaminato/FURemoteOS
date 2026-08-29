@@ -723,17 +723,6 @@ class _RemoteWindowChromeState extends ConsumerState<RemoteWindowChrome> {
                   isMaximized ? 'common.restore'.tr() : 'common.maximize'.tr(),
             ),
             _WindowButton(
-              icon: isFullscreen
-                  ? Icons.fullscreen_exit_rounded
-                  : Icons.fullscreen_rounded,
-              palette: palette,
-              hoverColor: palette.surfaceHover,
-              onPressed: () => wm.toggleFullscreen(win.id, widget.workArea),
-              tooltip: isFullscreen
-                  ? 'shell.full_screen.exit'.tr()
-                  : 'shell.full_screen.enter_tooltip'.tr(),
-            ),
-            _WindowButton(
               icon: Icons.close_rounded,
               palette: palette,
               hoverColor: palette.danger,

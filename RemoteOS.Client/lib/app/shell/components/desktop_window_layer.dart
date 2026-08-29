@@ -36,7 +36,11 @@ class DesktopWindowLayer extends ConsumerWidget {
                     : sorted
                         .firstWhere((item) => item.id == window.modalOwnerId),
               ),
-            _ErrorGuardedWindowChrome(window: window, workArea: workArea),
+            _ErrorGuardedWindowChrome(
+              key: ValueKey('remote-window-${window.id}'),
+              window: window,
+              workArea: workArea,
+            ),
           ],
         ]),
       ),
@@ -59,8 +63,11 @@ class DesktopWindowLayer extends ConsumerWidget {
 class _ErrorGuardedWindowChrome extends ConsumerWidget {
   final RemoteWindow window;
   final Rect workArea;
-  const _ErrorGuardedWindowChrome(
-      {required this.window, required this.workArea});
+  const _ErrorGuardedWindowChrome({
+    super.key,
+    required this.window,
+    required this.workArea,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

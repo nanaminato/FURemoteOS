@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:remoteos_client/app/shell/components/desktop_window_layer.dart';
 import 'package:remoteos_client/core/shell/desktop_window_shell.dart';
 import 'package:remoteos_client/core/window_manager/window_manager.dart';
 
@@ -167,6 +168,76 @@ void main() {
     );
     await tester.pump();
 
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('reordering windows keeps title-bar drag state with its window',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1000, 600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final manager = WindowManagerNotifier();
+    final a = RemoteWindow(
+      id: 'a',
+      appId: 'test-app',
+      title: 'A',
+      icon: Icons.looks_one_outlined,
+      bounds: const Rect.fromLTWH(10, 10, 360, 240),
+      child: const SizedBox.shrink(),
+    );
+    final b = RemoteWindow(
+      id: 'b',
+      appId: 'test-app',
+      title: 'B',
+      icon: Icons.looks_two_outlined,
+      bounds: const Rect.fromLTWH(460, 10, 360, 240),
+      child: const SizedBox.shrink(),
+    );
+    manager.state = [a, b];
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          windowManagerProvider.overrideWith((ref) => manager),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(
+            body: Stack(
+              children: [
+                DesktopWindowLayer(
+                  workArea: Rect.fromLTWH(0, 0, 960, 480),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final dragA = await tester.startGesture(const Offset(40, 28));
+    await dragA.moveBy(const Offset(40, 0));
+    await tester.pump();
+    await dragA.moveBy(const Offset(30, 0));
+    await tester.pump();
+    await dragA.up();
+    await tester.pump();
+
+    expect(a.bounds.left, 40);
+
+    final dragB = await tester.startGesture(const Offset(490, 28));
+    await dragB.moveBy(const Offset(30, 0));
+    await tester.pump();
+    await dragB.moveBy(const Offset(30, 0));
+    await tester.pump();
+    await dragB.up();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(a.bounds.left, 40);
+    expect(b.bounds.left, 490);
+    expect(find.byKey(const ValueKey('remote-window-a')), findsOneWidget);
+    expect(find.byKey(const ValueKey('remote-window-b')), findsOneWidget);
+    expect(find.byIcon(Icons.fullscreen_rounded), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }
