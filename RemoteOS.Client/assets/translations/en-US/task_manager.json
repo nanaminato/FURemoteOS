@@ -1,5 +1,34 @@
 {
   "Strings": {
-    "task_manager.cpu": "CPU", "task_manager.performance": "Performance", "task_manager.processes": "Processes", "task_manager.auto_refresh": "Auto refresh (2s)", "task_manager.memory": "Memory", "task_manager.filesystem": "Filesystem", "task_manager.disk": "Disk", "task_manager.network": "Network", "task_manager.filter_placeholder": "Filter by name, PID, or user…", "task_manager.end_task": "End task", "task_manager.status.collecting": "Collecting system data…", "task_manager.status.collect_failed": "Collection failed.", "task_manager.last_60_seconds": "Last 60 seconds", "task_manager.all_resources": "All resources", "task_manager.timeline_60s": "60 sec", "task_manager.timeline_now": "Now"
+    "task_manager.cpu": "CPU",
+    "task_manager.performance": "Performance",
+    "task_manager.processes": "Processes",
+    "task_manager.auto_refresh": "Auto refresh (2s)",
+    "task_manager.memory": "Memory",
+    "task_manager.filesystem": "Filesystem",
+    "task_manager.disk": "Disk",
+    "task_manager.network": "Network",
+    "task_manager.filter_placeholder": "Filter by name, PID, or user…",
+    "task_manager.end_task": "End task",
+    "task_manager.status.collecting": "Collecting system data…",
+    "task_manager.status.collect_failed": "Collection failed: {0}",
+    "task_manager.status.updated": "Updated — {0}  CPU {1}%  Processes {2}",
+    "task_manager.process.terminating": "Ending process {0} (PID {1})…",
+    "task_manager.process.terminated": "Ended process {0} (PID {1}).",
+    "task_manager.process.elevation_required": "Permission denied; could not end {0} (PID {1}). {2}",
+    "task_manager.process.termination_failed": "Could not end process: {0}",
+    "task_manager.process_count": "{0} processes",
+    "task_manager.connection.initializing": "Initializing performance sampling…",
+    "task_manager.connection.live": "Live connection",
+    "task_manager.connection.snapshot": "Live connection unavailable; using snapshots",
+    "task_manager.connection.updated": "Snapshot refreshed",
+    "task_manager.connection.recovering": "Reconnected; recovering history…",
+    "task_manager.connection.disconnected": "Live connection lost; keeping last snapshot",
+    "task_manager.connection.unavailable": "Performance data unavailable",
+    "task_manager.connection.waiting": "Waiting for first sample",
+    "task_manager.last_60_seconds": "Last 60 seconds",
+    "task_manager.all_resources": "All resources",
+    "task_manager.timeline_60s": "60 sec",
+    "task_manager.timeline_now": "Now"
   }
 }

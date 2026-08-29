@@ -1,13 +1,12 @@
 // Task Manager UI state (single ValueNotifier projection per View).
 //
 // Contains:
-//   * performance tab state (snapshots, selected resource, info, history)
-//   * processes tab state (filter, page, auto-refresh, pending user message)
+//   * performance tab state (snapshots, selected item key, info, history)
+//   * processes tab state (filter, page, auto-refresh, kill feedback, counts)
 
 import 'package:flutter/foundation.dart';
 
 import '../../system_monitor/data/remote_system_monitor_api.dart';
-import '../domain/task_repository.dart';
 
 @immutable
 class TaskManagerUiState {
@@ -18,14 +17,16 @@ class TaskManagerUiState {
     required this.info,
     required this.snapshot,
     required this.history,
-    required this.selectedResource,
-    required this.selectedResourceId,
     required this.selectedPerformanceKey,
     required this.processes,
     required this.selectedProcessId,
     required this.processFilter,
     required this.autoRefresh,
     required this.pendingMessage,
+    required this.killFeedback,
+    required this.processTotalCount,
+    required this.connectionStatus,
+    required this.statusText,
     required this.tabIndex,
   });
 
@@ -36,14 +37,16 @@ class TaskManagerUiState {
         info: null,
         snapshot: null,
         history: [],
-        selectedResource: PerformanceResource.cpu,
-        selectedResourceId: null,
         selectedPerformanceKey: 'cpu:cpu',
         processes: null,
         selectedProcessId: null,
         processFilter: '',
         autoRefresh: true,
         pendingMessage: null,
+        killFeedback: '',
+        processTotalCount: 0,
+        connectionStatus: 'task_manager.connection.initializing',
+        statusText: 'task_manager.status.collecting',
         tabIndex: 0,
       );
 
@@ -53,8 +56,6 @@ class TaskManagerUiState {
   final PerformanceInfo? info;
   final PerformanceSnapshot? snapshot;
   final List<PerformanceSnapshot> history;
-  final PerformanceResource selectedResource;
-  final String? selectedResourceId;
   final String selectedPerformanceKey;
   final ProcessPage? processes;
   final int? selectedProcessId;
@@ -62,19 +63,12 @@ class TaskManagerUiState {
   final bool autoRefresh;
   final String?
       pendingMessage; // one-shot SnackBar message, null after consumed
+  final String killFeedback; // empty → hidden; mirrors Avalonia KillFeedback
+  final int processTotalCount;
+  final String
+      connectionStatus; // short label on the top bar (e.g. "实时连接")
+  final String statusText; // detailed status with timestamp/cpu/process counts
   final int tabIndex;
-
-  double get memoryPercent {
-    final s = snapshot;
-    if (s == null || s.memoryTotalBytes == 0) return 0;
-    return s.memoryUsedBytes * 100 / s.memoryTotalBytes;
-  }
-
-  double get filesystemPercent {
-    final s = snapshot;
-    if (s == null || s.filesystemTotalBytes == 0) return 0;
-    return s.filesystemUsedBytes * 100 / s.filesystemTotalBytes;
-  }
 
   TaskManagerUiState copyWith({
     bool? isLoading,
@@ -84,9 +78,6 @@ class TaskManagerUiState {
     PerformanceInfo? info,
     PerformanceSnapshot? snapshot,
     List<PerformanceSnapshot>? history,
-    PerformanceResource? selectedResource,
-    String? selectedResourceId,
-    bool clearSelectedResourceId = false,
     String? selectedPerformanceKey,
     ProcessPage? processes,
     int? selectedProcessId,
@@ -95,6 +86,10 @@ class TaskManagerUiState {
     bool? autoRefresh,
     String? pendingMessage,
     bool clearPendingMessage = false,
+    String? killFeedback,
+    int? processTotalCount,
+    String? connectionStatus,
+    String? statusText,
     int? tabIndex,
   }) {
     return TaskManagerUiState(
@@ -104,11 +99,8 @@ class TaskManagerUiState {
       info: info ?? this.info,
       snapshot: snapshot ?? this.snapshot,
       history: history ?? this.history,
-      selectedResource: selectedResource ?? this.selectedResource,
-      selectedResourceId: clearSelectedResourceId
-          ? null
-          : (selectedResourceId ?? this.selectedResourceId),
-      selectedPerformanceKey: selectedPerformanceKey ?? this.selectedPerformanceKey,
+      selectedPerformanceKey:
+          selectedPerformanceKey ?? this.selectedPerformanceKey,
       processes: processes ?? this.processes,
       selectedProcessId: clearSelectedProcess
           ? null
@@ -117,6 +109,10 @@ class TaskManagerUiState {
       autoRefresh: autoRefresh ?? this.autoRefresh,
       pendingMessage:
           clearPendingMessage ? null : (pendingMessage ?? this.pendingMessage),
+      killFeedback: killFeedback ?? this.killFeedback,
+      processTotalCount: processTotalCount ?? this.processTotalCount,
+      connectionStatus: connectionStatus ?? this.connectionStatus,
+      statusText: statusText ?? this.statusText,
       tabIndex: tabIndex ?? this.tabIndex,
     );
   }

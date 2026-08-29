@@ -272,14 +272,16 @@ class PerformanceResourceInfo {
 }
 
 class ProcessPage {
-  const ProcessPage({required this.items, required this.totalCount});
+  const ProcessPage({required this.items, required this.totalCount, this.sampledAt});
   final List<RemoteProcess> items;
   final int totalCount;
+  final DateTime? sampledAt;
   factory ProcessPage.fromJson(Map<String, dynamic> json) => ProcessPage(
       items: _asList(json['items'])
           .map((item) => RemoteProcess.fromJson(_asMap(item)))
           .toList(),
-      totalCount: (json['totalCount'] as num?)?.toInt() ?? 0);
+      totalCount: (json['totalCount'] as num?)?.toInt() ?? 0,
+      sampledAt: DateTime.tryParse(json['sampledAt']?.toString() ?? ''));
 }
 
 class RemoteProcess {

@@ -2,26 +2,32 @@
 //
 // Presentation state is a single [ValueNotifier<TaskManagerUiState>].
 // Commands model the user intents that have async execution state: starting
-// the data session, refreshing the process list, and killing a process.
-// StreamSubscriptions (hub snapshots/reconnects) and the periodic process
-// Timer are owned here and disposed via the parent ViewModel.
+// the data session, refreshing (tab-aware), and killing a process.
+// StreamSubscriptions (hub snapshots/reconnects/disconnects) and the periodic
+// process Timer are owned here and disposed with this ViewModel.
+//
+// Behavior mirrors the Avalonia TaskManagerViewModel:
+//  - Performance tab is driven by PerformanceItems built from PerformanceInfo;
+//  - Processes tab uses a server-side paged query with a 5-second auto-refresh
+//    that is only enabled while this tab is active;
+//  - Kill operations produce a KillFeedback banner with localized progress/error
+//    messages, identical to Avalonia's IsVisible feedback bar.
 
 import 'dart:async';
 
 import 'package:command_it/command_it.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../../core/commands/base_view_model.dart';
 import '../../system_monitor/data/performance_hub.dart';
 import '../../system_monitor/data/remote_system_monitor_api.dart';
 import '../data/repositories/remote_task_repository.dart';
-import '../domain/task_repository.dart';
 import '../domain/task_performance_item.dart';
+import '../domain/task_repository.dart';
 import '../domain/task_ui_state.dart';
 
 /// Factory used by the app shell to construct a transient VM.
-/// The PerformanceHub is a riverpod-owned object, so the owning ConsumerState
-/// (task_manager_app.dart) resolves it and hands it in via the [hub] parameter.
 TaskManagerViewModel createTaskManagerViewModel({
   required RemoteSystemMonitorApi api,
   required PerformanceHub hub,
@@ -35,8 +41,10 @@ class TaskManagerViewModel extends ViewModel {
       : _repository = repository {
     trackDisposable(state);
     trackDisposable(startCommand);
+    trackDisposable(refreshCommand);
     trackDisposable(refreshProcessesCommand);
     trackDisposable(_killProcessCommand);
+    trackDisposable(clearFilterCommand);
   }
 
   final TaskRepository _repository;
@@ -54,12 +62,11 @@ class TaskManagerViewModel extends ViewModel {
   void _mutate(TaskManagerUiState Function(TaskManagerUiState s) fn) =>
       state.value = fn(state.value);
 
-  // ---- Gate helpers (used by View to gate UI actions) ----
-  // command_it v1.x does not expose canExecuteListenable on command factories,
-  // so the enabled-state decisions are exposed as helpers instead.  The
-  // Command instances still provide `canRun`/`isRunning` execution state.
+  // ---- Gate helpers used by View to gate UI actions ----
 
   bool canRefreshProcesses() => !_s.isLoading;
+
+  // ---- Performance item list + selection (Avalonia PerformanceItems) ----
 
   List<TaskPerformanceItem> get performanceItems =>
       buildTaskPerformanceItems(_s.info, _s.snapshot, _s.history);
@@ -74,94 +81,25 @@ class TaskManagerViewModel extends ViewModel {
   void selectPerformanceItem(TaskPerformanceItem item) => _mutate(
       (s) => s.copyWith(selectedPerformanceKey: item.key));
 
-  // ---- Computed helpers for resource-specific history values ----
+  // ---- UI mutators (pure presentation toggles — not Commands) ----
 
-  List<PerformanceResourceInfo> resourceChoices(
-    PerformanceInfo? info,
-    PerformanceResource resource,
-  ) {
-    if (info == null) return const [];
-    return switch (resource) {
-      PerformanceResource.filesystem => info.filesystems,
-      PerformanceResource.disk => info.disks,
-      PerformanceResource.network => info.networks,
-      _ => const [],
-    };
-  }
-
-  double historyValue(
-    PerformanceSnapshot s,
-    PerformanceResource resource,
-    String? selectedId,
-  ) {
-    switch (resource) {
-      case PerformanceResource.cpu:
-        return s.cpuPercent;
-      case PerformanceResource.memory:
-        return s.memoryTotalBytes == 0
-            ? 0
-            : s.memoryUsedBytes * 100 / s.memoryTotalBytes;
-      case PerformanceResource.filesystem:
-        if (selectedId == null) {
-          return s.filesystemTotalBytes == 0
-              ? 0
-              : s.filesystemUsedBytes * 100 / s.filesystemTotalBytes;
-        }
-        for (final entry in s.filesystems) {
-          if (entry.id == selectedId) {
-            return entry.totalBytes == 0
-                ? 0
-                : entry.usedBytes * 100 / entry.totalBytes;
-          }
-        }
-        return 0;
-      case PerformanceResource.disk:
-        if (selectedId == null) {
-          return (s.diskReadBytesPerSecond + s.diskWriteBytesPerSecond)
-              .toDouble();
-        }
-        for (final entry in s.disks) {
-          if (entry.id == selectedId) {
-            return (entry.readBytesPerSecond + entry.writeBytesPerSecond)
-                .toDouble();
-          }
-        }
-        return 0;
-      case PerformanceResource.network:
-        if (selectedId == null) {
-          return (s.networkReceiveBytesPerSecond + s.networkSendBytesPerSecond)
-              .toDouble();
-        }
-        for (final entry in s.networks) {
-          if (entry.id == selectedId) {
-            return (entry.receiveBytesPerSecond + entry.sendBytesPerSecond)
-                .toDouble();
-          }
-        }
-        return 0;
+  void setTabIndex(int index) {
+    _mutate((s) => s.copyWith(tabIndex: index));
+    _restartProcessTimer();
+    // Avalonia behavior: when switching to Processes, refresh immediately
+    // if the list hasn't been loaded yet; otherwise rely on auto-refresh.
+    if (index == 1 &&
+        _s.processes == null &&
+        canRefreshProcesses() &&
+        refreshProcessesCommand.canRun.value) {
+      refreshProcessesCommand();
     }
   }
 
-  // ---- UI mutators (not Commands — pure presentation toggles) ----
-
-  void setTabIndex(int index) => _mutate((s) => s.copyWith(tabIndex: index));
-
-  void selectResource(PerformanceResource resource) {
-    _mutate((s) => s.copyWith(
-          selectedResource: resource,
-          clearSelectedResourceId: true,
-        ));
-  }
-
-  void setSelectedResourceId(String? id) =>
-      _mutate((s) => s.copyWith(selectedResourceId: id));
-
   void setProcessFilter(String value) {
     _mutate((s) => s.copyWith(processFilter: value));
-    // Auto-refresh the filtered list immediately.  Throttling is handled on
-    // the server side by the 5s periodic timer; per-keystroke refresh keeps
-    // the UX responsive for interactive filtering without accumulating
-    // redundant calls since an in-flight query will overwrite the list.
+    // Server-side filter: re-run the query so the list matches the filter.
+    // Throttling is enforced server-side and by the refresh-command guard.
     if (canRefreshProcesses() && refreshProcessesCommand.canRun.value) {
       refreshProcessesCommand();
     }
@@ -187,47 +125,76 @@ class TaskManagerViewModel extends ViewModel {
   void consumePendingMessage() =>
       _mutate((s) => s.copyWith(clearPendingMessage: true));
 
+  RemoteProcess? get selectedProcess {
+    final id = _s.selectedProcessId;
+    if (id == null) return null;
+    for (final process in _s.processes?.items ?? const <RemoteProcess>[]) {
+      if (process.id == id) return process;
+    }
+    return null;
+  }
+
   // ---- Commands ----
 
-  /// Performs the initial startup handshake: history, info, hub connect.
+  /// Performs the initial startup handshake: history + info, then hub connect.
   late final startCommand = Command.createAsyncNoParamNoResult(_startInternal);
+
+  /// Avalonia-style RefreshCommand: refreshes whichever tab is currently
+  /// active (performance → reloads info/history snapshot; processes →
+  /// re-queries the process list).
+  late final refreshCommand = Command.createAsyncNoParamNoResult(() async {
+    if (_s.tabIndex == 1) {
+      await _refreshProcessesInternal();
+    } else {
+      await _refreshPerformanceInternal();
+    }
+  });
 
   /// Re-runs the process query using the current filter.
   late final refreshProcessesCommand =
       Command.createAsyncNoParamNoResult(_refreshProcessesInternal);
 
-  /// Kills a process by id.  Expects the caller to invoke with [killProcess(pid)]
-  /// via the [killProcess] helper.
+  /// Clears the current process filter. Matches Avalonia ClearFilterCommand.
+  late final clearFilterCommand =
+      Command.createSyncNoParamNoResult(clearProcessFilter);
+
+  /// Kills a process by id. Public entry point is [killProcess].
   late final _killProcessCommand =
       Command.createAsyncNoResult<int>((pid) async {
+    final target = selectedProcess;
+    if (target == null) return;
+    _mutate((s) => s.copyWith(
+          killFeedback: 'task_manager.process.terminating'
+              .tr(args: [target.name, '${target.id}']),
+        ));
     final result = await _repository.killProcess(pid);
     if (result.success) {
       _mutate((s) => s.copyWith(
-            pendingMessage: 'Process ended',
+            killFeedback: 'task_manager.process.terminated'
+                .tr(args: [target.name, '${target.id}']),
+            clearSelectedProcess: true,
           ));
     } else if (result.requiresElevation) {
       _mutate((s) => s.copyWith(
-            pendingMessage: 'Elevation required',
+            killFeedback: 'task_manager.process.elevation_required'
+                .tr(args: [target.name, '${target.id}', result.error ?? '']),
           ));
     } else {
       _mutate((s) => s.copyWith(
-            pendingMessage: result.error ?? 'Unable to end process',
+            killFeedback: 'task_manager.process.termination_failed'
+                .tr(args: [result.error ?? '']),
           ));
     }
-    // Refresh after kill so the UI reflects server state (including any
-    // elevation-triggered failure where the process is still running).
+    // Refresh after kill so the UI reflects server state, including cases
+    // where an elevation-required failure leaves the process still running.
     await _refreshProcessesInternal();
   });
 
-  /// Public helper matching the Avalonia kill-process API: wraps the int
-  /// parameter in a typed command invocation so the View doesn't need to
-  /// understand command_it parameter types.
+  /// Public helper matching the Avalonia kill-process command surface. Waits
+  /// for execution to settle so callers observe a consistent process list.
   Future<void> killProcess(int pid) async {
     if (!_killProcessCommand.canRun.value) return;
     _killProcessCommand(pid);
-    // Command.run fires and updates state asynchronously; wait for the
-    // execution to settle so callers right after refresh see a consistent
-    // process list (command_it v9.x void run → value via isRunning listenable).
     // ignore: discarded_futures
     await Future.doWhile(() async {
       await Future<void>.delayed(const Duration(milliseconds: 8));
@@ -256,35 +223,103 @@ class TaskManagerViewModel extends ViewModel {
             history: history,
             snapshot: history.isEmpty ? null : history.last,
           ));
+      if (history.isEmpty) {
+        // TODO(remoteos-migration): expose a snapshot REST fallback in the
+        // repository; for now mark connection as waiting for a hub sample.
+        _mutate((s) => s.copyWith(
+              connectionStatus: 'task_manager.connection.waiting'.tr(),
+            ));
+      }
+      try {
+        await _repository.ensureMonitoringConnected();
+        _mutate((s) => s.copyWith(
+              connectionStatus: 'task_manager.connection.live'.tr(),
+            ));
+      } catch (error) {
+        _mutate((s) => s.copyWith(
+              connectionStatus: 'task_manager.connection.snapshot'.tr(),
+              statusText: 'task_manager.status.collect_failed'
+                  .tr(args: ['$error']),
+            ));
+      }
       // Real-time snapshots + reconnect recovery.
       _snapshots?.cancel();
       _snapshots = _repository.snapshotStream.listen((snapshot) {
         _mutate((s) {
           final updated = _appendHistory(s.history, snapshot);
-          return s.copyWith(snapshot: snapshot, history: updated);
+          return s.copyWith(
+            snapshot: snapshot,
+            history: updated,
+            statusText: _formatUpdatedStatus(snapshot, s.processTotalCount),
+          );
         });
       });
       _reconnects?.cancel();
       _reconnects =
-          _repository.reconnectedStream.listen((_) => _recoverHistory());
-      await _repository.ensureMonitoringConnected();
+          _repository.reconnectedStream.listen((_) async {
+        _mutate((s) => s.copyWith(
+              connectionStatus: 'task_manager.connection.recovering'.tr(),
+            ));
+        await _recoverHistory();
+        _mutate((s) => s.copyWith(
+              connectionStatus: 'task_manager.connection.live'.tr(),
+            ));
+      });
       await _refreshProcessesInternal();
       _restartProcessTimer();
     } catch (error) {
       _mutate((s) => s.copyWith(
             hasError: true,
             errorMessage: '$error',
+            connectionStatus: 'task_manager.connection.unavailable'.tr(),
+            statusText:
+                'task_manager.status.collect_failed'.tr(args: ['$error']),
           ));
     } finally {
       _mutate((s) => s.copyWith(isLoading: false));
     }
   }
 
+  Future<void> _refreshPerformanceInternal() async {
+    try {
+      final results = await Future.wait([
+        _repository.getHistory(),
+        _repository.getInfo(),
+      ]);
+      final history = results[0] as List<PerformanceSnapshot>;
+      final info = results[1] as PerformanceInfo;
+      _mutate((s) => s.copyWith(
+            info: info,
+            history: history,
+            snapshot: history.isEmpty ? s.snapshot : history.last,
+            connectionStatus: s.connectionStatus ==
+                    'task_manager.connection.live'.tr()
+                ? s.connectionStatus
+                : 'task_manager.connection.updated'.tr(),
+          ));
+    } catch (error) {
+      _mutate((s) => s.copyWith(
+            hasError: true,
+            errorMessage: '$error',
+            connectionStatus: 'task_manager.connection.unavailable'.tr(),
+            statusText:
+                'task_manager.status.collect_failed'.tr(args: ['$error']),
+          ));
+    }
+  }
+
   Future<void> _refreshProcessesInternal() async {
     try {
       final page = await _repository.queryProcesses(filter: _s.processFilter);
+      final count = page.totalCount;
+      final cpu = _s.snapshot?.cpuPercent.toStringAsFixed(1) ?? '0.0';
+      final when = page.sampledAt ?? _s.snapshot?.timestamp ?? DateTime.now();
+      final time = DateFormat('HH:mm:ss').format(when.toLocal());
       _mutate((s) => s.copyWith(
             processes: page,
+            processTotalCount: count,
+            statusText: 'task_manager.status.updated'
+                .tr(args: [time, cpu, '$count']),
             clearSelectedProcess: page.items
                 .every((process) => process.id != s.selectedProcessId),
           ));
@@ -292,6 +327,8 @@ class TaskManagerViewModel extends ViewModel {
       _mutate((s) => s.copyWith(
             hasError: true,
             errorMessage: '$error',
+            statusText:
+                'task_manager.status.collect_failed'.tr(args: ['$error']),
           ));
     }
   }
@@ -326,7 +363,9 @@ class TaskManagerViewModel extends ViewModel {
 
   void _restartProcessTimer() {
     _processTimer?.cancel();
-    if (_s.autoRefresh) {
+    // Avalonia behavior: timer runs only while the Processes tab is active
+    // and auto-refresh is enabled.
+    if (_s.autoRefresh && _s.tabIndex == 1) {
       _processTimer = Timer.periodic(
         const Duration(seconds: 5),
         (_) {
@@ -336,6 +375,14 @@ class TaskManagerViewModel extends ViewModel {
         },
       );
     }
+  }
+
+  String _formatUpdatedStatus(PerformanceSnapshot snapshot, int processCount) {
+    final time = DateFormat('HH:mm:ss')
+        .format(snapshot.timestamp?.toLocal() ?? DateTime.now());
+    final cpu = snapshot.cpuPercent.toStringAsFixed(1);
+    return 'task_manager.status.updated'
+        .tr(args: [time, cpu, '$processCount']);
   }
 
   @override
