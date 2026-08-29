@@ -146,8 +146,15 @@ class TerminalViewModel extends ViewModel {
 
   /// Called by the View when the remote shell announces an OSC 0/2 title
   /// change.  Avalonia surfaces this as the chrome status line.
+  ///
+  /// De-duplicates against the current title: some prompt themes (zsh
+  /// powerlevel10k, oh-my-bash) re-emit the same OSC 2 sequence on every
+  /// prompt, which used to cause [TerminalUiState] to re-assign the same
+  /// string, trigger the chrome's [ListenableBuilder]s, and rebuild the
+  /// menu bar + status row + session tail for no visible change.
   void setTitle(String? value) {
     if (value == null || value.isEmpty) return;
+    if (_s.title == value) return;
     _mutate((s) => s.copyWith(title: value));
   }
 

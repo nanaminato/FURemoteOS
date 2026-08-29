@@ -66,6 +66,85 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
 
   int _zCounter = 0;
 
+  // ---------------------------------------------------------------------------
+  // Change-noise guard.  Several public mutators (focus, move, resize) end up
+  // producing a new list whose contents are semantically identical to the
+  // previous state.  Assigning `state = newList` unconditionally floods
+  // listeners (saveWindowLayouts, the desktop window layer rebuild, taskbar)
+  // with no-op notifications.  During typing in the terminal a stray focus()
+  // or a sub-pixel move() on each keystroke used to trigger a full desktop
+  // rebuild and felt like severe input lag.
+  //
+  // Use [_commit] instead of `state = ...` whenever the caller cannot prove
+  // the new list differs from the previous one.  Deep equality here is cheap:
+  // per-window fields are small (< 10 scalar fields per entry, typical count
+  // < 8 windows), cheaper than a single window-layer build by orders of
+  // magnitude.
+  // ---------------------------------------------------------------------------
+
+  void _commit(List<RemoteWindow> next) {
+    if (_sameList(state, next)) return;
+    state = next;
+  }
+
+  static bool _sameList(List<RemoteWindow> a, List<RemoteWindow> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (!_sameWindow(a[i], b[i])) return false;
+    }
+    return true;
+  }
+
+  static bool _sameWindow(RemoteWindow a, RemoteWindow b) {
+    return identical(a, b) ||
+        (a.id == b.id &&
+            a.appId == b.appId &&
+            a.title == b.title &&
+            a.icon == b.icon &&
+            a.state == b.state &&
+            a.zOrder == b.zOrder &&
+            a.modalOwnerId == b.modalOwnerId &&
+            a.minimumSize == b.minimumSize &&
+            a.bounds == b.bounds &&
+            a.restoreBounds == b.restoreBounds);
+  }
+
+  /// Whether the active-modal chain for [windowId] is already ordered on top
+  /// of every unrelated window.  Used by [focus] to avoid a pointless
+  /// z-bump + state notification that causes desktop-wide rebuilds.
+  bool _chainAlreadyTopmost(List<RemoteWindow> snapshot, String windowId) {
+    final byId = <String, RemoteWindow>{for (final w in snapshot) w.id: w};
+    var root = byId[windowId];
+    if (root == null) return true; // nothing to focus
+    while (root!.modalOwnerId != null) {
+      final parent = byId[root.modalOwnerId!];
+      if (parent == null) break;
+      root = parent;
+    }
+    // Walk the chain root → topmost modal; collect ids.
+    final chain = <RemoteWindow>[root];
+    while (true) {
+      final parent = chain.last;
+      RemoteWindow? topChild;
+      for (final w in snapshot) {
+        if (w.modalOwnerId != parent.id) continue;
+        if (topChild == null || w.zOrder > topChild.zOrder) {
+          topChild = w;
+        }
+      }
+      if (topChild == null) break;
+      chain.add(topChild);
+    }
+    final chainZ = chain.map((w) => w.zOrder).toList();
+    final minChainZ = chainZ.reduce((x, y) => x < y ? x : y);
+    for (final w in snapshot) {
+      if (chain.contains(w)) continue; // skip self
+      if (w.zOrder > minChainZ) return false; // an unrelated window is above
+    }
+    return true;
+  }
+
   /// Open a new window from an app registry entry.
   RemoteWindow openApp({
     required AppRegistryEntry entry,
@@ -102,8 +181,9 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
     // frame.  Using such sizes would produce non-finite bounds and either
     // throw during layout or render a blank desktop on sign-in.
     final safeScreen = _sanitizeSize(screenSize, const Size(1280, 720));
-    final Size? safeInitial =
-        initialSize == null ? null : _sanitizeSize(initialSize, entry.defaultSize);
+    final Size? safeInitial = initialSize == null
+        ? null
+        : _sanitizeSize(initialSize, entry.defaultSize);
     final defaultRect = initialBounds ??
         _centerRect(
           safeInitial ?? entry.defaultSize,
@@ -169,6 +249,12 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
   /// activates the deepest modal and lifts the whole group.
   void focus(String windowId) {
     final list = List<RemoteWindow>.of(state);
+    // Fast-path: when the chain already sits on top of every unrelated window
+    // there is no reason to bump z values and re-emit state; every listener
+    // would rebuild for the same visual.  This matters in particular for the
+    // implicit focus() fired from RemoteWindowChrome on each keystroke when
+    // the terminal regains input focus.
+    if (_chainAlreadyTopmost(list, windowId)) return;
     final byId = <String, RemoteWindow>{
       for (final w in list) w.id: w,
     };
@@ -216,7 +302,7 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
       w.zOrder = _zCounter++;
       updated.add(w);
     }
-    state = updated;
+    _commit(updated);
   }
 
   /// Close a window.
@@ -239,7 +325,7 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
       final completion = window._modalCompletion;
       if (completion != null && !completion.isCompleted) completion.complete();
     }
-    state = state.where((window) => !closingIds.contains(window.id)).toList();
+    _commit(state.where((window) => !closingIds.contains(window.id)).toList());
   }
 
   /// Opens a real managed modal window and returns its completion value. Its
@@ -282,6 +368,9 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
     // Lifting the owner + any existing modals together with the new dialog
     // matches the click/focus path: opening a modal raises the whole chain
     // above unrelated windows, with the new dialog ending up topmost.
+    // Note: this is intentionally the raw `state = ` setter because adding a
+    // brand-new dialog always changes the list (a new id was appended) — the
+    // deep-equal path would return false anyway and just burn cycles.
     focus(id);
     return completion.future.then((value) => value as T?);
   }
@@ -300,7 +389,7 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
 
   /// Minimize a window.
   void minimize(String windowId) {
-    state = [
+    _commit([
       for (final w in state)
         if (w.id == windowId && w.state != RemoteWindowState.minimized)
           w
@@ -308,12 +397,12 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
             ..state = RemoteWindowState.minimized
         else
           w,
-    ];
+    ]);
   }
 
   /// Restore a minimized window.
   void restore(String windowId) {
-    state = [
+    _commit([
       for (final w in state)
         if (w.id == windowId)
           w
@@ -322,12 +411,12 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
             ..zOrder = _zCounter++
         else
           w,
-    ];
+    ]);
   }
 
   /// Toggle maximize / restore.
   void toggleMaximize(String windowId, Rect? screenWorkArea) {
-    state = [
+    _commit([
       for (final w in state)
         if (w.id == windowId)
           if (w.state == RemoteWindowState.maximized)
@@ -339,7 +428,7 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
             _maximize(w, screenWorkArea)
         else
           w,
-    ];
+    ]);
   }
 
   RemoteWindow _maximize(RemoteWindow window, Rect? screenWorkArea) {
@@ -353,7 +442,7 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
   /// Toggle an internal window between its normal/maximized presentation and
   /// the entire managed host work area. The host taskbar remains available.
   void toggleFullscreen(String windowId, Rect workArea) {
-    state = [
+    _commit([
       for (final w in state)
         if (w.id == windowId)
           if (w.state == RemoteWindowState.fullscreen)
@@ -369,7 +458,7 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
               ..zOrder = _zCounter++
         else
           w,
-    ];
+    ]);
   }
 
   /// Move a window to a new position.
@@ -379,28 +468,30 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
     Rect constraints, {
     Rect? startBounds,
   }) {
-    state = [
+    // Most onPanUpdate ticks deliver a zero delta (the pointer hasn't moved
+    // since the last sample).  Compute the target rect up-front and skip the
+    // list rebuild entirely when nothing changed.
+    Rect? target;
+    for (final w in state) {
+      if (w.id == windowId) {
+        final bounds = startBounds ?? w.bounds;
+        final moved = bounds.shift(delta);
+        final left = moved.left
+            .clamp(-moved.width + 120.0, constraints.right - 120.0)
+            .toDouble();
+        final top = moved.top
+            .clamp(constraints.top, constraints.bottom - 36.0)
+            .toDouble();
+        target = Rect.fromLTWH(left, top, moved.width, moved.height);
+        if (target == w.bounds) return; // no-op drag tick
+        break;
+      }
+    }
+    if (target == null) return;
+    _commit([
       for (final w in state)
-        if (w.id == windowId)
-          () {
-            final bounds = startBounds ?? w.bounds;
-            final moved = bounds.shift(delta);
-            // Match the Avalonia manager: keep a 120px grab area visible on
-            // the horizontal axis and a title-bar strip on the vertical axis.
-            // Do not rebuild the rectangle from independently clamped points,
-            // which used to shrink windows when they reached an edge.
-            final left = moved.left
-                .clamp(-moved.width + 120.0, constraints.right - 120.0)
-                .toDouble();
-            final top = moved.top
-                .clamp(constraints.top, constraints.bottom - 36.0)
-                .toDouble();
-            return w
-              ..bounds = Rect.fromLTWH(left, top, moved.width, moved.height);
-          }()
-        else
-          w,
-    ];
+        if (w.id == windowId) (w..bounds = target) else w,
+    ]);
   }
 
   /// Resize a window from an edge.
@@ -411,20 +502,25 @@ class WindowManagerNotifier extends StateNotifier<List<RemoteWindow>> {
     Rect constraints, {
     Rect? startBounds,
   }) {
-    state = [
+    Rect? target;
+    for (final w in state) {
+      if (w.id == windowId) {
+        target = _applyResize(
+          startBounds ?? w.bounds,
+          w.minimumSize,
+          edge,
+          delta,
+          constraints,
+        );
+        if (target == w.bounds) return; // no-op resize tick
+        break;
+      }
+    }
+    if (target == null) return;
+    _commit([
       for (final w in state)
-        if (w.id == windowId)
-          w
-            ..bounds = _applyResize(
-              startBounds ?? w.bounds,
-              w.minimumSize,
-              edge,
-              delta,
-              constraints,
-            )
-        else
-          w,
-    ];
+        if (w.id == windowId) (w..bounds = target) else w,
+    ]);
   }
 
   static Rect _applyResize(
@@ -866,7 +962,8 @@ class _GuardedWindowChildState extends ConsumerState<_GuardedWindowChild> {
               style: const TextStyle(color: Colors.white, fontSize: 11),
               children: [
                 TextSpan(
-                  text: 'App window ${widget.window.appId} failed to render.\n\n',
+                  text:
+                      'App window ${widget.window.appId} failed to render.\n\n',
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
                 TextSpan(text: '$error\n\n$stack'),

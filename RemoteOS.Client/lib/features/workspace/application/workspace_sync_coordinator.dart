@@ -130,6 +130,15 @@ class WorkspaceSyncCoordinator extends StateNotifier<WorkspaceSyncState> {
   }
 
   void queueLayouts(WorkspaceWindowLayouts layouts) {
+    // Skipping the state assignment when the layouts payload is identical to
+    // the already-staged value avoids a cascade: the full desktop shell
+    // watches [workspaceSyncProvider] for the wallpaper key, so any
+    // `state = WorkspaceSyncState(...)` notification invalidates the
+    // wallpaper, icon column and window-layer even when the wallpaer key
+    // itself did not change.  For the terminal this was visible as a
+    // full-desktop rebuild on each keystroke when the focus() → saveLayouts
+    // chain kept re-queueing the same layout fingerprint.
+    if (_sameLayouts(state.layouts, layouts)) return;
     state =
         WorkspaceSyncState(preferences: state.preferences, layouts: layouts);
     _layoutsDirty = true;
@@ -137,6 +146,24 @@ class WorkspaceSyncCoordinator extends StateNotifier<WorkspaceSyncState> {
     _pendingLayoutWrite?.cancel();
     _pendingLayoutWrite =
         Timer(writeDelay, () => _writeLayouts(layouts, version));
+  }
+
+  static bool _sameLayouts(WorkspaceWindowLayouts a, WorkspaceWindowLayouts b) {
+    if (identical(a, b)) return true;
+    if (a.windows.length != b.windows.length) return false;
+    // Order-independent: two snapshots with the same (key, width, height)
+    // entries in a different iteration order are equivalent for persistence.
+    final byKey = <String, WorkspaceWindowSize>{
+      for (final w in a.windows) w.key: w,
+    };
+    for (final other in b.windows) {
+      final match = byKey[other.key];
+      if (match == null) return false;
+      if (match.width != other.width || match.height != other.height) {
+        return false;
+      }
+    }
+    return true;
   }
 
   Future<void> _writeLayouts(
