@@ -108,33 +108,36 @@ class _SettingsAppState extends ConsumerState<SettingsApp>
   @override
   Widget build(BuildContext context) {
     final palette = watchPalette(ref, context);
-    return Row(
-      children: [
-        _SettingsSidebar(
-          palette: palette,
-          selectedIndex: _selectedPage,
-          items: List.generate(_pageIds.length, (i) {
-            return (
-              icon: _pageIcons[i],
-              label: _pageLabelKeys[i].tr(),
-            );
-          }),
-          onTap: (i) {
-            setState(() => _selectedPage = i);
-            _tabController.animateTo(i);
-          },
-        ),
-        VerticalDivider(width: 1, color: palette.borderSubtle, thickness: 1),
-        Expanded(
-          child: Container(
-            color: palette.appBackground,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(28),
-              child: _buildPage(palette),
+    return SizedBox.expand(
+      child: ColoredBox(
+        color: palette.appBackground,
+        child: Row(
+          children: [
+            _SettingsSidebar(
+              palette: palette,
+              selectedIndex: _selectedPage,
+              items: List.generate(_pageIds.length, (i) {
+                return (
+                  icon: _pageIcons[i],
+                  label: _pageLabelKeys[i].tr(),
+                );
+              }),
+              onTap: (i) {
+                setState(() => _selectedPage = i);
+                _tabController.animateTo(i);
+              },
             ),
-          ),
+            VerticalDivider(
+                width: 1, color: palette.borderSubtle, thickness: 1),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(28),
+                child: _buildPage(palette),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
