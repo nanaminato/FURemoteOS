@@ -223,6 +223,16 @@ class SettingsComboBox<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final uniqueItems = <DropdownMenuItem<T>>[];
+    for (final item in items) {
+      if (uniqueItems.any((existing) => existing.value == item.value)) {
+        continue;
+      }
+      uniqueItems.add(item);
+    }
+    final selectedValue =
+        uniqueItems.any((item) => item.value == value) ? value : null;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       decoration: BoxDecoration(
@@ -232,9 +242,9 @@ class SettingsComboBox<T> extends StatelessWidget {
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(
-          value: value,
+          value: selectedValue,
           isDense: true,
-          items: items,
+          items: uniqueItems,
           onChanged: onChanged,
           dropdownColor: palette.surface,
           style: TextStyle(color: palette.textPrimary, fontSize: 13),
