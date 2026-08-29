@@ -58,7 +58,8 @@ class _DesktopShellViewState extends ConsumerState<DesktopShellView> {
     final log = _optionalRuntimeLog();
     unawaited(log?.info('[desktop] initState mounted=$mounted'));
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(log?.info('[desktop] first post-frame callback, awaiting size'));
+      unawaited(
+          log?.info('[desktop] first post-frame callback, awaiting size'));
       _restoreWhenSized();
     });
   }
@@ -141,7 +142,8 @@ class _DesktopShellViewState extends ConsumerState<DesktopShellView> {
           '[desktop] viewport ready but widget unmounted; aborting restore'));
       return;
     }
-    final workArea = Size(size.width, (size.height - taskbarHeight).clamp(240.0, 4320.0));
+    final workArea =
+        Size(size.width, (size.height - taskbarHeight).clamp(240.0, 4320.0));
     unawaited(log?.info(
       '[desktop] viewport ready viewport=${size.width.toStringAsFixed(1)}x'
       '${size.height.toStringAsFixed(1)} workArea=${workArea.width.toStringAsFixed(1)}x'
@@ -153,7 +155,8 @@ class _DesktopShellViewState extends ConsumerState<DesktopShellView> {
         screen: workArea,
         welcomeBuilder: (entry) => entry.windowBuilder(context),
       ));
-      unawaited(log?.info('[desktop] restoreDesktopCommand finished synchronously'));
+      unawaited(
+          log?.info('[desktop] restoreDesktopCommand finished synchronously'));
     } catch (error, stack) {
       unawaited(log?.error(error, stack));
       rethrow;
@@ -249,46 +252,52 @@ class _DesktopShellViewState extends ConsumerState<DesktopShellView> {
               constraints.maxHeight - taskbarHeight,
             );
             final workAreaSize = Size(workArea.width, workArea.height);
-            return Container(
-              color: palette.appBackground,
-              child: ContextMenuHost(
-                controller: _desktopMenu,
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: ContextMenuRegion(
-                        controller: _desktopMenu,
-                        entries: _menuEntries(context, workAreaSize),
-                        child: DesktopBackground(palette: palette),
+            // [Container] forwards Scaffold's loose body constraints to its
+            // child. Every direct child of this Stack is Positioned, so a
+            // loose Stack would correctly choose its smallest size (0×0).
+            // Consume the LayoutBuilder viewport before entering that stack.
+            return SizedBox.expand(
+              child: Container(
+                color: palette.appBackground,
+                child: ContextMenuHost(
+                  controller: _desktopMenu,
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: ContextMenuRegion(
+                          controller: _desktopMenu,
+                          entries: _menuEntries(context, workAreaSize),
+                          child: DesktopBackground(palette: palette),
+                        ),
                       ),
-                    ),
-                    _IconsColumn(
-                      palette: palette,
-                      entries: _vm.desktopIcons,
-                      onOpen: (entry) =>
-                          _handleAppSelected(context, workAreaSize, entry),
-                    ),
-                    DesktopWindowLayer(workArea: workArea),
-                    _DesktopOverlayObserver(
-                      vm: _vm,
-                      taskbarHeight: taskbarHeight,
-                      onAppSelected: (entry) =>
-                          _handleAppSelected(context, workAreaSize, entry),
-                      onLogout: _handleLogout,
-                      onShutdown: _handleShutdown,
-                    ),
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      height: taskbarHeight,
-                      child: DesktopTaskbar(
-                        onStartPressed: _vm.toggleStartMenu,
+                      _IconsColumn(
+                        palette: palette,
+                        entries: _vm.desktopIcons,
+                        onOpen: (entry) =>
+                            _handleAppSelected(context, workAreaSize, entry),
+                      ),
+                      DesktopWindowLayer(workArea: workArea),
+                      _DesktopOverlayObserver(
+                        vm: _vm,
+                        taskbarHeight: taskbarHeight,
+                        onAppSelected: (entry) =>
+                            _handleAppSelected(context, workAreaSize, entry),
                         onLogout: _handleLogout,
-                        overlayNotifier: _vm.overlay,
+                        onShutdown: _handleShutdown,
                       ),
-                    ),
-                  ],
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        height: taskbarHeight,
+                        child: DesktopTaskbar(
+                          onStartPressed: _vm.toggleStartMenu,
+                          onLogout: _handleLogout,
+                          overlayNotifier: _vm.overlay,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
