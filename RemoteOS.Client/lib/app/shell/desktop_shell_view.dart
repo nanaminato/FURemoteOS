@@ -340,6 +340,16 @@ class _DesktopShellViewState extends ConsumerState<DesktopShellView> {
                               workAreaSize,
                               'task_manager',
                             ),
+                            // In the taskbar's local coordinates the top edge
+                            // is at y=0.  Restrict the context menu to the
+                            // rectangle above the taskbar so it cannot be
+                            // clipped underneath it.
+                            contextMenuBounds: Rect.fromLTWH(
+                              0,
+                              -workArea.height,
+                              constraints.maxWidth,
+                              workArea.height,
+                            ),
                           ),
                         ),
                       ],

@@ -273,10 +273,27 @@ class _ContextMenuOverlayState extends State<_ContextMenuOverlay> {
     return left.clamp(min, max).toDouble();
   }
 
-  static double _clampTop(double top, double height, Rect bounds) {
-    final min = bounds.top;
-    final max = (bounds.bottom - height).clamp(min, double.infinity);
-    return top.clamp(min, max).toDouble();
+  /// Positions a menu vertically with correct desktop behaviour:
+  ///  1. Prefer opening below the click point (top = clickY).
+  ///  2. If that would overflow the bottom edge, open above the click point
+  ///     instead (bottom = clickY), matching Windows taskbar menus.
+  ///  3. If neither side has enough space, clamp inside the bounds.
+  static double _clampTop(double clickY, double height, Rect bounds) {
+    final safeMin = bounds.top;
+    final safeMax = (bounds.bottom - height).clamp(safeMin, double.infinity);
+    // Prefer opening downward from the click location.
+    final preferred = clickY;
+    if (preferred <= safeMax) {
+      return preferred.clamp(safeMin, safeMax).toDouble();
+    }
+    // Not enough space below – flip upward so the menu bottom touches the
+    // click position. This is how taskbar context menus behave on Windows.
+    final flipped = clickY - height;
+    if (flipped >= safeMin) {
+      return flipped.clamp(safeMin, safeMax).toDouble();
+    }
+    // Neither direction fits – anchor as close as possible.
+    return safeMax;
   }
 }
 

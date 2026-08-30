@@ -26,6 +26,7 @@ class DesktopTaskbar extends ConsumerWidget {
     required this.overlayNotifier,
     required this.contextMenuController,
     required this.onOpenTaskManager,
+    this.contextMenuBounds,
   });
 
   final VoidCallback onStartPressed;
@@ -33,6 +34,12 @@ class DesktopTaskbar extends ConsumerWidget {
   final ValueNotifier<DesktopOverlay> overlayNotifier;
   final RemoteContextMenuController contextMenuController;
   final VoidCallback onOpenTaskManager;
+
+  /// Optional region (in this taskbar's local coordinates) where the context
+  /// menu is allowed to render.  Typically set to a Rect whose bottom sits at
+  /// the top of the taskbar so menus appear above it instead of being clipped
+  /// underneath.
+  final Rect? contextMenuBounds;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -54,6 +61,7 @@ class DesktopTaskbar extends ConsumerWidget {
               onSelected: onOpenTaskManager,
             ),
           ],
+          availableBounds: contextMenuBounds,
           child: Container(
             height: 48,
             decoration: BoxDecoration(
