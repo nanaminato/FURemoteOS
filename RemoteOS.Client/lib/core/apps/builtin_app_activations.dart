@@ -14,6 +14,7 @@ class SettingsActivation extends ChangeNotifier {
 
 abstract final class BuiltinAppActivations {
   static final settings = SettingsActivation();
+  static final helpCenter = HelpCenterActivation();
 
   static bool canHandleSettings(Uri uri) {
     if (uri.scheme != 'remoteos' || uri.host != 'settings') return false;
@@ -25,5 +26,23 @@ abstract final class BuiltinAppActivations {
         segments[0] == 'apps' &&
         segments[1].isNotEmpty &&
         segments[2] == 'permissions';
+  }
+
+  static bool canHandleHelpCenter(Uri uri) =>
+      uri.scheme == 'remoteos' &&
+      uri.host == 'help' &&
+      uri.pathSegments.isNotEmpty &&
+      uri.pathSegments.first == 'guide' &&
+      const {'docker/install', 'docker/uninstall'}
+          .contains(uri.pathSegments.skip(1).join('/'));
+}
+
+class HelpCenterActivation extends ChangeNotifier {
+  Uri? _current;
+  Uri? get current => _current;
+
+  void handle(Uri uri) {
+    _current = uri;
+    notifyListeners();
   }
 }

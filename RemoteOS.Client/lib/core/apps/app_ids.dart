@@ -19,5 +19,5 @@ abstract final class AppIds {
   static const portForwarding = 'remoteos.port-forwarding';
   static const processGuardian = 'remoteos.process-guardian';
   static const appInstaller = 'remoteos.app-installer';
-  static const helpCenter = 'com.remoteos.example.help-center';
+  static const helpCenter = 'remoteos.help-center';
 }

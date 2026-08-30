@@ -11,8 +11,6 @@ enum AppActivationStatus {
   activated,
   invalidUri,
   routeNotFound,
-  noHandler,
-  handlerSelectionRequired,
   unavailable,
 }
 
@@ -117,7 +115,6 @@ class ApplicationRuntime {
     AppActivationRequest request, {
     required AppWindowBuilder buildWindow,
     Size? screenSize,
-    String? defaultHandlerForScheme,
   }) {
     final uri = request.uri;
     if (!uri.isAbsolute ||
@@ -126,36 +123,11 @@ class ApplicationRuntime {
         uri.hasPort) {
       return const AppActivationResult(AppActivationStatus.invalidUri);
     }
-    if (uri.scheme.toLowerCase() == 'remoteos') {
-      return _activateShellRoute(request,
-          buildWindow: buildWindow, screenSize: screenSize);
-    }
-    if (uri.scheme.length > 32 || uri.host.isEmpty || uri.query.length > 4097) {
+    if (uri.scheme.toLowerCase() != 'remoteos' || uri.host.isEmpty) {
       return const AppActivationResult(AppActivationStatus.invalidUri);
     }
-    final candidates = _registry.all.where((entry) {
-      return entry.manifest.supportedUriSchemes
-              .contains(uri.scheme.toLowerCase()) &&
-          entry.canHandleActivation?.call(uri) == true;
-    }).toList(growable: false);
-    final preferred = defaultHandlerForScheme == null
-        ? const <AppRegistryEntry>[]
-        : candidates
-            .where((entry) => entry.id == defaultHandlerForScheme)
-            .toList();
-    final defaultEntry = preferred.isEmpty ? null : preferred.first;
-    if (defaultEntry != null) {
-      return _activateEntry(defaultEntry, request, buildWindow, screenSize);
-    }
-    if (candidates.length == 1) {
-      return _activateEntry(
-          candidates.single, request, buildWindow, screenSize);
-    }
-    return AppActivationResult(
-      candidates.isEmpty
-          ? AppActivationStatus.noHandler
-          : AppActivationStatus.handlerSelectionRequired,
-    );
+    return _activateShellRoute(request,
+        buildWindow: buildWindow, screenSize: screenSize);
   }
 
   AppActivationResult _activateShellRoute(
@@ -167,9 +139,7 @@ class ApplicationRuntime {
     if (uri.host.isEmpty)
       return const AppActivationResult(AppActivationStatus.invalidUri);
     final candidates = _registry.all
-        .where((entry) =>
-            !entry.manifest.isExternal &&
-            entry.canHandleActivation?.call(uri) == true)
+        .where((entry) => entry.canHandleActivation?.call(uri) == true)
         .toList();
     if (candidates.length != 1) {
       return const AppActivationResult(AppActivationStatus.routeNotFound);
@@ -253,5 +223,12 @@ class RemoteOsActivationUris {
         host: 'file',
         path: '/open',
         queryParameters: {'appId': appId, 'path': path},
+      );
+
+  static Uri helpGuide(String route, {String? language}) => Uri(
+        scheme: 'remoteos',
+        host: 'help',
+        path: '/guide/$route',
+        queryParameters: language == null ? null : {'lang': language},
       );
 }

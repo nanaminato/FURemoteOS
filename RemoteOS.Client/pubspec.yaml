@@ -90,3 +90,12 @@ flutter:
     - assets/translations/ja-JP/
     - assets/icons/
     - assets/images/
+    - assets/help_center/en/index.json
+    - assets/help_center/en/docker/install.md
+    - assets/help_center/en/docker/uninstall.md
+    - assets/help_center/zh-CN/index.json
+    - assets/help_center/zh-CN/docker/install.md
+    - assets/help_center/zh-CN/docker/uninstall.md
+    - assets/help_center/ja-JP/index.json
+    - assets/help_center/ja-JP/docker/install.md
+    - assets/help_center/ja-JP/docker/uninstall.md

@@ -1,9 +1,4 @@
-/// Runtime metadata for a RemoteOS application.
-///
-/// This is intentionally a Dart-native contract. A Flutter desktop release is
-/// AOT compiled, so a `.roapp` cannot safely load arbitrary Dart code at
-/// runtime. External packages therefore supply validated content/metadata and
-/// bind to an adapter compiled into the Shell.
+/// Runtime metadata for a built-in RemoteOS application.
 enum ApplicationInstancePolicy {
   multiWindow,
   singleWindow,
@@ -51,9 +46,7 @@ class ApplicationManifest {
     this.clientPlatforms = const [],
     this.server = const ApplicationServerRequirements(),
     this.instancePolicy = ApplicationInstancePolicy.multiWindow,
-    Iterable<String> supportedUriSchemes = const [],
-    this.isExternal = false,
-  }) : supportedUriSchemes = _normalizeSchemes(supportedUriSchemes) {
+  }) {
     if (!RegExp(r'^[a-z][a-z0-9.-]{1,127}$').hasMatch(id)) {
       throw ArgumentError.value(id, 'id', 'must be a stable package id');
     }
@@ -66,25 +59,6 @@ class ApplicationManifest {
   final List<ApplicationPlatform> clientPlatforms;
   final ApplicationServerRequirements server;
   final ApplicationInstancePolicy instancePolicy;
-  final List<String> supportedUriSchemes;
-  final bool isExternal;
-
-  static List<String> _normalizeSchemes(Iterable<String> values) {
-    final scheme = RegExp(r'^[a-z][a-z0-9+.-]{0,31}$');
-    final result = <String>[];
-    for (final value in values) {
-      final normalized = value.trim().toLowerCase();
-      if (!scheme.hasMatch(normalized) || normalized == 'remoteos') {
-        throw ArgumentError.value(
-          value,
-          'supportedUriSchemes',
-          'must be a non-reserved URI scheme',
-        );
-      }
-      if (!result.contains(normalized)) result.add(normalized);
-    }
-    return List.unmodifiable(result);
-  }
 }
 
 class RemoteServerDescriptor {

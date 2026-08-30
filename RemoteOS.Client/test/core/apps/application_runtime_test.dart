@@ -31,35 +31,35 @@ void main() {
   test('rejects unsafe or malformed activation URIs', () {
     final registry = AppRegistry();
     final result = runtime(registry, WindowManagerNotifier()).activate(
-      AppActivationRequest(uri: Uri.parse('help://user@guide/docker/install')),
+      AppActivationRequest(
+          uri: Uri.parse('remoteos://user@help/guide/docker/install')),
       buildWindow: (_) => const SizedBox.shrink(),
     );
 
     expect(result.status, AppActivationStatus.invalidUri);
   });
 
-  test(
-      'uses a uniquely declared external handler and reuses its primary window',
-      () {
+  test('reuses the primary window for a built-in help activation', () {
     final registry = AppRegistry();
     final handled = <Uri>[];
     final manifest = ApplicationManifest(
-      id: 'com.example.help',
+      id: 'remoteos.help-test',
       version: '1.0.0',
       instancePolicy: ApplicationInstancePolicy.singleWindow,
-      supportedUriSchemes: const ['help'],
-      isExternal: true,
     );
     registry.register(entry(
       id: manifest.id,
       manifest: manifest,
-      canHandle: (uri) => uri.host == 'guide' && uri.path == '/docker/install',
+      canHandle: (uri) =>
+          uri.scheme == 'remoteos' &&
+          uri.host == 'help' &&
+          uri.path == '/guide/docker/install',
       onActivation: handled.add,
     ));
     final windows = WindowManagerNotifier();
     final appRuntime = runtime(registry, windows);
     final request = AppActivationRequest(
-        uri: Uri.parse('help://guide/docker/install?lang=en'));
+        uri: Uri.parse('remoteos://help/guide/docker/install?lang=en'));
 
     expect(
       appRuntime
@@ -75,30 +75,6 @@ void main() {
     );
     expect(windows.state, hasLength(1));
     expect(handled, hasLength(2));
-  });
-
-  test('reports ambiguous external schemes without selecting an application',
-      () {
-    final registry = AppRegistry();
-    for (final id in ['com.example.first', 'com.example.second']) {
-      final manifest = ApplicationManifest(
-        id: id,
-        version: '1.0.0',
-        supportedUriSchemes: const ['help'],
-        isExternal: true,
-      );
-      registry.register(entry(
-        id: id,
-        manifest: manifest,
-        canHandle: (_) => true,
-      ));
-    }
-
-    final result = runtime(registry, WindowManagerNotifier()).activate(
-      AppActivationRequest(uri: Uri.parse('help://guide/docker/install')),
-      buildWindow: (_) => const SizedBox.shrink(),
-    );
-    expect(result.status, AppActivationStatus.handlerSelectionRequired);
   });
 
   test('does not start a server-dependent app without a server descriptor', () {

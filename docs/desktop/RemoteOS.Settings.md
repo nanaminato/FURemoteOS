@@ -1,5 +1,7 @@
 # RemoteOS Settings 模块设计
 
+> Flutter 客户端仅支持内置应用；本页若描述 `.roapp` 外置应用能力，属于 Avalonia/服务端协议背景，不适用于 Flutter。
+
 > 内置设置中心（Windows 11 / GNOME 风格）：5 个分类页（系统 / 个性化 / 时间和语言 / 网络 / 应用），用户偏好（壁纸 / 主题 / 时间格式 / 日期格式 / 语言 / 区域 / 默认程序）持久化到 Server 端 Workspace（`/workspaces/{id}/preferences`），多设备登录同一 Workspace 共享。
 >
 > - 架构原则见 [`RemoteOS.Architecture.md`](../architecture/RemoteOS.Architecture.md)

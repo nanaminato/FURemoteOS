@@ -21,8 +21,8 @@
         "app.help_center": "ヘルプセンター",
         "app.help_center.description": "オフライン対応の多言語ガイド",
         "app.help_center.title": "ヘルプセンター",
-        "app.help_center.docker_install": "Docker をインストール",
-        "app.help_center.docker_uninstall": "Docker をアンインストール",
+        "app.help_center.load_failed": "ヘルプコンテンツを読み込めませんでした。",
+        "app.help_center.guide_not_found": "要求されたガイドは利用できません。",
         "apps.desktop_unknown": "不明なアプリ"
     }
 }

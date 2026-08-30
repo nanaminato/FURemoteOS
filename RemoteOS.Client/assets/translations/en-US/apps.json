@@ -21,8 +21,8 @@
         "app.help_center": "Help Center",
         "app.help_center.description": "Offline, localized guides",
         "app.help_center.title": "Help Center",
-        "app.help_center.docker_install": "Install Docker",
-        "app.help_center.docker_uninstall": "Uninstall Docker",
+        "app.help_center.load_failed": "Help content could not be loaded.",
+        "app.help_center.guide_not_found": "The requested guide is unavailable.",
         "apps.desktop_unknown": "Unknown App"
     }
 }

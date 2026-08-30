@@ -12,8 +12,7 @@ import '../../apps/task_manager/task_manager_app.dart';
 import '../../apps/docker/docker_manager_app.dart';
 import '../../apps/firewall/firewall_app.dart';
 import '../../apps/server_admin/server_admin_apps.dart';
-import '../../external_apps/help_center/help_center_app.dart';
-import '../../external_apps/help_center/help_center_package.dart';
+import '../../apps/help_center/help_center_app.dart';
 import 'app_ids.dart';
 import 'builtin_app_activations.dart';
 import 'application_manifest.dart';
@@ -281,10 +280,16 @@ class BuiltinApps {
       icon: Icons.help_outline_rounded,
       defaultSize: const Size(900, 620),
       minimumSize: const Size(600, 420),
-      manifest: HelpCenterPackage.manifest,
-      canHandleActivation: HelpCenterPackages.instance.canHandle,
-      handleActivation: HelpCenterPackages.instance.handle,
-      windowBuilder: (_) => HelpCenterApp(package: HelpCenterPackages.instance),
+      manifest: ApplicationManifest(
+        id: AppIds.helpCenter,
+        version: '1.0.0',
+        descriptionKey: 'app.help_center.description',
+        instancePolicy: ApplicationInstancePolicy.singleWindow,
+      ),
+      canHandleActivation: BuiltinAppActivations.canHandleHelpCenter,
+      handleActivation: BuiltinAppActivations.helpCenter.handle,
+      windowBuilder: (_) =>
+          HelpCenterApp(activation: BuiltinAppActivations.helpCenter),
     ),
   ];
 }

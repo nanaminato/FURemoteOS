@@ -1,5 +1,7 @@
 # RemoteOS 应用私有配置存储
 
+> Flutter 客户端只加载内置应用，不支持 `.roapp` 外置应用。本页同时保留服务端与 Avalonia 客户端的配置协议说明；其中的外置应用段落不适用于 Flutter。
+
 `AppSettings` 是 RemoteOS 为内置应用和 `.roapp` 外置应用提供的服务端配置存储。它保存应用自己的、小型、版本化 JSON 文档；不替代 Workspace 系统偏好、可查询的业务实体或机密存储。
 
 ## 1. 何时使用

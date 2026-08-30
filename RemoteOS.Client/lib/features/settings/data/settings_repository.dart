@@ -75,10 +75,7 @@ class WorkspaceSettingsRepository implements SettingsRepository {
       apps.add(AppOptionUi(
         id: e.id,
         displayName: e.nameKey.tr(),
-        schemes: {
-          ...defaultSchemesFor(e.id),
-          ...e.manifest.supportedUriSchemes,
-        }.toList(growable: false),
+        schemes: defaultSchemesFor(e.id),
         extensions: defaultExtensionsFor(e.id),
       ));
     }

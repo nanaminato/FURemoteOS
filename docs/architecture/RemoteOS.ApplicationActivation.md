@@ -26,31 +26,25 @@ remoteos://settings/apps/{appId}/permissions
 remoteos://file/open?appId={appId}&path={encodedPath}
 ```
 
-最后一条仅允许 `remoteos.explorer` 作为来源，以兼容现有内置文件打开模型；外置包不能用它
-传递宿主路径，而应使用其受限的文件 capability。调用方应使用
+最后一条仅允许 `remoteos.explorer` 作为来源，以兼容现有内置文件打开模型。调用方应使用
 `RemoteOsActivationUris`，不能手工拼接字符串。
 
 未匹配、歧义或不合法的 URI 分别得到 `RouteNotFound` 或 `InvalidUri`；应用不应猜测目标或
 降级为直接调用另一个应用。
 
-### 2.1 第三方 URI scheme
+### 2.1 Flutter 支持范围
 
-第三方包可在 `manifest.json` 用 `supportedUriSchemes` 显式声明非保留 scheme，并实现
-`IExternalAppActivationHandler`。例如 Help Center 声明 `help`，接受：
+Flutter 客户端只接受 Shell 保留的 `remoteos://` URI，不加载或安装 `.roapp` 外置包，也不注册
+第三方 URI scheme。Dart AOT 运行时不能将任意包内 Dart 代码作为安全的应用扩展加载。
+
+Help Center 是内置应用，使用：
 
 ```text
-help://guide/docker/install?lang=en
+remoteos://help/guide/docker/install?lang=en
 ```
 
-Shell 先验证 URI（绝对 URI、无 user-info、无端口、scheme 长度不超过 32），只在已声明同一
-scheme 且 `CanHandleActivation` 返回真时才投递。若设置了该 scheme 的默认程序，则它必须也在
-候选集中并直接启动；否则只有唯一候选程序时才会启动。多个候选程序时，Shell 显示“选择应用”
-对话框，用户可以仅本次打开，或保存为此 scheme 的默认程序再打开。没有候选程序时，Shell 显示
-明确的未处理程序提示；对于 `help://`，提示安装 Help Center 并将其设为 help 链接处理程序。
-安装入口及安装后重试属于后续受信任应用目录流程。`remoteos` 为保留 scheme，外部包不可声明。
-
-第三方 handler 仅接收 host 已验证后的 URI 与受限 `IExternalAppContext`，不能获得另一个应用或
-宿主的实现对象。应用自身必须继续验证它所拥有的 authority、路径与 query 参数。
+Shell 验证绝对 URI、host、路径和 query；目标内置应用再验证它拥有的 route。应用不能直接引用
+另一个应用的实现、ViewModel 或本地服务。
 
 ## 3. 同 URI 与窗口策略
 
@@ -74,9 +68,8 @@ Firewall、Process Guardian 与 Docker 也已声明单窗口；Docker 尚未接�
 
 ## 4. 扩展规则
 
-新增 `remoteos://` 公开路线时，内置应用实现 `IAppActivationHandler`；第三方 scheme 则声明
-`supportedUriSchemes` 并实现 `IExternalAppActivationHandler`。两者都应在应用设计文档中定义：路径、参数、
-权限、同 URI 行为、单/多窗口策略和本地化错误 UX。Shell 要拒绝两个应用同时声明同一路线。
+新增 `remoteos://` 公开路线时，内置应用实现 activation handler，并在应用设计文档中定义路径、参数、
+权限、同 URI 行为、单/多窗口策略和本地化错误 UX。Shell 要拒绝两个内置应用同时声明同一路线。
 
 将来的 Docker 预览不能仅靠 URI：镜像本身没有运行服务或已发布端口。它应先以受确认的
 host action 创建仅 Server-loopback 的端口映射，再请求本机 Port Forwarding action 得到实际
