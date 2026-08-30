@@ -70,7 +70,7 @@ class _CodeEditorViewState extends ConsumerState<CodeEditorView> {
           fontSizes: widget.vm.fontSizes,
           availableEncodings: widget.vm.availableEncodings,
           onFontSizeChanged: widget.vm.setFontSize,
-          onWordWrapChanged: widget.vm.toggleWordWrap,
+          onWordWrapChanged: (_) => widget.vm.toggleWordWrap(),
           onDefaultEncodingChanged: widget.vm.setDefaultEncoding,
           onClose: widget.vm.closeSettings,
         ),

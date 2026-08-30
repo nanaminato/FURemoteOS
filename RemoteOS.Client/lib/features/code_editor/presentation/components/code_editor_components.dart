@@ -92,9 +92,10 @@ class CodeEditorWorkspace extends StatelessWidget {
         width: 48,
         color: palette.surface,
         child: Column(children: [
-          _activityButton(Icons.folder_outlined, CodeEditorSidebar.explorer),
           _activityButton(
-              Icons.description_outlined, CodeEditorSidebar.openEditors),
+              context, Icons.folder_outlined, CodeEditorSidebar.explorer),
+          _activityButton(
+              context, Icons.description_outlined, CodeEditorSidebar.openEditors),
         ]),
       ),
       if (state.isSidebarVisible) ...[
@@ -111,7 +112,8 @@ class CodeEditorWorkspace extends StatelessWidget {
     ]);
   }
 
-  Widget _activityButton(IconData icon, CodeEditorSidebar sidebar) {
+  Widget _activityButton(
+      BuildContext context, IconData icon, CodeEditorSidebar sidebar) {
     final selected = state.sidebar == sidebar;
     return IconButton(
       onPressed: () => vm.setSidebar(sidebar),
