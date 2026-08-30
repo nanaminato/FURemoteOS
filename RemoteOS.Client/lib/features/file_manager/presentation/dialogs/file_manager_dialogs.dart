@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../core/theme/theme_service.dart';
+import '../../../../../core/apps/app_ids.dart';
 import '../../../../../core/window_manager/context_menu_host.dart';
 import '../../../../../core/window_manager/modal_manager.dart';
 import '../../../../../core/window_manager/window_manager.dart';
@@ -310,7 +311,7 @@ class _FmOpenWithDialogState extends ConsumerState<FmOpenWithDialog> {
 }
 
 IconData _openWithIcon(OpenWithCandidate candidate) =>
-    candidate.appId == 'image_viewer'
+    candidate.appId == AppIds.imageViewer
         ? Icons.image_outlined
         : Icons.code_outlined;
 

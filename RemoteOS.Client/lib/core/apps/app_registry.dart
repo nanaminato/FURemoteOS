@@ -12,33 +12,73 @@ import '../../apps/task_manager/task_manager_app.dart';
 import '../../apps/docker/docker_manager_app.dart';
 import '../../apps/firewall/firewall_app.dart';
 import '../../apps/server_admin/server_admin_apps.dart';
+import '../../external_apps/help_center/help_center_app.dart';
+import '../../external_apps/help_center/help_center_package.dart';
+import 'app_ids.dart';
+import 'builtin_app_activations.dart';
+import 'application_manifest.dart';
 
 /// Registry of available RemoteOS applications.
 class AppRegistryEntry {
-  final String id;
+  final ApplicationManifest manifest;
+  String get id => manifest.id;
   final String nameKey; // Translation key for display name
   final IconData icon;
   final String? description;
   final WidgetBuilder windowBuilder;
   final Size defaultSize;
   final Size minimumSize;
-  final bool allowMultipleInstances;
+  bool get allowMultipleInstances =>
+      manifest.instancePolicy == ApplicationInstancePolicy.multiWindow;
+  final bool Function(Uri uri)? canHandleActivation;
+  final void Function(Uri uri)? handleActivation;
 
-  const AppRegistryEntry({
-    required this.id,
+  AppRegistryEntry({
+    required String id,
     required this.nameKey,
     required this.icon,
     this.description,
     required this.windowBuilder,
     this.defaultSize = const Size(800, 600),
     this.minimumSize = const Size(320, 240),
-    this.allowMultipleInstances = false,
-  });
+    bool allowMultipleInstances = false,
+    ApplicationManifest? manifest,
+    this.canHandleActivation,
+    this.handleActivation,
+  })  : assert(manifest == null || manifest.id == id),
+        manifest = manifest ??
+            ApplicationManifest(
+              id: id,
+              version: '1.0.0',
+              instancePolicy: allowMultipleInstances
+                  ? ApplicationInstancePolicy.multiWindow
+                  : ApplicationInstancePolicy.singleWindow,
+            );
 }
 
 /// Global registry of all registered apps.
 class AppRegistry {
   final Map<String, AppRegistryEntry> _entries = {};
+  static const _legacyAliases = <String, String>{
+    'welcome': AppIds.welcome,
+    'notepad': AppIds.notepad,
+    'code_editor': AppIds.codeEditor,
+    'image_viewer': AppIds.imageViewer,
+    'settings': AppIds.settings,
+    'terminal': AppIds.terminal,
+    'explorer': AppIds.explorer,
+    'browser': AppIds.browser,
+    'task_manager': AppIds.taskManager,
+    'docker_manager': AppIds.docker,
+    'firewall': AppIds.firewall,
+    'certificates': AppIds.certificates,
+    'web_servers': AppIds.webServers,
+    'tunnels': AppIds.tunnels,
+    'git_client': AppIds.git,
+    'port_forwarding': AppIds.portForwarding,
+    'process_guardian': AppIds.processGuardian,
+    'app_installer': AppIds.appInstaller,
+  };
 
   void register(AppRegistryEntry entry) {
     _entries[entry.id] = entry;
@@ -48,7 +88,9 @@ class AppRegistry {
     for (final e in entries) register(e);
   }
 
-  AppRegistryEntry? get(String id) => _entries[id];
+  /// Resolves earlier Flutter UI aliases at the registry boundary. Newly
+  /// persisted values and activation requests use the manifest package id.
+  AppRegistryEntry? get(String id) => _entries[_legacyAliases[id] ?? id];
 
   List<AppRegistryEntry> get all => _entries.values.toList(growable: false);
 }
@@ -67,7 +109,7 @@ class BuiltinApps {
 
   static final List<AppRegistryEntry> all = [
     AppRegistryEntry(
-      id: 'welcome',
+      id: AppIds.welcome,
       nameKey: key('welcome'),
       icon: Icons.waving_hand_outlined,
       defaultSize: const Size(620, 520),
@@ -75,7 +117,7 @@ class BuiltinApps {
       windowBuilder: (_) => const WelcomeApp(),
     ),
     AppRegistryEntry(
-      id: 'notepad',
+      id: AppIds.notepad,
       nameKey: key('notepad'),
       icon: Icons.edit_note_outlined,
       defaultSize: const Size(720, 520),
@@ -84,7 +126,7 @@ class BuiltinApps {
       windowBuilder: (_) => const NotepadApp(),
     ),
     AppRegistryEntry(
-      id: 'code_editor',
+      id: AppIds.codeEditor,
       nameKey: key('code_editor'),
       icon: Icons.code_outlined,
       defaultSize: const Size(1000, 680),
@@ -93,7 +135,7 @@ class BuiltinApps {
       windowBuilder: (_) => const CodeEditorApp(),
     ),
     AppRegistryEntry(
-      id: 'image_viewer',
+      id: AppIds.imageViewer,
       nameKey: key('image_viewer'),
       icon: Icons.image_outlined,
       defaultSize: const Size(800, 600),
@@ -102,15 +144,18 @@ class BuiltinApps {
       windowBuilder: (_) => const ImageViewerApp(),
     ),
     AppRegistryEntry(
-      id: 'settings',
+      id: AppIds.settings,
       nameKey: key('settings'),
       icon: Icons.settings_outlined,
       defaultSize: const Size(920, 620),
       minimumSize: const Size(640, 480),
-      windowBuilder: (_) => const SettingsApp(),
+      canHandleActivation: BuiltinAppActivations.canHandleSettings,
+      handleActivation: BuiltinAppActivations.settings.handle,
+      windowBuilder: (_) =>
+          SettingsApp(activation: BuiltinAppActivations.settings),
     ),
     AppRegistryEntry(
-      id: 'terminal',
+      id: AppIds.terminal,
       nameKey: key('terminal'),
       icon: Icons.terminal_outlined,
       defaultSize: const Size(820, 520),
@@ -119,7 +164,7 @@ class BuiltinApps {
       windowBuilder: (_) => const TerminalApp(),
     ),
     AppRegistryEntry(
-      id: 'explorer',
+      id: AppIds.explorer,
       nameKey: key('explorer'),
       icon: Icons.folder_outlined,
       defaultSize: const Size(920, 620),
@@ -128,7 +173,7 @@ class BuiltinApps {
       windowBuilder: (_) => const ExplorerApp(),
     ),
     AppRegistryEntry(
-      id: 'browser',
+      id: AppIds.browser,
       nameKey: key('browser'),
       icon: Icons.public_outlined,
       defaultSize: const Size(1080, 720),
@@ -137,7 +182,7 @@ class BuiltinApps {
       windowBuilder: (_) => const BrowserApp(),
     ),
     AppRegistryEntry(
-      id: 'task_manager',
+      id: AppIds.taskManager,
       nameKey: key('task_manager'),
       icon: Icons.monitor_heart_outlined,
       defaultSize: const Size(820, 580),
@@ -145,7 +190,7 @@ class BuiltinApps {
       windowBuilder: (_) => const TaskManagerApp(),
     ),
     AppRegistryEntry(
-      id: 'docker_manager',
+      id: AppIds.docker,
       nameKey: key('docker_manager'),
       icon: Icons.integration_instructions_outlined,
       defaultSize: const Size(1020, 680),
@@ -153,15 +198,24 @@ class BuiltinApps {
       windowBuilder: (_) => const DockerManagerApp(),
     ),
     AppRegistryEntry(
-      id: 'firewall',
+      id: AppIds.firewall,
       nameKey: key('firewall'),
       icon: Icons.shield_outlined,
       defaultSize: const Size(1160, 760),
       minimumSize: const Size(800, 520),
       windowBuilder: (_) => const FirewallApp(),
+      manifest: ApplicationManifest(
+        id: AppIds.firewall,
+        version: '1.0.0',
+        server: const ApplicationServerRequirements(
+          platforms: [ApplicationPlatform.linux],
+          capabilities: ['server.firewall'],
+        ),
+        instancePolicy: ApplicationInstancePolicy.singleWindow,
+      ),
     ),
     AppRegistryEntry(
-      id: 'certificates',
+      id: AppIds.certificates,
       nameKey: key('certificates'),
       icon: Icons.verified_user_outlined,
       defaultSize: const Size(880, 580),
@@ -170,7 +224,7 @@ class BuiltinApps {
           const ServerAdminApp(kind: ServerAdminKind.certificates),
     ),
     AppRegistryEntry(
-      id: 'web_servers',
+      id: AppIds.webServers,
       nameKey: key('web_servers'),
       icon: Icons.http_outlined,
       defaultSize: const Size(980, 640),
@@ -179,7 +233,7 @@ class BuiltinApps {
           const ServerAdminApp(kind: ServerAdminKind.webServers),
     ),
     AppRegistryEntry(
-      id: 'tunnels',
+      id: AppIds.tunnels,
       nameKey: key('tunnels'),
       icon: Icons.route_outlined,
       defaultSize: const Size(920, 620),
@@ -187,7 +241,7 @@ class BuiltinApps {
       windowBuilder: (_) => const ServerAdminApp(kind: ServerAdminKind.tunnels),
     ),
     AppRegistryEntry(
-      id: 'git_client',
+      id: AppIds.git,
       nameKey: key('git_client'),
       icon: Icons.source_outlined,
       defaultSize: const Size(980, 640),
@@ -195,7 +249,7 @@ class BuiltinApps {
       windowBuilder: (_) => const ServerAdminApp(kind: ServerAdminKind.git),
     ),
     AppRegistryEntry(
-      id: 'port_forwarding',
+      id: AppIds.portForwarding,
       nameKey: key('port_forwarding'),
       icon: Icons.alt_route_outlined,
       defaultSize: const Size(800, 560),
@@ -204,7 +258,7 @@ class BuiltinApps {
           const ServerAdminApp(kind: ServerAdminKind.portForwarding),
     ),
     AppRegistryEntry(
-      id: 'process_guardian',
+      id: AppIds.processGuardian,
       nameKey: key('process_guardian'),
       icon: Icons.health_and_safety_outlined,
       defaultSize: const Size(860, 580),
@@ -213,13 +267,24 @@ class BuiltinApps {
           const ServerAdminApp(kind: ServerAdminKind.guardian),
     ),
     AppRegistryEntry(
-      id: 'app_installer',
+      id: AppIds.appInstaller,
       nameKey: key('app_installer'),
       icon: Icons.get_app_outlined,
       defaultSize: const Size(820, 580),
       minimumSize: const Size(520, 400),
       windowBuilder: (_) =>
           const ServerAdminApp(kind: ServerAdminKind.installer),
+    ),
+    AppRegistryEntry(
+      id: AppIds.helpCenter,
+      nameKey: 'app.help_center',
+      icon: Icons.help_outline_rounded,
+      defaultSize: const Size(900, 620),
+      minimumSize: const Size(600, 420),
+      manifest: HelpCenterPackage.manifest,
+      canHandleActivation: HelpCenterPackages.instance.canHandle,
+      handleActivation: HelpCenterPackages.instance.handle,
+      windowBuilder: (_) => HelpCenterApp(package: HelpCenterPackages.instance),
     ),
   ];
 }

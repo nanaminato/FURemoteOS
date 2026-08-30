@@ -75,7 +75,10 @@ class WorkspaceSettingsRepository implements SettingsRepository {
       apps.add(AppOptionUi(
         id: e.id,
         displayName: e.nameKey.tr(),
-        schemes: defaultSchemesFor(e.id),
+        schemes: {
+          ...defaultSchemesFor(e.id),
+          ...e.manifest.supportedUriSchemes,
+        }.toList(growable: false),
         extensions: defaultExtensionsFor(e.id),
       ));
     }
@@ -221,8 +224,10 @@ class WorkspaceSettingsRepository implements SettingsRepository {
         .cast<ThemePaletteDto?>()
         .firstWhere((c) => c?.id == id, orElse: () => null);
     if (palette == null) return false;
-    final ok = await confirm('settings.theme_delete'.tr(),
-        'settings.theme_delete.confirmation'.tr(namedArgs: {'name': palette.name}));
+    final ok = await confirm(
+        'settings.theme_delete'.tr(),
+        'settings.theme_delete.confirmation'
+            .tr(namedArgs: {'name': palette.name}));
     if (ok != true) return false;
     final remaining =
         prefs.customPalettes.where((p) => p.id != id).toList(growable: false);
@@ -256,13 +261,14 @@ class WorkspaceSettingsRepository implements SettingsRepository {
       }
       return (
         ok: false,
-        text:
-            'settings.network.test_failed'.tr(namedArgs: {'error': 'HTTP ${resp.statusCode}'})
+        text: 'settings.network.test_failed'
+            .tr(namedArgs: {'error': 'HTTP ${resp.statusCode}'})
       );
     } catch (e) {
       return (
         ok: false,
-        text: 'settings.network.test_failed'.tr(namedArgs: {'error': e.toString()})
+        text: 'settings.network.test_failed'
+            .tr(namedArgs: {'error': e.toString()})
       );
     }
   }

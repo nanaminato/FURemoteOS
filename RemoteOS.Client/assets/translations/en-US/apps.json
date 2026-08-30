@@ -18,6 +18,11 @@
         "app.port_forwarding": "Port Forwarding",
         "app.process_guardian": "Process Guardian",
         "app.app_installer": "App Installer",
+        "app.help_center": "Help Center",
+        "app.help_center.description": "Offline, localized guides",
+        "app.help_center.title": "Help Center",
+        "app.help_center.docker_install": "Install Docker",
+        "app.help_center.docker_uninstall": "Uninstall Docker",
         "apps.desktop_unknown": "Unknown App"
     }
 }

@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/apps/app_registry.dart';
+import '../../../../core/apps/app_ids.dart';
 import '../../../../core/theme/theme_service.dart';
 
 class DesktopStartMenu extends ConsumerStatefulWidget {
@@ -53,12 +54,12 @@ class _DesktopStartMenuState extends ConsumerState<DesktopStartMenu> {
       ..sort((a, b) => a.nameKey.tr().compareTo(b.nameKey.tr()));
 
     const pinnedIds = [
-      'explorer',
-      'browser',
-      'terminal',
-      'settings',
-      'code_editor',
-      'notepad',
+      AppIds.explorer,
+      AppIds.browser,
+      AppIds.terminal,
+      AppIds.settings,
+      AppIds.codeEditor,
+      AppIds.notepad,
     ];
     final pinned = registry.all.where((e) => pinnedIds.contains(e.id)).toList()
       ..sort(

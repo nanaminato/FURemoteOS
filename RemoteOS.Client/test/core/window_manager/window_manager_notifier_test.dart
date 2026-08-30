@@ -166,7 +166,7 @@ void main() {
 
   test('uses a restored workspace size when opening an app', () {
     final manager = WindowManagerNotifier();
-    const entry = AppRegistryEntry(
+    final entry = AppRegistryEntry(
       id: 'notepad',
       nameKey: 'app.notepad',
       icon: Icons.edit_note_outlined,

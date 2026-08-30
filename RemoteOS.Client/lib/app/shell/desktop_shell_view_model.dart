@@ -20,6 +20,8 @@ import 'package:command_it/command_it.dart';
 
 import '../../app/dependency_injection.dart';
 import '../../core/apps/app_registry.dart';
+import '../../core/apps/app_ids.dart';
+import '../../core/apps/application_runtime.dart';
 import '../../core/commands/base_view_model.dart';
 import '../../core/localization/language_catalog.dart';
 import '../../core/theme/theme_service.dart';
@@ -45,6 +47,7 @@ class DesktopShellViewModel extends ViewModel {
     required AuthNotifier auth,
     required ThemeNotifier theme,
     required WindowManagerNotifier windows,
+    required ApplicationRuntime applications,
     required WorkspaceSyncCoordinator workspace,
     required LanguageCatalog catalog,
     required ValueGetter<Locale> currentLocale,
@@ -53,6 +56,7 @@ class DesktopShellViewModel extends ViewModel {
         _auth = auth,
         _theme = theme,
         _windows = windows,
+        _applications = applications,
         _workspace = workspace,
         _catalog = catalog,
         _currentLocale = currentLocale,
@@ -70,6 +74,7 @@ class DesktopShellViewModel extends ViewModel {
   final AuthNotifier _auth;
   final ThemeNotifier _theme;
   final WindowManagerNotifier _windows;
+  final ApplicationRuntime _applications;
   final WorkspaceSyncCoordinator _workspace;
   final LanguageCatalog _catalog;
   final ValueGetter<Locale> _currentLocale;
@@ -102,11 +107,11 @@ class DesktopShellViewModel extends ViewModel {
         .where((w) => w.key == req.entry.id);
     final Size? size =
         saved.isEmpty ? null : Size(saved.first.width, saved.first.height);
-    _windows.openApp(
-      entry: req.entry,
-      child: req.child as Widget,
-      initialSize: size,
+    _applications.launch(
+      req.entry.id,
+      buildWindow: (_) => req.child as Widget,
       screenSize: req.screenSize,
+      initialSize: size,
     );
     overlay.value = DesktopOverlay.none;
   });
@@ -154,7 +159,7 @@ class DesktopShellViewModel extends ViewModel {
         if (desired != _currentLocale()) await _setLocale(desired);
       }
     }
-    final welcome = _registry.get('welcome');
+    final welcome = _registry.get(AppIds.welcome);
     if (welcome != null && req.welcomeBuilder != null) {
       final built = req.welcomeBuilder!(welcome);
       openAppCommand.run(OpenAppRequest(
@@ -201,7 +206,12 @@ class DesktopShellViewModel extends ViewModel {
   void closeOverlay() => overlay.value = DesktopOverlay.none;
 
   List<AppRegistryEntry> get desktopIcons => [
-        for (final id in const ['explorer', 'browser', 'settings', 'terminal'])
+        for (final id in const [
+          AppIds.explorer,
+          AppIds.browser,
+          AppIds.settings,
+          AppIds.terminal
+        ])
           if (_registry.get(id) != null) _registry.get(id)!,
       ];
 }
@@ -261,6 +271,7 @@ DesktopShellViewModel createDesktopShellViewModel({
       auth: di<AuthNotifier>(),
       theme: di<ThemeNotifier>(),
       windows: di<WindowManagerNotifier>(),
+      applications: di<ApplicationRuntime>(),
       workspace: di<WorkspaceSyncCoordinator>(),
       catalog: di<LanguageCatalog>(),
       currentLocale: currentLocale,

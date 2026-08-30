@@ -17,6 +17,7 @@ import 'package:get_it/get_it.dart';
 import 'package:http/http.dart' as http;
 
 import '../core/apps/app_registry.dart';
+import '../core/apps/application_runtime.dart';
 import '../core/auth/auth_service.dart';
 import '../core/localization/language_catalog.dart';
 import '../core/network/remoteos_api.dart';
@@ -82,6 +83,14 @@ void registerCoreSingletons({
 
   final windowManagerNotifier = WindowManagerNotifier();
   di.registerSingleton<WindowManagerNotifier>(windowManagerNotifier);
+
+  // The application runtime is the only launch/URI-routing authority. It
+  // evaluates package compatibility before creating a managed app window.
+  di.registerSingleton<ApplicationRuntime>(ApplicationRuntime(
+    registry: di<AppRegistry>(),
+    windows: windowManagerNotifier,
+    auth: authNotifier,
+  ));
 
   final modalManager = ModalManager(windowManagerNotifier);
   di.registerSingleton<ModalManager>(modalManager);

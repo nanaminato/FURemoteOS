@@ -18,6 +18,11 @@
         "app.port_forwarding": "ポート転送",
         "app.process_guardian": "プロセス ガーディアン",
         "app.app_installer": "アプリ インストーラー",
+        "app.help_center": "ヘルプセンター",
+        "app.help_center.description": "オフライン対応の多言語ガイド",
+        "app.help_center.title": "ヘルプセンター",
+        "app.help_center.docker_install": "Docker をインストール",
+        "app.help_center.docker_uninstall": "Docker をアンインストール",
         "apps.desktop_unknown": "不明なアプリ"
     }
 }

@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:remoteos_client/features/auth/data/remoteos_auth_api.dart';
 import 'package:remoteos_client/core/auth/auth_service.dart';
 import 'package:remoteos_client/core/network/remoteos_api.dart';
+import 'package:remoteos_client/core/apps/application_manifest.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -58,6 +59,8 @@ void main() {
     expect(result.username, 'alice');
     expect(result.workspaceId, 'workspace-1');
     expect(result.workspaceName, 'Alice Workspace');
+    expect(result.server?.platform, ApplicationPlatform.windows);
+    expect(result.server?.capabilities, isEmpty);
   });
 
   test('refreshes once after an unauthorized REST request and retries it',

@@ -18,6 +18,11 @@
         "app.port_forwarding": "端口转发",
         "app.process_guardian": "进程守护",
         "app.app_installer": "应用安装器",
+        "app.help_center": "帮助中心",
+        "app.help_center.description": "离线、多语言使用指南",
+        "app.help_center.title": "帮助中心",
+        "app.help_center.docker_install": "安装 Docker",
+        "app.help_center.docker_uninstall": "卸载 Docker",
         "apps.desktop_unknown": "未知应用"
     }
 }

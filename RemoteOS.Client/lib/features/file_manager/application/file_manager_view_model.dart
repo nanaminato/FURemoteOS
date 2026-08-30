@@ -20,6 +20,7 @@ import 'package:command_it/command_it.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../../app/dependency_injection.dart' as app_di;
+import '../../../core/apps/app_ids.dart';
 import '../../../core/commands/base_view_model.dart';
 import '../../../core/errors/remote_os_failure.dart';
 import '../../files/data/remote_file_api.dart';
@@ -657,10 +658,11 @@ class FileManagerViewModel extends ViewModel {
   List<OpenWithCandidate> candidatesFor(FileItem entry) {
     final candidates = <OpenWithCandidate>[];
     if (_isImage(entry)) {
-      candidates.add(const OpenWithCandidate('image_viewer', 'Image Viewer'));
+      candidates
+          .add(const OpenWithCandidate(AppIds.imageViewer, 'Image Viewer'));
     }
     if (_isTextByName(entry)) {
-      candidates.add(const OpenWithCandidate('code_editor', 'Code Editor'));
+      candidates.add(const OpenWithCandidate(AppIds.codeEditor, 'Code Editor'));
     }
     return candidates;
   }
@@ -689,7 +691,7 @@ class FileManagerViewModel extends ViewModel {
     var candidates = candidatesFor(entry);
     if (candidates.isEmpty && await isTextContent(entry)) {
       candidates = const [
-        OpenWithCandidate('code_editor', 'Code Editor'),
+        OpenWithCandidate(AppIds.codeEditor, 'Code Editor'),
       ];
     }
     if (candidates.isEmpty) {

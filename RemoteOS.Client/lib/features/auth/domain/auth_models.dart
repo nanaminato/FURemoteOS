@@ -1,3 +1,5 @@
+import '../../../core/apps/application_manifest.dart';
+
 /// The authentication contract shared by RemoteOS desktop clients.
 ///
 /// These types intentionally mirror `Shared/RemoteOS.Protocol/Identity` in the
@@ -51,12 +53,14 @@ class LoginResult {
     required this.username,
     required this.workspaceId,
     required this.workspaceName,
+    this.server,
   });
 
   final AuthTokens tokens;
   final String? username;
   final String? workspaceId;
   final String? workspaceName;
+  final RemoteServerDescriptor? server;
 
   factory LoginResult.fromJson(Map<String, dynamic> json) {
     final tokens = json['tokens'];
@@ -67,6 +71,7 @@ class LoginResult {
 
     final user = json['user'];
     final workspace = json['workspace'];
+    final server = json['server'];
     return LoginResult(
       tokens: AuthTokens.fromJson(tokens),
       username:
@@ -75,6 +80,9 @@ class LoginResult {
           workspace is Map<String, dynamic> ? workspace['id'] as String? : null,
       workspaceName: workspace is Map<String, dynamic>
           ? workspace['name'] as String?
+          : null,
+      server: server is Map<String, dynamic>
+          ? RemoteServerDescriptor.fromJson(server)
           : null,
     );
   }

@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/dependency_injection.dart';
 import '../../../core/apps/app_registry.dart';
+import '../../../core/apps/app_ids.dart';
 import '../../../core/auth/auth_service.dart';
 import '../../../core/commands/base_view_model.dart';
 import '../../../core/theme/theme_palette_defaults.dart';
@@ -238,7 +239,8 @@ class SettingsViewModel extends ViewModel {
         child: entry.windowBuilder(ctx),
       );
       state.value = state.value.copyWith(
-          appsActionStatus: 'settings.apps.opened'.tr(namedArgs: {'name': displayName}));
+          appsActionStatus:
+              'settings.apps.opened'.tr(namedArgs: {'name': displayName}));
     } catch (_) {
       state.value = state.value
           .copyWith(appsActionStatus: 'settings.apps.not_launchable'.tr());
@@ -291,7 +293,8 @@ class SettingsViewModel extends ViewModel {
     ];
     final status = mirror.isDefault
         ? 'settings.image_mirrors.default_selected'.tr()
-        : 'settings.image_mirrors.selected'.tr(namedArgs: {'name': mirror.name});
+        : 'settings.image_mirrors.selected'
+            .tr(namedArgs: {'name': mirror.name});
     state.value =
         state.value.copyWith(imageMirrors: next, imageMirrorStatus: status);
   }
@@ -360,7 +363,7 @@ class SettingsViewModel extends ViewModel {
         orElse: () => state.value.availableSchemes.first);
     final scheme = state.value.appOptions.isNotEmpty
         ? state.value.appOptions.first.id
-        : 'browser';
+        : AppIds.browser;
     final next = List<DefaultAppMappingUi>.from(state.value.defaultMappings)
       ..add(DefaultAppMappingUi(scheme: pick, appId: scheme));
     state.value = state.value.copyWith(defaultMappings: next);
@@ -382,7 +385,8 @@ class SettingsViewModel extends ViewModel {
       return appOptions
           .where((a) =>
               a.schemes.any((s) => s.toLowerCase() == scheme.toLowerCase()) ||
-              (universal.contains(scheme.toLowerCase()) && a.id == 'browser'))
+              (universal.contains(scheme.toLowerCase()) &&
+                  a.id == AppIds.browser))
           .toList();
     }
     return appOptions

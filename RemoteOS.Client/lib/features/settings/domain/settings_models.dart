@@ -7,6 +7,8 @@
 
 import 'package:flutter/painting.dart';
 
+import '../../../core/apps/app_ids.dart';
+
 /// Parse a `#RRGGBB` / `#AARRGGBB` hex token into a [Color].
 ///
 /// Mirrors Avalonia's color parsing convention used by the theme
@@ -86,16 +88,16 @@ List<({String key, String name})> wallpaperOptions() => const [
 
 /// Default scheme declarations per application id. Mirrors Avalonia baseline.
 List<String> defaultSchemesFor(String id) => switch (id) {
-      'explorer' => ['file'],
-      'browser' => ['http', 'https', 'mailto', 'ftp'],
-      'settings' => ['remoteos'],
+      AppIds.explorer => ['file'],
+      AppIds.browser => ['http', 'https', 'mailto', 'ftp'],
+      AppIds.settings => ['remoteos'],
       _ => const [],
     };
 
 /// Default file-extension associations per application id. Mirrors Avalonia
 /// baseline used by Explorer -> Open with list.
 List<String> defaultExtensionsFor(String id) => switch (id) {
-      'notepad' => const [
+      AppIds.notepad => const [
           '.txt',
           '.md',
           '.markdown',
@@ -111,7 +113,7 @@ List<String> defaultExtensionsFor(String id) => switch (id) {
           '.log',
           '.csv',
         ],
-      'code_editor' => const [
+      AppIds.codeEditor => const [
           '.dart',
           '.cs',
           '.py',
@@ -133,10 +135,10 @@ List<String> defaultExtensionsFor(String id) => switch (id) {
           '.kt',
           '.swift',
         ],
-      'terminal' => const ['.sh', '.ps1', '.bat', '.cmd'],
-      'browser' => const ['.html', '.htm', '.xhtml', '.mht'],
-      'docker_manager' => const ['.dockerfile', '.yaml', '.yml'],
-      'image_viewer' => const [
+      AppIds.terminal => const ['.sh', '.ps1', '.bat', '.cmd'],
+      AppIds.browser => const ['.html', '.htm', '.xhtml', '.mht'],
+      AppIds.docker => const ['.dockerfile', '.yaml', '.yml'],
+      AppIds.imageViewer => const [
           '.png',
           '.jpg',
           '.jpeg',
@@ -152,36 +154,36 @@ List<String> defaultExtensionsFor(String id) => switch (id) {
 /// strings intentionally match Avalonia to keep UI parity; real permissions
 /// live server side and are enumerated via the Apps client (MVP skips that).
 List<String> fakePermissionsFor(String id) => switch (id) {
-      'browser' => const [
+      AppIds.browser => const [
           'Access to network (HTTP/HTTPS requests)',
           'Open external links on the host OS',
           'Read local HTML file associations',
         ],
-      'explorer' => const [
+      AppIds.explorer => const [
           'Read and write workspace files',
           'Launch associated applications',
         ],
-      'terminal' => const [
+      AppIds.terminal => const [
           'Execute shell commands in sessions',
           'Access current working directory',
         ],
-      'code_editor' => const [
+      AppIds.codeEditor => const [
           'Open text files and source code',
           'Save files back to workspace storage',
         ],
-      'docker_manager' => const [
+      AppIds.docker => const [
           'Docker daemon access (list, pull, run, remove)',
           'Read image mirror registries',
         ],
-      'settings' => const [
+      AppIds.settings => const [
           'Read and modify workspace preferences',
           'Open developer mode and pairing',
         ],
-      'task_manager' => const [
+      AppIds.taskManager => const [
           'Enumerate server processes and network usage',
           'Request process termination',
         ],
-      'firewall' => const [
+      AppIds.firewall => const [
           'Read and modify firewall rules',
         ],
       _ => const [],

@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/auth/data/remoteos_auth_api.dart';
 import '../../features/auth/domain/auth_models.dart';
+import '../apps/application_manifest.dart';
 
 /// The lifecycle of an authenticated RemoteOS session.
 enum AuthState { unauthenticated, authenticating, authenticated, error }
@@ -32,6 +33,7 @@ class AuthSessionState {
     this.accessToken,
     this.refreshToken,
     this.expiresAt,
+    this.server,
   });
 
   final AuthState state;
@@ -44,6 +46,7 @@ class AuthSessionState {
   final String? accessToken;
   final String? refreshToken;
   final DateTime? expiresAt;
+  final RemoteServerDescriptor? server;
 
   bool get isAuthenticated =>
       state == AuthState.authenticated && accessToken != null;
@@ -186,6 +189,7 @@ class AuthNotifier extends StateNotifier<AuthSessionState> {
         accessToken: result.tokens.accessToken,
         refreshToken: result.tokens.refreshToken,
         expiresAt: result.tokens.accessTokenExpiresAt,
+        server: result.server,
       );
       // A successful remote authentication must not be invalidated merely
       // because optional local persistence (for example, an unavailable
@@ -255,6 +259,7 @@ class AuthNotifier extends StateNotifier<AuthSessionState> {
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
         expiresAt: tokens.accessTokenExpiresAt,
+        server: current.server,
       );
       return true;
     } on RemoteOsApiException catch (error) {

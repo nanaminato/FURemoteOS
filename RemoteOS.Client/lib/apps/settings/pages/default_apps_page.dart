@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/theme_service.dart';
+import '../../../core/apps/app_ids.dart';
 import '../models.dart';
 import '../settings_controller.dart';
 import '../shared/widgets.dart';
@@ -167,7 +168,8 @@ class _DefaultAppRow extends StatelessWidget {
       return appOptions
           .where((a) =>
               a.schemes.any((s) => s.toLowerCase() == scheme.toLowerCase()) ||
-              (universal.contains(scheme.toLowerCase()) && a.id == 'browser'))
+              (universal.contains(scheme.toLowerCase()) &&
+                  a.id == AppIds.browser))
           .toList();
     }
     return appOptions

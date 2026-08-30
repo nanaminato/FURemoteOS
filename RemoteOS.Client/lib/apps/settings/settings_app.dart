@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/theme_service.dart';
+import '../../core/apps/builtin_app_activations.dart';
 import 'pages/applications_page.dart';
 import 'pages/default_apps_page.dart';
 import 'pages/developer_page.dart';
@@ -27,7 +28,9 @@ import 'pages/time_language_page.dart';
 import 'settings_controller.dart';
 
 class SettingsApp extends ConsumerStatefulWidget {
-  const SettingsApp({super.key});
+  const SettingsApp({super.key, this.activation});
+
+  final SettingsActivation? activation;
 
   @override
   ConsumerState<SettingsApp> createState() => _SettingsAppState();
@@ -86,6 +89,8 @@ class _SettingsAppState extends ConsumerState<SettingsApp>
         setState(() => _selectedPage = _tabController.index);
       }
     });
+    widget.activation?.addListener(_applyActivation);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _applyActivation());
     // Initialize state + theme accent sync after the first build so
     // WidgetRef is usable.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -98,11 +103,27 @@ class _SettingsAppState extends ConsumerState<SettingsApp>
 
   @override
   void dispose() {
+    widget.activation?.removeListener(_applyActivation);
     _tabController.dispose();
     _newMirrorName.dispose();
     _newMirrorEndpoint.dispose();
     _accentInputCtrl.dispose();
     super.dispose();
+  }
+
+  void _applyActivation() {
+    final uri = widget.activation?.current;
+    if (uri == null) return;
+    final next =
+        switch (uri.pathSegments.isEmpty ? null : uri.pathSegments.first) {
+      'personalization' => 1,
+      'apps' => 4,
+      _ => _selectedPage,
+    };
+    if (next != _selectedPage && mounted) {
+      setState(() => _selectedPage = next);
+      _tabController.animateTo(next);
+    }
   }
 
   @override

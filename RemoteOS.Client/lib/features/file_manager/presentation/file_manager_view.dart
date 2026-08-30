@@ -21,6 +21,7 @@ import '../../../../apps/code_editor/code_editor_app.dart';
 import '../../../../apps/image_viewer/image_viewer_app.dart';
 import '../../../../apps/terminal/terminal_app.dart';
 import '../../../../core/apps/app_registry.dart';
+import '../../../../core/apps/app_ids.dart';
 import '../../../../core/theme/theme_service.dart';
 import '../../../../core/window_manager/context_menu_host.dart';
 import '../../../../core/window_manager/modal_manager.dart';
@@ -230,7 +231,7 @@ class _FileManagerViewState extends ConsumerState<FileManagerView> {
     if (app == null) return;
     Widget child;
     String title;
-    if (defaultAppId == 'image_viewer') {
+    if (defaultAppId == AppIds.imageViewer) {
       child = ImageViewerApp(remotePath: entry.path, fileName: entry.name);
       title = entry.name;
     } else {
@@ -273,7 +274,7 @@ class _FileManagerViewState extends ConsumerState<FileManagerView> {
   }
 
   void _openTerminalHere(String workingDirectory) {
-    final app = ref.read(appRegistryProvider).get('terminal');
+    final app = ref.read(appRegistryProvider).get(AppIds.terminal);
     if (app == null) return;
     ref.read(windowManagerProvider.notifier).openApp(
           entry: app,

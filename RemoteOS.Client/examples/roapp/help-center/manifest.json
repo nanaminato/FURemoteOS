@@ -1,0 +1,13 @@
+{
+  "id": "com.remoteos.example.help-center",
+  "displayName": "Help Center",
+  "version": "0.1.0-dev",
+  "kind": "content-adapter",
+  "adapter": "help-center",
+  "description": "Offline, localized guides opened through help:// links",
+  "instancePolicy": "SingleWindow",
+  "supportedUriSchemes": ["help"],
+  "activationRoutes": [
+    { "scheme": "help", "host": "guide", "pathPrefix": "/docker/" }
+  ]
+}

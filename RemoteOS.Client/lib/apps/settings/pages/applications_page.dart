@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/apps/app_registry.dart';
+import '../../../core/apps/app_ids.dart';
 import '../../../core/theme/theme_service.dart';
 import '../dialogs/settings_dialogs.dart';
 import '../models.dart';
@@ -118,7 +119,7 @@ class _AppDetails extends ConsumerWidget {
     final entry = registry.get(appId);
     final ctrl = ref.read(settingsControllerProvider.notifier);
     final state = ref.watch(settingsControllerProvider);
-    final isBrowser = appId == 'browser';
+    final isBrowser = appId == AppIds.browser;
     final permissions = fakePermissionsFor(appId);
     const canUninstall = false; // MVP: only built-in apps are shipped
     if (entry == null) {
