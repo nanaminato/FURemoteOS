@@ -72,6 +72,30 @@ void main() {
     expect(controller.isOpen, isFalse);
   });
 
+  testWidgets('keeps desktop menus above the taskbar work area',
+      (tester) async {
+    final controller = RemoteContextMenuController();
+    await pumpHost(tester, controller, const []);
+
+    controller.show(
+      const Offset(400, 540),
+      const [
+        ContextMenuAction(label: 'View', onSelected: _noop),
+        ContextMenuAction(label: 'Refresh', onSelected: _noop),
+        ContextMenuAction(label: 'Configure', onSelected: _noop),
+        ContextMenuAction(label: 'Explorer', onSelected: _noop),
+        ContextMenuAction(label: 'Terminal', onSelected: _noop),
+      ],
+      availableBounds: const Rect.fromLTWH(0, 0, 800, 552),
+    );
+    await tester.pump();
+
+    expect(
+      tester.getBottomRight(find.text('Terminal')).dy,
+      lessThanOrEqualTo(552),
+    );
+  });
+
   testWidgets('an explicitly expanded positioned stack consumes its viewport',
       (tester) async {
     const desktopKey = Key('desktop-stack');

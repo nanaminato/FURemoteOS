@@ -36,6 +36,13 @@
     "shell.desktop_display.show_server_shortcuts": "Show server desktop shortcuts (.lnk / .desktop)",
     "shell.desktop_display.shortcuts_tooltip": "Shortcuts often point to paths on the host machine and may not open directly in RemoteOS.",
     "shell.desktop_display.get_started": "Get started",
+    "shell.desktop_menu.view": "View",
+    "shell.desktop_menu.show_icons": "Show desktop icons",
+    "shell.desktop_menu.configure_display": "Configure desktop display items…",
+    "shell.desktop_menu.open_file_explorer": "Open File Explorer",
+    "shell.desktop_menu.open_task_manager": "Open Task Manager",
+    "shell.desktop_menu.open_terminal": "Open Terminal",
+    "shell.desktop_menu.personalize": "Personalize",
     "shell.taskbar.start": "Start",
     "shell.taskbar.search": "Search"
   }

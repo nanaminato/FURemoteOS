@@ -62,6 +62,7 @@ class DesktopShellViewModel extends ViewModel {
         _currentLocale = currentLocale,
         _setLocale = setLocale {
     trackDisposable(overlay);
+    trackDisposable(desktopIconsVisible);
     trackDisposable(refreshCommand);
     trackDisposable(openAppCommand);
     trackDisposable(openAppByIdCommand);
@@ -86,6 +87,7 @@ class DesktopShellViewModel extends ViewModel {
 
   final ValueNotifier<DesktopOverlay> overlay =
       ValueNotifier(DesktopOverlay.none);
+  final ValueNotifier<bool> desktopIconsVisible = ValueNotifier(true);
 
   String? _lastQueuedLayoutFingerprint;
 
@@ -120,6 +122,15 @@ class DesktopShellViewModel extends ViewModel {
   /// because the ViewModel is not allowed to own [BuildContext].
   late final openAppByIdCommand =
       Command.createSyncNoResult<OpenAppByIdRequest>((req) {
+    if (req.activationUri != null) {
+      _applications.activate(
+        AppActivationRequest(uri: req.activationUri!),
+        buildWindow: (entry) => req.childBuilder(entry) as Widget,
+        screenSize: req.screenSize,
+      );
+      overlay.value = DesktopOverlay.none;
+      return;
+    }
     final entry = _registry.get(req.appId);
     if (entry == null) return;
     openAppCommand.run(OpenAppRequest(
@@ -205,6 +216,9 @@ class DesktopShellViewModel extends ViewModel {
 
   void closeOverlay() => overlay.value = DesktopOverlay.none;
 
+  void toggleDesktopIcons() =>
+      desktopIconsVisible.value = !desktopIconsVisible.value;
+
   List<AppRegistryEntry> get desktopIcons => [
         for (final id in const [
           AppIds.explorer,
@@ -242,11 +256,13 @@ class OpenAppByIdRequest {
     required this.appId,
     required this.childBuilder,
     required this.screenSize,
+    this.activationUri,
   });
 
   final String appId;
   final AppChildBuilder childBuilder;
   final Size screenSize;
+  final Uri? activationUri;
 }
 
 class RestoreDesktopRequest {

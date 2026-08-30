@@ -36,6 +36,13 @@
     "shell.desktop_display.show_server_shortcuts": "サーバー デスクトップ ショートカットを表示する",
     "shell.desktop_display.shortcuts_tooltip": "ショートカットは多くの場合、ホスト マシン上のパスを指しており、RemoteOS で直接開けないことがあります。",
     "shell.desktop_display.get_started": "はじめる",
+    "shell.desktop_menu.view": "表示",
+    "shell.desktop_menu.show_icons": "デスクトップ アイコンを表示",
+    "shell.desktop_menu.configure_display": "デスクトップ表示項目を構成…",
+    "shell.desktop_menu.open_file_explorer": "ファイル エクスプローラーを開く",
+    "shell.desktop_menu.open_task_manager": "タスク マネージャーを開く",
+    "shell.desktop_menu.open_terminal": "ターミナルを開く",
+    "shell.desktop_menu.personalize": "個人用設定",
     "shell.taskbar.start": "スタート",
     "shell.taskbar.search": "検索"
   }

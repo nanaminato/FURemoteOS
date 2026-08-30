@@ -36,6 +36,13 @@
     "shell.desktop_display.show_server_shortcuts": "显示服务器桌面快捷方式（.lnk / .desktop）",
     "shell.desktop_display.shortcuts_tooltip": "快捷方式通常指向宿主机本地路径，可能无法在 RemoteOS 中直接打开。",
     "shell.desktop_display.get_started": "开始使用",
+    "shell.desktop_menu.view": "查看",
+    "shell.desktop_menu.show_icons": "显示桌面图标",
+    "shell.desktop_menu.configure_display": "配置桌面显示项目…",
+    "shell.desktop_menu.open_file_explorer": "打开文件资源管理器",
+    "shell.desktop_menu.open_task_manager": "打开任务管理器",
+    "shell.desktop_menu.open_terminal": "打开终端",
+    "shell.desktop_menu.personalize": "个性化",
     "shell.taskbar.start": "开始",
     "shell.taskbar.search": "搜索"
   }

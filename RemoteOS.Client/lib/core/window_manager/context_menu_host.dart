@@ -9,8 +9,12 @@ class RemoteContextMenuController {
 
   bool get isOpen => _host?._entry != null;
 
-  void show(Offset position, List<ContextMenuEntry> entries) =>
-      _host?._show(position, entries);
+  void show(
+    Offset position,
+    List<ContextMenuEntry> entries, {
+    Rect? availableBounds,
+  }) =>
+      _host?._show(position, entries, availableBounds: availableBounds);
 
   void dismiss() => _host?._dismiss();
 }
@@ -25,11 +29,13 @@ class ContextMenuAction extends ContextMenuEntry {
     required this.onSelected,
     this.icon,
     this.enabled = true,
+    this.checked,
   });
 
   final String label;
   final IconData? icon;
   final bool enabled;
+  final bool? checked;
   final VoidCallback onSelected;
 }
 
@@ -90,13 +96,18 @@ class _ContextMenuHostState extends State<ContextMenuHost> {
     super.dispose();
   }
 
-  void _show(Offset position, List<ContextMenuEntry> entries) {
+  void _show(
+    Offset position,
+    List<ContextMenuEntry> entries, {
+    Rect? availableBounds,
+  }) {
     _dismiss();
     final overlay = Overlay.of(context, rootOverlay: true);
     _entry = OverlayEntry(
       builder: (context) => _ContextMenuOverlay(
         position: position,
         entries: entries,
+        availableBounds: availableBounds,
         onDismiss: _dismiss,
       ),
     );
@@ -119,17 +130,32 @@ class ContextMenuRegion extends StatelessWidget {
     required this.controller,
     required this.entries,
     required this.child,
+    this.availableBounds,
   });
 
   final RemoteContextMenuController controller;
   final List<ContextMenuEntry> entries;
   final Widget child;
 
+  /// Optional menu bounds expressed in this region's local coordinates.
+  /// Desktop callers use this to keep a menu above an overlapping taskbar.
+  final Rect? availableBounds;
+
   @override
   Widget build(BuildContext context) => GestureDetector(
         behavior: HitTestBehavior.translucent,
-        onSecondaryTapDown: (details) =>
-            controller.show(details.globalPosition, entries),
+        onSecondaryTapDown: (details) {
+          final renderBox = context.findRenderObject() as RenderBox?;
+          final localBounds = availableBounds;
+          final globalBounds = renderBox == null || localBounds == null
+              ? null
+              : localBounds.shift(renderBox.localToGlobal(Offset.zero));
+          controller.show(
+            details.globalPosition,
+            entries,
+            availableBounds: globalBounds,
+          );
+        },
         child: child,
       );
 }
@@ -138,11 +164,13 @@ class _ContextMenuOverlay extends StatefulWidget {
   const _ContextMenuOverlay({
     required this.position,
     required this.entries,
+    required this.availableBounds,
     required this.onDismiss,
   });
 
   final Offset position;
   final List<ContextMenuEntry> entries;
+  final Rect? availableBounds;
   final VoidCallback onDismiss;
 
   @override
@@ -173,17 +201,22 @@ class _ContextMenuOverlayState extends State<_ContextMenuOverlay> {
   @override
   Widget build(BuildContext context) {
     final screen = MediaQuery.sizeOf(context);
-    final estimatedHeight = widget.entries.fold<double>(
-      16,
-      (height, entry) => height + (entry is ContextMenuDivider ? 9 : 36),
+    final screenBounds = Offset.zero & screen;
+    final menuBounds = (widget.availableBounds ?? screenBounds)
+        .intersect(screenBounds)
+        .deflate(_edgeMargin);
+    final mainHeight = _estimatedHeight(widget.entries);
+    final left = _clampLeft(widget.position.dx, menuBounds);
+    final top = _clampTop(widget.position.dy, mainHeight, menuBounds);
+    final submenu = _openSubmenu;
+    final submenuHeight =
+        submenu == null ? 0.0 : _estimatedHeight(submenu.entries);
+    final opensLeft = left + _menuWidth * 2 > menuBounds.right;
+    final submenuLeft = _clampLeft(
+      opensLeft ? left - _menuWidth + 4 : left + _menuWidth - 4,
+      menuBounds,
     );
-    final left = widget.position.dx
-        .clamp(_edgeMargin, screen.width - _menuWidth - _edgeMargin)
-        .toDouble();
-    final top = widget.position.dy
-        .clamp(_edgeMargin, screen.height - estimatedHeight - _edgeMargin)
-        .toDouble();
-    final opensLeft = left + _menuWidth * 2 + _edgeMargin > screen.width;
+    final submenuTop = _clampTop(top, submenuHeight, menuBounds);
 
     return Focus(
       focusNode: _focusNode,
@@ -213,12 +246,12 @@ class _ContextMenuOverlayState extends State<_ContextMenuOverlay> {
               onSubmenu: (submenu) => setState(() => _openSubmenu = submenu),
             ),
           ),
-          if (_openSubmenu != null)
+          if (submenu != null)
             Positioned(
-              left: opensLeft ? left - _menuWidth + 4 : left + _menuWidth - 4,
-              top: top,
+              left: submenuLeft,
+              top: submenuTop,
               child: _ContextMenuPanel(
-                entries: _openSubmenu!.entries,
+                entries: submenu.entries,
                 onDismiss: widget.onDismiss,
                 onSubmenu: (_) {},
               ),
@@ -226,6 +259,24 @@ class _ContextMenuOverlayState extends State<_ContextMenuOverlay> {
         ],
       ),
     );
+  }
+
+  static double _estimatedHeight(List<ContextMenuEntry> entries) =>
+      entries.fold<double>(
+        16,
+        (height, entry) => height + (entry is ContextMenuDivider ? 9 : 36),
+      );
+
+  static double _clampLeft(double left, Rect bounds) {
+    final min = bounds.left;
+    final max = (bounds.right - _menuWidth).clamp(min, double.infinity);
+    return left.clamp(min, max).toDouble();
+  }
+
+  static double _clampTop(double top, double height, Rect bounds) {
+    final min = bounds.top;
+    final max = (bounds.bottom - height).clamp(min, double.infinity);
+    return top.clamp(min, max).toDouble();
   }
 }
 
@@ -293,7 +344,11 @@ class _MenuActionTile extends StatelessWidget {
               const SizedBox(width: 12),
               SizedBox(
                 width: 22,
-                child: entry.icon == null ? null : Icon(entry.icon, size: 17),
+                child: entry.checked == true
+                    ? const Icon(Icons.check_rounded, size: 17)
+                    : entry.icon == null
+                        ? null
+                        : Icon(entry.icon, size: 17),
               ),
               const SizedBox(width: 8),
               Expanded(child: Text(entry.label)),

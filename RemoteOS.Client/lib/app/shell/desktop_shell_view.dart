@@ -17,11 +17,13 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:window_manager/window_manager.dart' as desktop_wm;
 
 import '../../../app/dependency_injection.dart';
 import '../../../core/apps/app_registry.dart';
+import '../../../core/apps/application_runtime.dart';
 import '../../../core/auth/auth_service.dart';
 import '../../../core/runtime/desktop_runtime.dart';
 import '../../../core/theme/theme_service.dart';
@@ -256,62 +258,92 @@ class _DesktopShellViewState extends ConsumerState<DesktopShellView> {
             // child. Every direct child of this Stack is Positioned, so a
             // loose Stack would correctly choose its smallest size (0×0).
             // Consume the LayoutBuilder viewport before entering that stack.
-            return SizedBox.expand(
-              child: Container(
-                color: palette.appBackground,
-                child: ContextMenuHost(
-                  controller: _desktopMenu,
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: ContextMenuRegion(
-                          controller: _desktopMenu,
-                          entries: _menuEntries(context, workAreaSize),
-                          child: DesktopBackground(
-                            palette: palette,
-                            wallpaperKey: ref
-                                .watch(workspaceSyncProvider)
-                                .preferences
-                                ?.wallpaperKey,
-                            serverUrl: authState.serverUrl,
-                            workspaceId: authState.workspaceId,
-                            accessToken: authState.accessToken,
+            return CallbackShortcuts(
+              bindings: {
+                const SingleActivator(
+                  LogicalKeyboardKey.keyD,
+                  control: true,
+                  shift: true,
+                ): () => _openPersonalization(context, workAreaSize),
+              },
+              child: SizedBox.expand(
+                child: Container(
+                  color: palette.appBackground,
+                  child: ContextMenuHost(
+                    controller: _desktopMenu,
+                    child: Stack(
+                      children: [
+                        Positioned(
+                          left: 0,
+                          top: 0,
+                          right: 0,
+                          bottom: taskbarHeight,
+                          child: ValueListenableBuilder<bool>(
+                            valueListenable: _vm.desktopIconsVisible,
+                            builder: (context, _, __) => ContextMenuRegion(
+                              controller: _desktopMenu,
+                              entries: _menuEntries(context, workAreaSize),
+                              availableBounds: Rect.fromLTWH(
+                                0,
+                                0,
+                                workArea.width,
+                                workArea.height,
+                              ),
+                              child: DesktopBackground(
+                                palette: palette,
+                                wallpaperKey: ref
+                                    .watch(workspaceSyncProvider)
+                                    .preferences
+                                    ?.wallpaperKey,
+                                serverUrl: authState.serverUrl,
+                                workspaceId: authState.workspaceId,
+                                accessToken: authState.accessToken,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                      _IconsColumn(
-                        palette: palette,
-                        entries: _vm.desktopIcons,
-                        onOpen: (entry) =>
-                            _handleAppSelected(context, workAreaSize, entry),
-                      ),
-                      DesktopWindowLayer(workArea: workArea),
-                      _DesktopOverlayObserver(
-                        vm: _vm,
-                        taskbarHeight: taskbarHeight,
-                        onAppSelected: (entry) =>
-                            _handleAppSelected(context, workAreaSize, entry),
-                        onLogout: _handleLogout,
-                        onShutdown: _handleShutdown,
-                      ),
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        height: taskbarHeight,
-                        child: DesktopTaskbar(
-                          onStartPressed: _vm.toggleStartMenu,
+                        ValueListenableBuilder<bool>(
+                          valueListenable: _vm.desktopIconsVisible,
+                          builder: (context, visible, _) => visible
+                              ? _IconsColumn(
+                                  palette: palette,
+                                  entries: _vm.desktopIcons,
+                                  onOpen: (entry) => _handleAppSelected(
+                                    context,
+                                    workAreaSize,
+                                    entry,
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                        DesktopWindowLayer(workArea: workArea),
+                        _DesktopOverlayObserver(
+                          vm: _vm,
+                          taskbarHeight: taskbarHeight,
+                          onAppSelected: (entry) =>
+                              _handleAppSelected(context, workAreaSize, entry),
                           onLogout: _handleLogout,
-                          overlayNotifier: _vm.overlay,
-                          contextMenuController: _desktopMenu,
-                          onOpenTaskManager: () => _handleAppById(
-                            context,
-                            workAreaSize,
-                            'task_manager',
+                          onShutdown: _handleShutdown,
+                        ),
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          height: taskbarHeight,
+                          child: DesktopTaskbar(
+                            onStartPressed: _vm.toggleStartMenu,
+                            onLogout: _handleLogout,
+                            overlayNotifier: _vm.overlay,
+                            contextMenuController: _desktopMenu,
+                            onOpenTaskManager: () => _handleAppById(
+                              context,
+                              workAreaSize,
+                              'task_manager',
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -322,17 +354,59 @@ class _DesktopShellViewState extends ConsumerState<DesktopShellView> {
     );
   }
 
+  void _openPersonalization(BuildContext context, Size workArea) {
+    _vm.openAppByIdCommand.run(OpenAppByIdRequest(
+      appId: 'settings',
+      childBuilder: (entry) => entry.windowBuilder(context),
+      screenSize: workArea,
+      activationUri: RemoteOsActivationUris.settingsPersonalization,
+    ));
+  }
+
   List<ContextMenuEntry> _menuEntries(BuildContext context, Size workArea) => [
+        ContextMenuSubmenu(
+          label: 'shell.desktop_menu.view'.tr(),
+          icon: Icons.visibility_outlined,
+          entries: [
+            ContextMenuAction(
+              label: 'shell.desktop_menu.show_icons'.tr(),
+              checked: _vm.desktopIconsVisible.value,
+              onSelected: _vm.toggleDesktopIcons,
+            ),
+          ],
+        ),
         ContextMenuAction(
-          label: 'Refresh',
+          label: 'common.refresh'.tr(),
           icon: Icons.refresh_rounded,
           onSelected: () => _vm.refreshCommand.run(null),
         ),
         const ContextMenuDivider(),
         ContextMenuAction(
-          label: 'Settings',
-          icon: Icons.settings_outlined,
-          onSelected: () => _handleAppById(context, workArea, 'settings'),
+          label: 'shell.desktop_menu.configure_display'.tr(),
+          icon: Icons.desktop_windows_outlined,
+          onSelected: () => _openPersonalization(context, workArea),
+        ),
+        const ContextMenuDivider(),
+        ContextMenuAction(
+          label: 'shell.desktop_menu.open_file_explorer'.tr(),
+          icon: Icons.folder_outlined,
+          onSelected: () => _handleAppById(context, workArea, 'explorer'),
+        ),
+        ContextMenuAction(
+          label: 'shell.desktop_menu.open_task_manager'.tr(),
+          icon: Icons.monitor_heart_outlined,
+          onSelected: () => _handleAppById(context, workArea, 'task_manager'),
+        ),
+        ContextMenuAction(
+          label: 'shell.desktop_menu.open_terminal'.tr(),
+          icon: Icons.terminal_outlined,
+          onSelected: () => _handleAppById(context, workArea, 'terminal'),
+        ),
+        const ContextMenuDivider(),
+        ContextMenuAction(
+          label: 'shell.desktop_menu.personalize'.tr(),
+          icon: Icons.palette_outlined,
+          onSelected: () => _openPersonalization(context, workArea),
         ),
       ];
 }
