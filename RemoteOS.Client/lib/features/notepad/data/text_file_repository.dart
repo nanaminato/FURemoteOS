@@ -42,12 +42,12 @@ class RemoteTextFileRepository implements TextFileRepository {
   Future<String?> readText(String path, String encodingName) async {
     final bytes = await _api.readBytes(path);
     if (bytes.isEmpty) return null;
-    return TextFileEncodings.decode(bytes, encodingName);
+    return await TextFileEncodings.decode(bytes, encodingName);
   }
 
   @override
-  Future<void> writeText(String path, String text, String encodingName) {
-    final bytes = TextFileEncodings.encode(text, encodingName);
-    return _api.writeBytes(path, bytes);
+  Future<void> writeText(String path, String text, String encodingName) async {
+    final bytes = await TextFileEncodings.encode(text, encodingName);
+    await _api.writeBytes(path, bytes);
   }
 }

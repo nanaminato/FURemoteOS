@@ -15,8 +15,10 @@ class RemoteCodeEditorRepository implements CodeEditorRepository {
       _readText(path, encodingName);
 
   @override
-  Future<void> writeText(String path, String text, String encodingName) =>
-      _files.writeBytes(path, TextFileEncodings.encode(text, encodingName));
+  Future<void> writeText(String path, String text, String encodingName) async {
+    final bytes = await TextFileEncodings.encode(text, encodingName);
+    await _files.writeBytes(path, bytes);
+  }
 
   @override
   Future<List<CodeEditorFolderNode>> listFolder(String path) async {
@@ -33,6 +35,6 @@ class RemoteCodeEditorRepository implements CodeEditorRepository {
   Future<String?> _readText(String path, String encodingName) async {
     final bytes = await _files.readBytes(path);
     if (bytes.isEmpty) return null;
-    return TextFileEncodings.decode(bytes, encodingName);
+    return await TextFileEncodings.decode(bytes, encodingName);
   }
 }

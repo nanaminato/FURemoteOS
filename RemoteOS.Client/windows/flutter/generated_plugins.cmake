@@ -4,6 +4,7 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   bitsdojo_window_windows
+  charset_converter
   file_selector_windows
   pasteboard
   screen_retriever_windows

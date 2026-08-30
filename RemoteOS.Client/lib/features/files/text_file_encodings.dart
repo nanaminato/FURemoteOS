@@ -1,4 +1,8 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
+import 'dart:typed_data';
+
+import 'package:charset_converter/charset_converter.dart';
 
 /// Shared text-encoding catalogue and byte conversion for the built-in
 /// editors. Mirrors `Client.Apps.TextEditor.TextFileEncodings` (Avalonia) and
@@ -6,9 +10,8 @@ import 'dart:convert';
 ///
 /// `dart:convert` ships ASCII, Latin1 (= ISO-8859-1 + Windows-1252 in the
 /// printable range) and UTF-8 natively. UTF-16/UTF-32 are emitted through
-/// `Utf16Codec`-style manual byte assembly, and the remaining CJK encodings
-/// (GB18030/GBK/Big5/Shift JIS/EUC-KR) round-trip through Latin1 so the
-/// surface stays parity with Avalonia without pulling a new dependency.
+/// `Utf16Codec`-style manual byte assembly. The platform converter supplies
+/// the legacy CJK codecs that Dart does not include.
 class TextFileEncodings {
   const TextFileEncodings._();
 
@@ -38,7 +41,7 @@ class TextFileEncodings {
 
   /// Decodes [bytes] using [encodingName]. A leading UTF-8 BOM (EF BB BF) is
   /// stripped for the `UTF-8 BOM` variant, matching Avalonia's behaviour.
-  static String decode(List<int> bytes, String encodingName) {
+  static Future<String> decode(List<int> bytes, String encodingName) async {
     switch (encodingName) {
       case 'UTF-8':
       case 'UTF-8 BOM':
@@ -62,9 +65,10 @@ class TextFileEncodings {
       case 'Big5':
       case 'Shift JIS':
       case 'EUC-KR':
-        // Best-effort lossy passthrough until a dedicated charset package is
-        // wired in; preserves the Avalonia UI parity without a new dep.
-        return latin1.decode(bytes, allowInvalid: true);
+        return CharsetConverter.decode(
+          _platformCharsetName(encodingName),
+          Uint8List.fromList(bytes),
+        );
       default:
         return utf8.decode(bytes, allowMalformed: true);
     }
@@ -72,7 +76,7 @@ class TextFileEncodings {
 
   /// Encodes [text] using [encodingName]. The `UTF-8 BOM` variant prepends
   //  EF BB BF, matching Avalonia's `TextFileEncodings.Encode`.
-  static List<int> encode(String text, String encodingName) {
+  static Future<List<int>> encode(String text, String encodingName) async {
     switch (encodingName) {
       case 'UTF-8':
         return utf8.encode(text);
@@ -96,10 +100,18 @@ class TextFileEncodings {
       case 'Big5':
       case 'Shift JIS':
       case 'EUC-KR':
-        return latin1.encode(text);
+        return CharsetConverter.encode(
+            _platformCharsetName(encodingName), text);
       default:
         return utf8.encode(text);
     }
+  }
+
+  /// The Windows converter exposes the GBK-compatible code page 936 as
+  /// `gb2312`; Linux (iconv) and macOS recognise the standard GBK label.
+  static String _platformCharsetName(String encodingName) {
+    if (!Platform.isWindows || encodingName != 'GBK') return encodingName;
+    return 'gb2312';
   }
 
   static List<int> _stripUtf8Bom(List<int> bytes) {

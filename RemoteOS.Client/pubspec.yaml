@@ -35,6 +35,10 @@ dependencies:
   # Native desktop open/save dialogs, matching Avalonia StorageProvider.
   # 1.0.3 supports this project's Flutter >=3.19 / Dart >=3.3 baseline.
   file_selector: 1.0.3
+  # Native desktop charset conversion for legacy text files (GBK, GB18030,
+  # Big5, Shift JIS, and EUC-KR). Dart's standard library only provides
+  # Unicode, ASCII, and Latin-1 codecs.
+  charset_converter: ^2.5.1
   # Native file-list clipboard access for Explorer paste-from-host on desktop.
   pasteboard: ^0.5.0
   # Desktop-friendly code input with syntax highlighting and a line-number gutter.
