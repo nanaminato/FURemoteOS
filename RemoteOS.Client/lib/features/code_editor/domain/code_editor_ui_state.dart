@@ -10,6 +10,7 @@ class CodeEditorUiState {
     required this.workspaceRoots,
     required this.sidebar,
     required this.isSidebarVisible,
+    required this.sidebarWidth,
     required this.wordWrap,
     required this.fontSize,
     required this.defaultEncodingName,
@@ -26,6 +27,7 @@ class CodeEditorUiState {
         workspaceRoots: const [],
         sidebar: CodeEditorSidebar.explorer,
         isSidebarVisible: true,
+        sidebarWidth: 250,
         wordWrap: false,
         fontSize: 14,
         defaultEncodingName: defaultEncodingName,
@@ -40,6 +42,7 @@ class CodeEditorUiState {
   final List<CodeEditorFolderNode> workspaceRoots;
   final CodeEditorSidebar sidebar;
   final bool isSidebarVisible;
+  final double sidebarWidth;
   final bool wordWrap;
   final double fontSize;
   final String defaultEncodingName;
@@ -72,6 +75,7 @@ class CodeEditorUiState {
     List<CodeEditorFolderNode>? workspaceRoots,
     CodeEditorSidebar? sidebar,
     bool? isSidebarVisible,
+    double? sidebarWidth,
     bool? wordWrap,
     double? fontSize,
     String? defaultEncodingName,
@@ -89,6 +93,7 @@ class CodeEditorUiState {
       workspaceRoots: workspaceRoots ?? this.workspaceRoots,
       sidebar: sidebar ?? this.sidebar,
       isSidebarVisible: isSidebarVisible ?? this.isSidebarVisible,
+      sidebarWidth: sidebarWidth ?? this.sidebarWidth,
       wordWrap: wordWrap ?? this.wordWrap,
       fontSize: fontSize ?? this.fontSize,
       defaultEncodingName: defaultEncodingName ?? this.defaultEncodingName,

@@ -81,6 +81,12 @@ class CodeEditorViewModel extends ViewModel {
   List<String> get availableEncodings => TextFileEncodings.available;
   List<double> get fontSizes => const [12, 13, 14, 16, 18, 20];
 
+  /// Sidebar width is presentation state, but kept here so the last dragged
+  /// width survives collapse/restore cycles (AGENTS.md §9 — presentation
+  /// decisions). Clamping happens here; the View passes raw deltas.
+  static const double minSidebarWidth = 180;
+  static const double maxSidebarWidth = 600;
+
   // ---- Commands ----
   late final newDocumentCommand =
   Command.createSyncNoParamNoResult(newDocument);
@@ -319,8 +325,23 @@ class CodeEditorViewModel extends ViewModel {
   Future<void> openSettings() async => await requestSettingsAsync?.call();
   void closeSettings() => closeSettingsAction?.call();
 
-  void setSidebar(CodeEditorSidebar sidebar) =>
+  /// Activity-bar toggle mirroring Avalonia: clicking the already-active
+  /// icon collapses the sidebar; clicking it again restores. Clicking a
+  /// different icon switches the panel and shows it.
+  void setSidebar(CodeEditorSidebar sidebar) {
+    if (_s.sidebar == sidebar) {
+      _set(_s.copyWith(isSidebarVisible: !_s.isSidebarVisible));
+    } else {
       _set(_s.copyWith(sidebar: sidebar, isSidebarVisible: true));
+    }
+  }
+
+  void setSidebarWidth(double width) {
+    final clamped = width.clamp(minSidebarWidth, maxSidebarWidth).toDouble();
+    if (clamped == _s.sidebarWidth) return;
+    _set(_s.copyWith(sidebarWidth: clamped));
+  }
+
   void toggleWordWrap() => _set(_s.copyWith(wordWrap: !_s.wordWrap));
   void setFontSize(double size) =>
       _set(_s.copyWith(fontSize: size.clamp(12, 20).toDouble()));

@@ -79,14 +79,32 @@ class CodeEditorMenuBar extends StatelessWidget {
       );
 }
 
-class CodeEditorWorkspace extends StatelessWidget {
+/// Workspace shell: activity bar + collapsible sidebar + draggable splitter
+/// + document area. Mirrors the Avalonia `GridSplitter`/`SplitView` behaviour:
+/// clicking the active activity-bar icon toggles the sidebar, and the
+/// splitter remembers the last dragged width across collapse/restore.
+class CodeEditorWorkspace extends StatefulWidget {
   const CodeEditorWorkspace({super.key, required this.vm, required this.state});
   final CodeEditorViewModel vm;
   final CodeEditorUiState state;
 
   @override
+  State<CodeEditorWorkspace> createState() => _CodeEditorWorkspaceState();
+}
+
+class _CodeEditorWorkspaceState extends State<CodeEditorWorkspace> {
+  /// Live drag override; null when idle so [CodeEditorUiState.sidebarWidth]
+  /// remains the source of truth. Keeping the override local avoids cloning
+  /// the document/workspace state on every drag frame (AGENTS.md §30).
+  double? _dragWidth;
+
+  double get _effectiveWidth => _dragWidth ?? widget.state.sidebarWidth;
+
+  @override
   Widget build(BuildContext context) {
     final palette = context.palette;
+    final vm = widget.vm;
+    final state = widget.state;
     return Row(children: [
       Container(
         width: 48,
@@ -100,13 +118,13 @@ class CodeEditorWorkspace extends StatelessWidget {
       ),
       if (state.isSidebarVisible) ...[
         Container(
-          width: 250,
+          width: _effectiveWidth,
           color: palette.surface,
           child: state.sidebar == CodeEditorSidebar.explorer
               ? _ExplorerSidebar(vm: vm, state: state)
               : _OpenEditorsSidebar(vm: vm, state: state),
         ),
-        VerticalDivider(width: 1, thickness: 1, color: palette.borderSubtle),
+        _buildSplitter(palette),
       ],
       Expanded(child: _DocumentWorkspace(vm: vm, state: state)),
     ]);
@@ -114,11 +132,44 @@ class CodeEditorWorkspace extends StatelessWidget {
 
   Widget _activityButton(
       BuildContext context, IconData icon, CodeEditorSidebar sidebar) {
-    final selected = state.sidebar == sidebar;
+    final selected = widget.state.sidebar == sidebar;
     return IconButton(
-      onPressed: () => vm.setSidebar(sidebar),
+      onPressed: () => widget.vm.setSidebar(sidebar),
       icon: Icon(icon,
           color: selected ? context.palette.accent : context.palette.textSecondary),
+    );
+  }
+
+  /// Thin draggable splitter between the sidebar and the document area.
+  /// Drag updates are buffered in [_dragWidth] and committed to the
+  /// ViewModel on drag end so the width survives collapse/restore.
+  Widget _buildSplitter(ThemePalette palette) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeColumn,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onHorizontalDragUpdate: (details) {
+          setState(() {
+            final next =
+                (_dragWidth ?? widget.state.sidebarWidth) + details.delta.dx;
+            _dragWidth = next
+                .clamp(CodeEditorViewModel.minSidebarWidth,
+                    CodeEditorViewModel.maxSidebarWidth)
+                .toDouble();
+          });
+        },
+        onHorizontalDragEnd: (_) {
+          final width = _dragWidth;
+          if (width != null) {
+            widget.vm.setSidebarWidth(width);
+            _dragWidth = null;
+          }
+        },
+        child: Container(
+          width: 4,
+          color: palette.borderSubtle,
+        ),
+      ),
     );
   }
 }
