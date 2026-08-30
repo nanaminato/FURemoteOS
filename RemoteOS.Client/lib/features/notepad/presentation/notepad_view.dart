@@ -31,6 +31,7 @@ class _NotepadViewState extends ConsumerState<NotepadView> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
   final _focusNode = FocusNode();
+  final _shortcutsFocusNode = FocusNode();
   bool _installedHooks = false;
   bool _syncingTextFromVm = false;
 
@@ -62,6 +63,7 @@ class _NotepadViewState extends ConsumerState<NotepadView> {
     _controller.dispose();
     _scrollController.dispose();
     _focusNode.dispose();
+    _shortcutsFocusNode.dispose();
     _vm.dispose();
     super.dispose();
   }
@@ -240,7 +242,7 @@ class _NotepadViewState extends ConsumerState<NotepadView> {
           });
         }
         return Focus(
-          focusNode: _focusNode,
+          focusNode: _shortcutsFocusNode,
           autofocus: true,
           onKeyEvent: _onKeyEvent,
           child: Column(
