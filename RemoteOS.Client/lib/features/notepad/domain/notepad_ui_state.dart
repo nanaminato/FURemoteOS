@@ -1,13 +1,11 @@
 // Immutable presentation state for the Notepad feature.
 //
-// A single `NotepadUiState` value is broadcast from [NotepadViewModel] to the
-// presentation layer via `ValueNotifier<NotepadUiState>`.  The View only
-// rebuilds in response to state changes; transient UI focus, scroll offsets
-// and Flutter controllers remain owned by the View.
+// Localization rules (AGENTS.md §23.1):
+//   * View is the only place that calls .tr(namedArgs: ...).
+//   * Status / ViewModel carry only raw data + a stable semantic key +
+//     a `Map<String, String>` of named placeholders (never positional {0}).
 
 import 'package:flutter/foundation.dart';
-
-import 'notepad_models.dart';
 
 @immutable
 class NotepadUiState {
@@ -19,43 +17,32 @@ class NotepadUiState {
     required this.isDirty,
     required this.isLoading,
     required this.statusKey,
-    required this.statusArgs,
-    required this.wordWrap,
-    required this.showLineNumbers,
-    required this.cursor,
+    required this.statusNamedArgs,
     required this.text,
-    required this.showFindReplace,
-    required this.isReplaceMode,
-    required this.findKey,
-    required this.findArgs,
-    required this.findOptions,
   });
 
   factory NotepadUiState.initial({
-    String defaultEncodingName = 'UTF-8',
+    String? defaultEncodingName,
+    String? encodingName,
   }) {
+    final defEnc =
+        (defaultEncodingName != null && defaultEncodingName.isNotEmpty)
+            ? defaultEncodingName
+            : 'UTF-8';
     return NotepadUiState(
       currentPath: null,
-      encodingName: defaultEncodingName,
-      defaultEncodingName: defaultEncodingName,
+      encodingName: (encodingName != null && encodingName.isNotEmpty)
+          ? encodingName
+          : defEnc,
+      defaultEncodingName: defEnc,
       fontSize: 14,
       isDirty: false,
       isLoading: false,
       statusKey: 'notepad.status.ready',
-      statusArgs: const {},
-      wordWrap: true,
-      showLineNumbers: true,
-      cursor: CursorPosition.initial,
+      statusNamedArgs: const <String, String>{},
       text: '',
-      showFindReplace: false,
-      isReplaceMode: false,
-      findKey: '',
-      findArgs: const {},
-      findOptions: const FindOptions(caseSensitive: false, useRegex: false),
     );
   }
-
-  // ---- Document properties ----
 
   final String? currentPath;
   final String encodingName;
@@ -64,29 +51,22 @@ class NotepadUiState {
   final bool isDirty;
   final bool isLoading;
   final String statusKey;
-  final Map<String, String> statusArgs;
 
-  // ---- Editor view preferences ----
+  /// Named placeholders passed to `statusKey.tr(namedArgs: ...)` in the View.
+  ///
+  /// Allowed keys (keep this list small and stable so all three locale
+  /// JSONs stay in sync):
+  ///   * `file`    – base file name displayed in opened / saved messages
+  ///   * `encoding`– friendly encoding name, e.g. "UTF-8"
+  ///   * `error`   – user-readable error text for open_failed / save_failed
+  ///
+  /// An empty map means the localized string takes no arguments.
+  final Map<String, String> statusNamedArgs;
 
-  final bool wordWrap;
-  final bool showLineNumbers;
-
-  // ---- Cursor / text (presentation projection) ----
-
-  final CursorPosition cursor;
   final String text;
 
-  // ---- Find & replace ----
-
-  final bool showFindReplace;
-  final bool isReplaceMode;
-  final String findKey;
-  final Map<String, String> findArgs;
-  final FindOptions findOptions;
-
-  // ---- Derived helpers ----
-
   int get charCount => text.length;
+
   int get lineCount {
     if (text.isEmpty) return 1;
     return '\n'.allMatches(text).length + 1;
@@ -102,8 +82,6 @@ class NotepadUiState {
     return parts.isEmpty ? path : parts.last;
   }
 
-  // ---- Copy-with ----
-
   NotepadUiState copyWith({
     String? currentPath,
     bool clearCurrentPath = false,
@@ -113,16 +91,8 @@ class NotepadUiState {
     bool? isDirty,
     bool? isLoading,
     String? statusKey,
-    Map<String, String>? statusArgs,
-    bool? wordWrap,
-    bool? showLineNumbers,
-    CursorPosition? cursor,
+    Map<String, String>? statusNamedArgs,
     String? text,
-    bool? showFindReplace,
-    bool? isReplaceMode,
-    String? findKey,
-    Map<String, String>? findArgs,
-    FindOptions? findOptions,
   }) {
     return NotepadUiState(
       currentPath: clearCurrentPath ? null : (currentPath ?? this.currentPath),
@@ -132,16 +102,8 @@ class NotepadUiState {
       isDirty: isDirty ?? this.isDirty,
       isLoading: isLoading ?? this.isLoading,
       statusKey: statusKey ?? this.statusKey,
-      statusArgs: statusArgs ?? this.statusArgs,
-      wordWrap: wordWrap ?? this.wordWrap,
-      showLineNumbers: showLineNumbers ?? this.showLineNumbers,
-      cursor: cursor ?? this.cursor,
+      statusNamedArgs: statusNamedArgs ?? this.statusNamedArgs,
       text: text ?? this.text,
-      showFindReplace: showFindReplace ?? this.showFindReplace,
-      isReplaceMode: isReplaceMode ?? this.isReplaceMode,
-      findKey: findKey ?? this.findKey,
-      findArgs: findArgs ?? this.findArgs,
-      findOptions: findOptions ?? this.findOptions,
     );
   }
 }

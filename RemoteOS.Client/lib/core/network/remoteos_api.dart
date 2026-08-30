@@ -16,11 +16,18 @@ class RemoteOsApi {
 
   final AuthNotifier _auth;
 
+
+  /// Whether the current session is authenticated against a server.
+  ///
+  /// Mirrors the null-check of `_files` in Avalonia NotepadViewModel
+  /// that gates open/save attempts before calling the remote service.
+  bool get isConnected => _auth.current.isAuthenticated;
   Uri endpoint(String path, [Map<String, String>? query]) {
     final server = _auth.current.serverUrl;
-    if (server == null)
+    if (server == null) {
       throw const RemoteOsApiException(
           statusCode: 401, message: 'Not signed in.');
+    }
     final base = Uri.parse(server);
     return base
         .resolve(path.startsWith('/') ? path.substring(1) : path)

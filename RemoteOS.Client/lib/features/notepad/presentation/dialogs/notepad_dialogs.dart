@@ -281,6 +281,7 @@ class NotepadSettingsDialog extends ConsumerStatefulWidget {
     required this.onFontSizeChanged,
     required this.onDefaultEncodingChanged,
     required this.fontSizes,
+    this.onClose,
   });
 
   final double fontSize;
@@ -288,6 +289,7 @@ class NotepadSettingsDialog extends ConsumerStatefulWidget {
   final ValueChanged<double> onFontSizeChanged;
   final ValueChanged<String> onDefaultEncodingChanged;
   final List<double> fontSizes;
+  final VoidCallback? onClose;
 
   @override
   ConsumerState<NotepadSettingsDialog> createState() =>
@@ -362,7 +364,10 @@ class _NotepadSettingsDialogState extends ConsumerState<NotepadSettingsDialog> {
           Align(
             alignment: Alignment.centerRight,
             child: FilledButton(
-              onPressed: () => modals.dismiss(dialogId),
+              onPressed: () {
+                widget.onClose?.call();
+                modals.dismiss(dialogId);
+              },
               child: Text('common.done'.tr()),
             ),
           ),

@@ -1,35 +1,11 @@
-// Notepad domain models (ARCHITECTURE.md § 14 — JSON→DTO→Repository→Domain).
-//
-// Types here describe stable domain concepts used by the repository and the
-// ViewModel.  They intentionally have zero Flutter UI imports.
+// Notepad domain models.
+// Kept minimal to match Avalonia: only extensions list, font sizes, and
+// EncodingDialogAction (used by encoding dialogs + chooseEncodingCommand).
 
-import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
-
-/// Snapshot used for undo/redo history.  A snapshot records the textual
-/// content plus the editing cursor/selection.
-@immutable
-class DocSnapshot {
-  const DocSnapshot({required this.text, required this.selection});
-
-  final String text;
-  final TextSelection selection;
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is DocSnapshot &&
-          runtimeType == other.runtimeType &&
-          text == other.text &&
-          selection == other.selection;
-
-  @override
-  int get hashCode => Object.hash(text, selection);
-}
 
 /// Supported file name extensions opened by the built-in text editor.
 ///
-/// Mirrors Avalonia's `Client.Apps.Notepad.NotepadApp.SupportedExtensions`.
+/// Mirrors Avalonia's Client.Apps.Notepad.NotepadApp.SupportedExtensions.
 const List<String> notepadSupportedExtensions = <String>[
   '.txt',
   '.text',
@@ -93,42 +69,3 @@ enum EncodingDialogAction {
   save,
 }
 
-/// Cursor position information derived from the editing selection.
-@immutable
-class CursorPosition {
-  const CursorPosition({
-    required this.line,
-    required this.column,
-    required this.offset,
-  });
-
-  final int line;
-  final int column;
-  final int offset;
-
-  static const CursorPosition initial =
-      CursorPosition(line: 1, column: 1, offset: 0);
-}
-
-/// Find/replace options exposed as simple named flags (Avalonia keeps these
-/// as properties on the view code-behind).
-@immutable
-class FindOptions {
-  const FindOptions({
-    required this.caseSensitive,
-    required this.useRegex,
-  });
-
-  final bool caseSensitive;
-  final bool useRegex;
-
-  FindOptions copyWith({
-    bool? caseSensitive,
-    bool? useRegex,
-  }) {
-    return FindOptions(
-      caseSensitive: caseSensitive ?? this.caseSensitive,
-      useRegex: useRegex ?? this.useRegex,
-    );
-  }
-}

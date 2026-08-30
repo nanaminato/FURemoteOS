@@ -73,6 +73,10 @@ class RemoteFileApi {
   RemoteFileApi(this._api);
   final RemoteOsApi _api;
 
+  /// Mirrors RemoteOsApi.isConnected so callers can check auth state
+  /// without reaching through to the transport directly.
+  bool get isConnected => _api.isConnected;
+
   Future<List<RemoteFileEntry>> list(String path) async {
     final body =
         await _api.getJson('/api/v1/files/list', query: {'path': path});

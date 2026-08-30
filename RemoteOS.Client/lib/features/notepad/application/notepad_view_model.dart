@@ -1,18 +1,18 @@
-// Notepad ViewModel (ARCHITECTURE.md § 9).
+// Notepad ViewModel.
 //
-// This is the presentation owner for one Notepad window:
-//   * owns `ValueNotifier<NotepadUiState>` for the entire projection;
-//   * exposes user intents as Commands (AGENTS.md § 10);
-//   * delegates file I/O to [TextFileRepository];
-//   * delegates preferences to [WorkspaceSyncCoordinator];
-//   * owns undo/redo history stacks and find/replace helpers.
+// Presentation owner for one Notepad window. Mirrors Client.Apps.Notepad.
+// NotepadViewModel on a best-effort basis: Text, CurrentPath, EncodingName,
+// DefaultEncodingName, FontSize, IsDirty, StatusText plus the derived
+// CharCount / LineCount / DocumentName / HasOpenFile helpers, and the six
+// commands New / Open / Save / SaveAs / ChooseEncoding / OpenSettings
+// (plus CloseSettings consumed by the settings modal).
 //
-// Dialogs and file pickers are requested via explicit callback hooks set by
-// the View — this keeps BuildContext / Navigator / Widgets out of the VM.
+// Localization (AGENTS.md §23.1): this file only stores raw data values
+// (file / encoding / error strings) inside a `statusNamedArgs` map.
+// The View is the single place that calls `.tr(namedArgs: ...)`.
 
 import 'package:command_it/command_it.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 
 import '../../../app/dependency_injection.dart' as app_di;
 import '../../../core/commands/base_view_model.dart';
@@ -29,10 +29,7 @@ typedef RequestFileAsync = Future<String?> Function();
 typedef RequestSavePathAsync = Future<String?> Function(String suggestedName);
 
 /// Signature for "ask the user whether to discard dirty changes".
-typedef RequestDiscardChangesAsync = Future<bool> Function(
-  String title,
-  String message,
-);
+typedef RequestDiscardChangesAsync = Future<bool> Function();
 
 /// Signature for "open the Notepad settings modal".
 typedef RequestSettingsAsync = Future<void> Function();
@@ -40,13 +37,13 @@ typedef RequestSettingsAsync = Future<void> Function();
 /// Signature for "ask whether to reopen or save with the new encoding".
 typedef RequestEncodingActionAsync = Future<EncodingDialogAction?> Function();
 
-/// Signature for "let the user pick one supported encoding".
-typedef RequestEncodingAsync = Future<String?> Function(String currentEncoding);
+/// Signature for "let the user pick one supported encoding, with the
+/// currently active one optionally supplied as default selection".
+typedef RequestEncodingAsync = Future<String?> Function([String? currentEncoding]);
 
 /// Signature for "persist the new default-encoding preference".
 typedef SaveDefaultEncodingAsync = Future<void> Function(String encoding);
 
-/// ViewModel factory so get_it can inject dependencies.
 NotepadViewModel createNotepadViewModel() => NotepadViewModel(
       repository: app_di.getService<TextFileRepository>(),
       workspaceSync: app_di.getService<WorkspaceSyncCoordinator>(),
@@ -66,8 +63,6 @@ class NotepadViewModel extends ViewModel {
     trackDisposable(chooseEncodingCommand);
     trackDisposable(openSettingsCommand);
 
-    // Seed the initial state from the workspace preferences (Avalonia reads
-    // them once at construction time in the NotepadViewModel ctor).
     final preferences = _workspaceSync.debugPreferencesSnapshot();
     final stored = preferences?.notepadDefaultEncoding;
     final defaultEncoding = TextFileEncodings.isSupported(stored)
@@ -78,6 +73,7 @@ class NotepadViewModel extends ViewModel {
 
   final TextFileRepository _repository;
   final WorkspaceSyncCoordinator _workspaceSync;
+  bool _isLoading = false;
 
   // ---- Hooks injected by the View ----
 
@@ -96,13 +92,11 @@ class NotepadViewModel extends ViewModel {
 
   NotepadUiState get _s => state.value;
 
-  // ---- Undo / redo history ----
+  // ---- Derived properties shared with the settings dialog ----
 
-  final List<DocSnapshot> _undoStack = <DocSnapshot>[];
-  final List<DocSnapshot> _redoStack = <DocSnapshot>[];
-  bool _isApplyingHistory = false;
-  bool _isBulkTextUpdate = false;
-  static const int _maxHistory = 500;
+  List<String> get availableEncodings => TextFileEncodings.available;
+
+  List<double> get fontSizes => const [12, 13, 14, 16, 18, 20];
 
   // ---- Commands ----
 
@@ -117,107 +111,44 @@ class NotepadViewModel extends ViewModel {
   late final openSettingsCommand =
       Command.createAsyncNoParamNoResult(openSettings);
 
-  // ---- View-controller boundary helpers ----
-  // The View calls these directly because they represent pure in-memory
-  // edits, clipboard or selection projections that don't warrant a Command.
+  // ---- CloseSettingsCommand (mirrors Avalonia RelayCommand) ----
 
-  /// Called by the View whenever the text content changes (via the
-  /// TextField's onChanged listener).  Mirrors the ViewModel's
-  /// `OnTextChanged` partial.
+  VoidCallback? closeSettingsAction;
+  void closeSettings() => closeSettingsAction?.call();
+
+  // ---- View -> VM text edits ----
+
   void onTextChanged(String text) {
-    if (_isBulkTextUpdate || _isApplyingHistory) return;
+    if (_isLoading) return;
     state.value = _s.copyWith(text: text);
-    _pushUndoSnapshot(text);
     if (!_s.isDirty) {
       state.value = _s.copyWith(isDirty: true);
     }
   }
 
-  /// Called by the View whenever the cursor selection changes so the
-  /// status bar can stay in sync.  The `offset` is clamped to [textLength].
-  void onSelectionChanged({
-    required int baseOffset,
-    required String text,
-  }) {
-    final clamped = baseOffset.clamp(0, text.length);
-    final textBefore = text.substring(0, clamped);
-    final line = '\n'.allMatches(textBefore).length + 1;
-    final lastLf = textBefore.lastIndexOf('\n');
-    final column = clamped - (lastLf < 0 ? 0 : lastLf + 1) + 1;
-    final previous = _s.cursor;
-    if (previous.line == line &&
-        previous.column == column &&
-        previous.offset == clamped) {
-      return;
-    }
-    state.value = _s.copyWith(
-      cursor: CursorPosition(line: line, column: column, offset: clamped),
-    );
+  // ---- Settings / encoding setters used from the UI ----
+
+  void setFontSize(double size) {
+    state.value = _s.copyWith(fontSize: size);
   }
-
-  // ---- Undo / redo ----
-
-  bool canUndo() => _undoStack.length >= 2;
-  bool canRedo() => _redoStack.isNotEmpty;
-
-  DocSnapshot? undo() {
-    if (!canUndo()) return null;
-    final current = _undoStack.removeLast();
-    _redoStack.add(current);
-    final prev = _undoStack.last;
-    _applySnapshot(prev);
-    state.value = _s.copyWith(isDirty: true);
-    return prev;
-  }
-
-  DocSnapshot? redo() {
-    if (!canRedo()) return null;
-    final next = _redoStack.removeLast();
-    _undoStack.add(next);
-    _applySnapshot(next);
-    return next;
-  }
-
-  void _pushUndoSnapshot(String text, {TextSelection? selection}) {
-    final current = DocSnapshot(
-      text: text,
-      selection: selection ?? const TextSelection.collapsed(offset: 0),
-    );
-    if (_undoStack.isNotEmpty && _undoStack.last.text == current.text) {
-      if (selection != null) _undoStack[_undoStack.length - 1] = current;
-      return;
-    }
-    _undoStack.add(current);
-    if (_undoStack.length > _maxHistory) _undoStack.removeAt(0);
-    _redoStack.clear();
-  }
-
-  void seedInitialSnapshot(String text, TextSelection selection) {
-    if (_undoStack.isNotEmpty) return;
-    _undoStack.add(DocSnapshot(text: text, selection: selection));
-  }
-
-  DocSnapshot _applySnapshot(DocSnapshot snapshot) {
-    _isApplyingHistory = true;
-    state.value = _s.copyWith(text: snapshot.text);
-    _isApplyingHistory = false;
-    return snapshot;
-  }
-
-  // ---- View toggles ----
-
-  void toggleWordWrap() => state.value = _s.copyWith(wordWrap: !_s.wordWrap);
-
-  void toggleShowLineNumbers() =>
-      state.value = _s.copyWith(showLineNumbers: !_s.showLineNumbers);
-
-  void setFontSize(double size) => state.value = _s.copyWith(fontSize: size);
 
   void setDefaultEncoding(String encoding) {
     if (!TextFileEncodings.isSupported(encoding)) return;
     state.value = _s.copyWith(defaultEncodingName: encoding);
     saveDefaultEncodingAsync?.call(encoding);
     _persistDefaultEncoding(encoding);
+  }
+
+  /// Switch the *current* working encoding without reopening or saving.
+  ///
+  /// Used from the StatusBar encoding picker when there is no open file:
+  /// the picked encoding becomes the one that subsequent "save first time"
+  /// or "save as" flows use, mirroring a user-specified override before any
+  /// file is touched on disk.
+  void setWorkingEncoding(String encoding) {
+    final candidate = encoding.trim();
+    if (!TextFileEncodings.isSupported(candidate)) return;
+    state.value = _s.copyWith(encodingName: candidate);
   }
 
   Future<void> _persistDefaultEncoding(String encoding) async {
@@ -227,242 +158,104 @@ class NotepadViewModel extends ViewModel {
         .queuePreferences(current.copyWith(notepadDefaultEncoding: encoding));
   }
 
-  // ---- Find / replace toggles ----
-
-  void openFind({bool replaceMode = false}) {
-    state.value = _s.copyWith(
-      showFindReplace: true,
-      isReplaceMode: replaceMode,
-      findKey: '', findArgs: const {},
-    );
-  }
-
-  void closeFindReplace() {
-    state.value = _s.copyWith(
-      showFindReplace: false,
-      findKey: '', findArgs: const {},
-    );
-  }
-
-  void setFindCaseSensitive(bool value) {
-    state.value =
-        _s.copyWith(findOptions: _s.findOptions.copyWith(caseSensitive: value));
-  }
-
-  void setFindRegex(bool value) {
-    state.value =
-        _s.copyWith(findOptions: _s.findOptions.copyWith(useRegex: value));
-  }
-
-  // ---- Find / replace core ----
-
-  List<TextSelection> findAllMatches(String query, String text) {
-    if (query.isEmpty) return const <TextSelection>[];
-    final matches = <TextSelection>[];
-    try {
-      final pattern = _s.findOptions.useRegex
-          ? RegExp(query, caseSensitive: _s.findOptions.caseSensitive)
-          : RegExp(RegExp.escape(query),
-              caseSensitive: _s.findOptions.caseSensitive);
-      for (final match in pattern.allMatches(text)) {
-        matches.add(
-          TextSelection(baseOffset: match.start, extentOffset: match.end),
-        );
-      }
-    } catch (_) {
-      // Invalid regex — ignore silently; UI shows "not found" status.
-    }
-    return matches;
-  }
-
-  int findNextIndex(List<TextSelection> matches, int caret) {
-    if (matches.isEmpty) return -1;
-    for (var i = 0; i < matches.length; i++) {
-      if (matches[i].start >= caret && !matches[i].isCollapsed) return i;
-    }
-    return 0;
-  }
-
-  TextSelection? findNext(String query, String text, int caret) {
-    final matches = findAllMatches(query, text);
-    if (matches.isEmpty) {
-      state.value = _s.copyWith(findKey: 'notepad.find.not_found', findArgs: const {});
-      return null;
-    }
-    final idx = findNextIndex(matches, caret);
-    state.value = _s.copyWith(
-        findKey: 'notepad.found_n_of_m',
-        findArgs: {'current': '${idx + 1}', 'total': '${matches.length}'});
-    return matches[idx];
-  }
-
-  TextSelection? findPrev(String query, String text, int caret) {
-    final matches = findAllMatches(query, text);
-    if (matches.isEmpty) {
-      state.value = _s.copyWith(findKey: 'notepad.find.not_found', findArgs: const {});
-      return null;
-    }
-    var idx = matches.length - 1;
-    for (var i = matches.length - 1; i >= 0; i--) {
-      if (matches[i].end <= caret && !matches[i].isCollapsed) {
-        idx = i;
-        break;
-      }
-    }
-    state.value = _s.copyWith(
-        findKey: 'notepad.found_n_of_m',
-        findArgs: {'current': '${idx + 1}', 'total': '${matches.length}'});
-    return matches[idx];
-  }
-
-  // Returns (newText, newSelection) so the View can apply the result.
-  (String newText, TextSelection newSelection)? replaceNext(
-    String query,
-    String replacement,
-    String text,
-    int caret,
-  ) {
-    final matches = findAllMatches(query, text);
-    if (matches.isEmpty) {
-      state.value = _s.copyWith(findKey: 'notepad.find.not_found', findArgs: const {});
-      return null;
-    }
-    final idx = findNextIndex(matches, caret);
-    final match = matches[idx];
-    final newText = text.replaceRange(match.start, match.end, replacement);
-    final newSelection =
-        TextSelection.collapsed(offset: match.start + replacement.length);
-    state.value =
-        _s.copyWith(findKey: 'notepad.replace.replaced_one', findArgs: {'count': '${idx + 1}'});
-    return (newText, newSelection);
-  }
-
-  (String newText, int replaced)? replaceAll(
-    String query,
-    String replacement,
-    String text,
-  ) {
-    final matches = findAllMatches(query, text);
-    if (matches.isEmpty) {
-      state.value = _s.copyWith(findKey: 'notepad.find.not_found', findArgs: const {});
-      return null;
-    }
-    final buffer = StringBuffer();
-    var cursor = 0;
-    for (final match in matches) {
-      buffer.write(text.substring(cursor, match.start));
-      buffer.write(replacement);
-      cursor = match.end;
-    }
-    buffer.write(text.substring(cursor));
-    state.value = _s.copyWith(
-        findKey: 'notepad.replace.replaced_all', findArgs: {'count': '${matches.length}'});
-    return (buffer.toString(), matches.length);
-  }
-
-  // ---- Document commands ----
+  // ---- Document commands (mirror Avalonia 1:1) ----
 
   Future<void> newDocument() async {
-    if (_s.isDirty) {
-      final keep = await requestDiscardChangesAsync?.call(
-            'notepad.reopen_dirty_title',
-            'notepad.reopen_dirty_message',
-          ) ??
-          false;
-      if (!keep) return;
-    }
-    _isBulkTextUpdate = true;
-    _undoStack.clear();
-    _redoStack.clear();
+    _isLoading = true;
     state.value = NotepadUiState.initial(
       defaultEncodingName: _s.defaultEncodingName,
+      encodingName: _s.defaultEncodingName,
     ).copyWith(
       fontSize: _s.fontSize,
-      wordWrap: _s.wordWrap,
-      showLineNumbers: _s.showLineNumbers,
       statusKey: 'notepad.status.new_document',
-      statusArgs: const {},
     );
-    _isBulkTextUpdate = false;
-    seedInitialSnapshot('', const TextSelection.collapsed(offset: 0));
+    _isLoading = false;
   }
 
   Future<void> openDocument() async {
     final path = await requestFileAsync?.call();
-    if (path == null || path.isEmpty) return;
-    await openPath(path, _s.defaultEncodingName);
+    if (path == null || path.trim().isEmpty) return;
+    await openPath(path);
   }
 
-  Future<void> openPath(String path, String? requestedEncoding) async {
+  Future<void> openPath(String path, [String? requestedEncoding]) async {
+    if (_repository.isNotConnected) {
+      state.value = _s.copyWith(
+        statusKey: 'notepad.status.connect_before_open',
+      );
+      return;
+    }
     final encoding = requestedEncoding ?? _s.defaultEncodingName;
-    if (!TextFileEncodings.isSupported(encoding)) return;
     try {
       final decoded = await _repository.readText(path, encoding);
       if (decoded == null) {
         state.value = _s.copyWith(
           statusKey: 'notepad.status.file_missing',
-          statusArgs: const {},
         );
         return;
       }
-      _isBulkTextUpdate = true;
-      _undoStack.clear();
-      _redoStack.clear();
+      _isLoading = true;
       state.value = _s.copyWith(
-        currentPath: path,
-        encodingName: encoding,
         text: decoded,
+        encodingName: encoding,
+        currentPath: path,
         isDirty: false,
-        isLoading: true,
-      );
-      seedInitialSnapshot(decoded, const TextSelection.collapsed(offset: 0));
-      state.value = _s.copyWith(
-        isLoading: false,
         statusKey: 'notepad.status.opened',
-        statusArgs: {'file': _baseName(path), 'app': encoding},
+        statusNamedArgs: <String, String>{
+          'file': _baseName(path),
+          'encoding': encoding,
+        },
       );
     } catch (error) {
       state.value = _s.copyWith(
         statusKey: 'notepad.status.open_failed',
-        statusArgs: {'path': _errorMsg(error)},
-        isLoading: false,
+        statusNamedArgs: <String, String>{'error': _errorMsg(error)},
       );
     } finally {
-      _isBulkTextUpdate = false;
+      _isLoading = false;
     }
   }
 
   Future<void> save() async {
     var path = _s.currentPath;
-    if (path == null || path.isEmpty) {
+    if (path == null || path.trim().isEmpty) {
       path = await requestSavePathAsync?.call('untitled.txt');
-      if (path == null || path.isEmpty) return;
     }
-    await _saveToPath(path);
+    if (path == null || path.trim().isEmpty) return;
+    await saveToPath(path);
   }
 
   Future<void> saveAs() async {
-    final suggested = (_s.currentPath == null || _s.currentPath!.isEmpty)
+    final suggestedName = (_s.currentPath == null || _s.currentPath!.trim().isEmpty)
         ? 'untitled.txt'
         : _baseName(_s.currentPath!);
-    final path = await requestSavePathAsync?.call(suggested);
-    if (path == null || path.isEmpty) return;
-    await _saveToPath(path);
+    final path = await requestSavePathAsync?.call(suggestedName);
+    if (path == null || path.trim().isEmpty) return;
+    await saveToPath(path);
   }
 
-  Future<void> _saveToPath(String path) async {
+  Future<void> saveToPath(String path) async {
+    if (_repository.isNotConnected) {
+      state.value = _s.copyWith(
+        statusKey: 'notepad.status.connect_before_save',
+      );
+      return;
+    }
     try {
       await _repository.writeText(path, _s.text, _s.encodingName);
       state.value = _s.copyWith(
         currentPath: path,
         isDirty: false,
         statusKey: 'notepad.status.saved',
-        statusArgs: {'file': _baseName(path), 'app': _s.encodingName},
+        statusNamedArgs: <String, String>{
+          'file': _baseName(path),
+          'encoding': _s.encodingName,
+        },
       );
     } catch (error) {
       state.value = _s.copyWith(
         statusKey: 'notepad.status.save_failed',
-        statusArgs: {'path': _errorMsg(error)},
+        statusNamedArgs: <String, String>{'error': _errorMsg(error)},
       );
     }
   }
@@ -482,13 +275,8 @@ class NotepadViewModel extends ViewModel {
 
   Future<void> reopenWithEncoding(String encodingName) async {
     if (!_s.hasOpenFile || !TextFileEncodings.isSupported(encodingName)) return;
-    if (_s.isDirty) {
-      final keep = await requestDiscardChangesAsync?.call(
-            'notepad.reopen_dirty_title',
-            'notepad.reopen_dirty_message',
-          ) ??
-          false;
-      if (!keep) return;
+    if (_s.isDirty && !((await requestDiscardChangesAsync?.call()) ?? false)) {
+      return;
     }
     state.value = _s.copyWith(encodingName: encodingName);
     await openPath(_s.currentPath!, encodingName);
@@ -497,7 +285,7 @@ class NotepadViewModel extends ViewModel {
   Future<void> saveWithEncoding(String encodingName) async {
     if (!_s.hasOpenFile || !TextFileEncodings.isSupported(encodingName)) return;
     state.value = _s.copyWith(encodingName: encodingName);
-    await _saveToPath(_s.currentPath!);
+    await saveToPath(_s.currentPath!);
   }
 
   Future<void> openSettings() async {
@@ -514,8 +302,7 @@ class NotepadViewModel extends ViewModel {
 
   static String _errorMsg(Object error) {
     final msg = error.toString();
-    // Strip any leading Instance of ... wrapping from toString() noise.
-    if (msg.length > 240) return '${msg.substring(0, 240)}…';
+    if (msg.length > 240) return '…';
     return msg;
   }
 }
