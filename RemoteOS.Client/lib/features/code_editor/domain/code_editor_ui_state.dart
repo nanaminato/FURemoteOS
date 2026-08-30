@@ -13,8 +13,9 @@ class CodeEditorUiState {
     required this.wordWrap,
     required this.fontSize,
     required this.defaultEncodingName,
+    required this.selectedFolderPath,
     required this.statusKey,
-    required this.statusArgs,
+    required this.statusNamedArgs,
     required this.isLoading,
   });
 
@@ -28,8 +29,9 @@ class CodeEditorUiState {
         wordWrap: false,
         fontSize: 14,
         defaultEncodingName: defaultEncodingName,
+        selectedFolderPath: null,
         statusKey: 'code_editor.status.ready',
-        statusArgs: const {},
+        statusNamedArgs: const {},
         isLoading: false,
       );
 
@@ -41,8 +43,9 @@ class CodeEditorUiState {
   final bool wordWrap;
   final double fontSize;
   final String defaultEncodingName;
+  final String? selectedFolderPath;
   final String statusKey;
-  final Map<String, String> statusArgs;
+  final Map<String, String> statusNamedArgs;
   final bool isLoading;
 
   CodeEditorDocument? get activeDocument {
@@ -72,8 +75,10 @@ class CodeEditorUiState {
     bool? wordWrap,
     double? fontSize,
     String? defaultEncodingName,
+    String? selectedFolderPath,
+    bool clearSelectedFolder = false,
     String? statusKey,
-    Map<String, String>? statusArgs,
+    Map<String, String>? statusNamedArgs,
     bool? isLoading,
   }) {
     return CodeEditorUiState(
@@ -87,8 +92,11 @@ class CodeEditorUiState {
       wordWrap: wordWrap ?? this.wordWrap,
       fontSize: fontSize ?? this.fontSize,
       defaultEncodingName: defaultEncodingName ?? this.defaultEncodingName,
+      selectedFolderPath: clearSelectedFolder
+          ? null
+          : (selectedFolderPath ?? this.selectedFolderPath),
       statusKey: statusKey ?? this.statusKey,
-      statusArgs: statusArgs ?? this.statusArgs,
+      statusNamedArgs: statusNamedArgs ?? this.statusNamedArgs,
       isLoading: isLoading ?? this.isLoading,
     );
   }

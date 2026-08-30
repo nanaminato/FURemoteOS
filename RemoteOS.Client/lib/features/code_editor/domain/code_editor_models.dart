@@ -1,7 +1,16 @@
 import 'package:flutter/foundation.dart';
 
+/// Two-step encoding chooser result (mirrors Avalonia
+/// `EncodingDialogAction`); kept local to this feature so the code editor
+/// never imports the notepad feature.
+enum CodeEditorEncodingAction { reopen, save }
+
 /// Window-local document state. Remote content remains on the server until a
 /// user explicitly invokes save; this mirrors the Avalonia editor tabs.
+///
+/// Localization (AGENTS.md §23.1 Rule B): the model carries the raw
+/// [untitledSequence] number only. The View maps it to
+/// `code_editor.document.untitled_number` so untitled names localize correctly.
 @immutable
 class CodeEditorDocument {
   const CodeEditorDocument({
@@ -9,7 +18,7 @@ class CodeEditorDocument {
     required this.path,
     required this.text,
     required this.encodingName,
-    required this.untitledName,
+    required this.untitledSequence,
     this.isDirty = false,
   });
 
@@ -17,15 +26,18 @@ class CodeEditorDocument {
   final String? path;
   final String text;
   final String encodingName;
-  final String untitledName;
+  final int untitledSequence;
   final bool isDirty;
 
+  /// Base file name when a path is set. For untitled documents this is empty;
+  /// the View localizes `code_editor.document.untitled_number` using
+  /// [untitledSequence] instead.
   String get displayName {
     final value = path;
-    if (value == null || value.isEmpty) return untitledName;
+    if (value == null || value.isEmpty) return '';
     final segments = value.replaceAll('\\', '/').split('/');
     return segments.lastWhere((segment) => segment.isNotEmpty,
-        orElse: () => untitledName);
+        orElse: () => '');
   }
 
   CodeEditorDocument copyWith({
@@ -40,7 +52,7 @@ class CodeEditorDocument {
         path: clearPath ? null : (path ?? this.path),
         text: text ?? this.text,
         encodingName: encodingName ?? this.encodingName,
-        untitledName: untitledName,
+        untitledSequence: untitledSequence,
         isDirty: isDirty ?? this.isDirty,
       );
 }

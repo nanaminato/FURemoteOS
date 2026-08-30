@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:command_it/command_it.dart';
 import 'package:flutter/foundation.dart';
 
@@ -8,16 +10,24 @@ import '../domain/code_editor_repository.dart';
 import '../domain/code_editor_ui_state.dart';
 
 typedef RequestCodeEditorPath = Future<String?> Function();
-typedef RequestCodeEditorSavePath = Future<String?> Function(
-    String defaultName);
+typedef RequestCodeEditorSavePath = Future<String?> Function(String defaultName);
 typedef RequestDiscardDocument = Future<bool> Function(
     CodeEditorDocument document);
+typedef RequestEncodingActionAsync =
+Future<CodeEditorEncodingAction?> Function();
+typedef RequestEncodingAsync = Future<String?> Function([String? currentEncoding]);
+typedef RequestSettingsAsync = Future<void> Function();
+typedef SaveDefaultEncodingAsync = Future<void> Function(String encoding);
 
 /// Presentation logic for one Code Editor window.
 ///
 /// Remote I/O is isolated behind [CodeEditorRepository]. The callbacks
 /// describe owner-window picker and modal workflows; their Flutter
 /// implementation is installed by the View and is never referenced here.
+///
+/// Localization (AGENTS.md §23.1): this file stores raw data values (file /
+/// encoding / path strings) inside a `statusNamedArgs` map. The View is the
+/// single place that calls `.tr(namedArgs: ...)`.
 class CodeEditorViewModel extends ViewModel {
   CodeEditorViewModel({
     required CodeEditorRepository repository,
@@ -41,6 +51,8 @@ class CodeEditorViewModel extends ViewModel {
     trackDisposable(refreshFolderCommand);
     trackDisposable(removeFolderCommand);
     trackDisposable(closeDocumentCommand);
+    trackDisposable(chooseEncodingCommand);
+    trackDisposable(openSettingsCommand);
   }
 
   final CodeEditorRepository _repository;
@@ -50,28 +62,43 @@ class CodeEditorViewModel extends ViewModel {
 
   late final ValueNotifier<CodeEditorUiState> state;
 
+  // ---- Hooks injected by the View ----
   RequestCodeEditorPath? requestFilePath;
   RequestCodeEditorPath? requestFolderPath;
   RequestCodeEditorSavePath? requestSavePath;
   RequestDiscardDocument? requestDiscardDocument;
+  RequestEncodingActionAsync? requestEncodingActionAsync;
+  RequestEncodingAsync? requestEncodingAsync;
+  RequestSettingsAsync? requestSettingsAsync;
+  SaveDefaultEncodingAsync? saveDefaultEncodingAsync;
+  VoidCallback? closeSettingsAction;
 
   CodeEditorUiState get _s => state.value;
   void _set(CodeEditorUiState next) => state.value = next;
   bool get canSave => !_s.isLoading && _s.activeDocument != null;
 
+  // ---- Shared with the settings dialog ----
+  List<String> get availableEncodings => TextFileEncodings.available;
+  List<double> get fontSizes => const [12, 13, 14, 16, 18, 20];
+
+  // ---- Commands ----
   late final newDocumentCommand =
-      Command.createSyncNoParamNoResult(newDocument);
+  Command.createSyncNoParamNoResult(newDocument);
   late final openDocumentCommand =
-      Command.createAsyncNoParamNoResult(requestOpenDocument);
+  Command.createAsyncNoParamNoResult(requestOpenDocument);
   late final saveCommand = Command.createAsyncNoParamNoResult(save);
   late final saveAsCommand = Command.createAsyncNoParamNoResult(saveAs);
   late final addFolderCommand = Command.createAsyncNoParamNoResult(addFolder);
   late final refreshFolderCommand =
-      Command.createAsyncNoParamNoResult(refreshSelectedFolder);
+  Command.createAsyncNoParamNoResult(refreshSelectedFolder);
   late final removeFolderCommand =
-      Command.createSyncNoParamNoResult(removeSelectedFolder);
+  Command.createSyncNoParamNoResult(removeSelectedFolder);
   late final closeDocumentCommand =
-      Command.createAsyncNoParamNoResult(closeActiveDocument);
+  Command.createAsyncNoParamNoResult(closeActiveDocument);
+  late final chooseEncodingCommand =
+  Command.createAsyncNoParamNoResult(chooseEncoding);
+  late final openSettingsCommand =
+  Command.createAsyncNoParamNoResult(openSettings);
 
   Future<void> loadInitialDocument() async {
     final path = _initialPath;
@@ -79,18 +106,19 @@ class CodeEditorViewModel extends ViewModel {
   }
 
   void newDocument() {
+    final sequence = ++_untitledSequence;
     final document = CodeEditorDocument(
-      id: 'untitled-${++_untitledSequence}',
+      id: 'untitled-$sequence',
       path: null,
       text: '',
       encodingName: _s.defaultEncodingName,
-      untitledName: 'Untitled $_untitledSequence',
+      untitledSequence: sequence,
     );
     _set(_s.copyWith(
       documents: [..._s.documents, document],
       activeDocumentId: document.id,
       statusKey: 'code_editor.status.new_document',
-      statusArgs: const {},
+      statusNamedArgs: const {},
     ));
   }
 
@@ -99,28 +127,30 @@ class CodeEditorViewModel extends ViewModel {
     if (path != null && path.isNotEmpty) await openPath(path);
   }
 
-  Future<void> openPath(String path, {bool forceReload = false}) async {
+  Future<void> openPath(String path,
+      {bool forceReload = false, String? requestedEncoding}) async {
     final existing = _documentAtPath(path);
     if (existing != null && !forceReload) {
       activateDocument(existing.id);
       return;
     }
-    if (existing?.isDirty == true) {
+    if (existing?.isDirty == true && requestedEncoding == null) {
       _set(_s.copyWith(
         statusKey: 'code_editor.status.save_or_discard',
-        statusArgs: const {},
+        statusNamedArgs: const {},
       ));
       return;
     }
     _set(_s.copyWith(isLoading: true));
     try {
-      final encoding = existing?.encodingName ?? _s.defaultEncodingName;
+      final encoding =
+          requestedEncoding ?? existing?.encodingName ?? _s.defaultEncodingName;
       final text = await _repository.readText(path, encoding);
       if (text == null) {
         _set(_s.copyWith(
           isLoading: false,
           statusKey: 'code_editor.status.file_missing',
-          statusArgs: const {},
+          statusNamedArgs: const {},
         ));
         return;
       }
@@ -130,12 +160,13 @@ class CodeEditorViewModel extends ViewModel {
             path: path,
             text: text,
             encodingName: encoding,
-            untitledName: 'Untitled ${++_untitledSequence}',
+            untitledSequence: ++_untitledSequence,
           );
       final documents = [
         for (final item in _s.documents)
           if (item.id == document.id)
-            document.copyWith(text: text, isDirty: false)
+            document.copyWith(
+                text: text, encodingName: encoding, isDirty: false)
           else
             item,
         if (existing == null) document,
@@ -145,13 +176,13 @@ class CodeEditorViewModel extends ViewModel {
         activeDocumentId: document.id,
         isLoading: false,
         statusKey: 'code_editor.status.opened',
-        statusArgs: {'file': document.displayName, 'app': encoding},
+        statusNamedArgs: {'file': document.displayName, 'encoding': encoding},
       ));
     } catch (_) {
       _set(_s.copyWith(
         isLoading: false,
         statusKey: 'code_editor.status.open_failed',
-        statusArgs: const {},
+        statusNamedArgs: const {},
       ));
     }
   }
@@ -175,7 +206,9 @@ class CodeEditorViewModel extends ViewModel {
       document = _s.activeDocument;
     }
     if (document == null) return;
-    final path = await requestSavePath?.call(document.displayName);
+    final suggested =
+    (document.path == null || document.path!.isEmpty) ? 'untitled.txt' : document.displayName;
+    final path = await requestSavePath?.call(suggested);
     if (path != null && path.isNotEmpty) await _saveToPath(document, path);
   }
 
@@ -191,13 +224,13 @@ class CodeEditorViewModel extends ViewModel {
         ],
         isLoading: false,
         statusKey: 'code_editor.status.saved',
-        statusArgs: {'file': saved.displayName, 'app': saved.encodingName},
+        statusNamedArgs: {'file': saved.displayName, 'encoding': saved.encodingName},
       ));
     } catch (_) {
       _set(_s.copyWith(
         isLoading: false,
         statusKey: 'code_editor.status.save_failed',
-        statusArgs: const {},
+        statusNamedArgs: const {},
       ));
     }
   }
@@ -219,14 +252,15 @@ class CodeEditorViewModel extends ViewModel {
     _set(_s.copyWith(activeDocumentId: id));
   }
 
-  Future<void> closeActiveDocument() async {
-    final document = _s.activeDocument;
-    if (document == null) return;
+  /// Close an explicit document (tab / open-editors × button). Mirrors the
+  /// Avalonia `CloseDocumentCommand(document)` overload.
+  Future<void> closeDocument(CodeEditorDocument document) async {
     if (document.isDirty &&
         !(await requestDiscardDocument?.call(document) ?? false)) {
       return;
     }
     final index = _s.documents.indexWhere((item) => item.id == document.id);
+    if (index == -1) return;
     final remaining = [..._s.documents]..removeAt(index);
     final next = remaining.isEmpty
         ? null
@@ -238,39 +272,94 @@ class CodeEditorViewModel extends ViewModel {
     ));
   }
 
+  Future<void> closeActiveDocument() async {
+    final document = _s.activeDocument;
+    if (document == null) return;
+    await closeDocument(document);
+  }
+
+  // ---- Encoding (mirrors Avalonia ChooseEncoding / Reopen / Save flows) ----
+
+  Future<void> chooseEncoding() async {
+    final document = _s.activeDocument;
+    if (document == null || document.path == null || document.path!.isEmpty) {
+      return;
+    }
+    final action = await requestEncodingActionAsync?.call();
+    if (action == null) return;
+    final encoding = await requestEncodingAsync?.call(document.encodingName);
+    if (encoding == null || encoding.trim().isEmpty) return;
+    if (action == CodeEditorEncodingAction.reopen) {
+      await reopenWithEncoding(encoding);
+    } else {
+      await saveWithEncoding(encoding);
+    }
+  }
+
+  Future<void> reopenWithEncoding(String encoding) async {
+    final document = _s.activeDocument;
+    if (document == null || document.path == null) return;
+    if (!TextFileEncodings.isSupported(encoding)) return;
+    if (document.isDirty &&
+        !(await requestDiscardDocument?.call(document) ?? false)) {
+      return;
+    }
+    await openPath(document.path!, forceReload: true, requestedEncoding: encoding);
+  }
+
+  Future<void> saveWithEncoding(String encoding) async {
+    final document = _s.activeDocument;
+    if (document == null || document.path == null) return;
+    if (!TextFileEncodings.isSupported(encoding)) return;
+    await _saveToPath(document.copyWith(encodingName: encoding), document.path!);
+  }
+
+  // ---- Settings ----
+
+  Future<void> openSettings() async => await requestSettingsAsync?.call();
+  void closeSettings() => closeSettingsAction?.call();
+
   void setSidebar(CodeEditorSidebar sidebar) =>
       _set(_s.copyWith(sidebar: sidebar, isSidebarVisible: true));
-  void toggleSidebar() =>
-      _set(_s.copyWith(isSidebarVisible: !_s.isSidebarVisible));
   void toggleWordWrap() => _set(_s.copyWith(wordWrap: !_s.wordWrap));
   void setFontSize(double size) =>
       _set(_s.copyWith(fontSize: size.clamp(12, 20).toDouble()));
   void setDefaultEncoding(String name) {
-    if (TextFileEncodings.isSupported(name)) {
-      _set(_s.copyWith(defaultEncodingName: name));
-    }
+    if (!TextFileEncodings.isSupported(name)) return;
+    _set(_s.copyWith(defaultEncodingName: name));
+    unawaited(saveDefaultEncodingAsync?.call(name));
   }
+
+  // ---- Workspace folders ----
 
   Future<void> addFolder() async {
     final path = await requestFolderPath?.call();
-    if (path == null || path.isEmpty || _rootAtPath(path) != null) return;
+    if (path == null || path.isEmpty) return;
+    if (_rootAtPath(path) != null) {
+      _set(_s.copyWith(
+        selectedFolderPath: path,
+        statusKey: 'code_editor.status.folder_already_open',
+        statusNamedArgs: {'path': _fileName(path)},
+      ));
+      return;
+    }
     final root = CodeEditorFolderNode(
       name: _fileName(path),
       path: path,
       isDirectory: true,
       isExpanded: true,
     );
-    _set(_s.copyWith(workspaceRoots: [..._s.workspaceRoots, root]));
+    _set(_s.copyWith(
+      workspaceRoots: [..._s.workspaceRoots, root],
+      selectedFolderPath: path,
+    ));
     await refreshFolder(path);
   }
 
   Future<void> refreshSelectedFolder() async {
-    final root = _s.workspaceRoots.firstWhere(
-      (node) => node.isExpanded,
-      orElse: () =>
-          const CodeEditorFolderNode(name: '', path: '', isDirectory: false),
-    );
-    if (root.path.isNotEmpty) await refreshFolder(root.path);
+    final path = _s.selectedFolderPath;
+    if (path == null || path.isEmpty) return;
+    await refreshFolder(path);
   }
 
   Future<void> refreshFolder(String path) async {
@@ -279,10 +368,18 @@ class CodeEditorViewModel extends ViewModel {
     _replaceNode(node.copyWith(isLoading: true));
     try {
       final children = await _repository.listFolder(path);
-      _replaceNode(
-          node.copyWith(children: children, isLoading: false, isLoaded: true));
+      _replaceNode(node.copyWith(
+          children: children, isLoading: false, isLoaded: true));
+      _set(_s.copyWith(
+        statusKey: 'code_editor.status.folder_loaded',
+        statusNamedArgs: {'path': _fileName(path)},
+      ));
     } catch (_) {
       _replaceNode(node.copyWith(isLoading: false));
+      _set(_s.copyWith(
+        statusKey: 'code_editor.status.folder_load_failed',
+        statusNamedArgs: {'path': _fileName(path)},
+      ));
     }
   }
 
@@ -294,26 +391,32 @@ class CodeEditorViewModel extends ViewModel {
     if (expanded && !node.isLoaded) await refreshFolder(path);
   }
 
+  /// Select a folder node (TreeView SelectedItem parity) and toggle its
+  /// expansion. Folder toolbar refresh/remove target this selection.
+  void selectFolder(String path) {
+    _set(_s.copyWith(selectedFolderPath: path));
+    unawaited(toggleFolder(path));
+  }
+
   void removeSelectedFolder() {
-    final root = _s.workspaceRoots.firstWhere(
-      (node) => node.isExpanded,
-      orElse: () =>
-          const CodeEditorFolderNode(name: '', path: '', isDirectory: false),
-    );
-    if (root.path.isEmpty) return;
+    final path = _s.selectedFolderPath;
+    if (path == null || path.isEmpty) return;
+    final root = _rootAtPath(path);
+    if (root == null) return;
     _set(_s.copyWith(
       workspaceRoots:
-          _s.workspaceRoots.where((item) => item.path != root.path).toList(),
+      _s.workspaceRoots.where((item) => item.path != root.path).toList(),
+      clearSelectedFolder: true,
       statusKey: 'code_editor.status.folder_removed',
-      statusArgs: {'path': root.name},
+      statusNamedArgs: {'path': root.name},
     ));
   }
 
   void _replaceNode(CodeEditorFolderNode next) => _set(_s.copyWith(
-        workspaceRoots: [
-          for (final root in _s.workspaceRoots) _replaceNodeInTree(root, next),
-        ],
-      ));
+    workspaceRoots: [
+      for (final root in _s.workspaceRoots) _replaceNodeInTree(root, next),
+    ],
+  ));
 
   CodeEditorFolderNode _replaceNodeInTree(
       CodeEditorFolderNode current, CodeEditorFolderNode next) {
@@ -365,7 +468,7 @@ class CodeEditorViewModel extends ViewModel {
 
   static String _fileName(String path) {
     final values =
-        path.replaceAll('\\', '/').split('/').where((item) => item.isNotEmpty);
+    path.replaceAll('\\', '/').split('/').where((item) => item.isNotEmpty);
     return values.isEmpty ? path : values.last;
   }
 }
